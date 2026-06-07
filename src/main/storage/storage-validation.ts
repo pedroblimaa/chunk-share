@@ -5,12 +5,15 @@ import type {
   Player,
   ServerConfig,
   ServerLock,
+  ServerSetupState,
   ServerType
 } from '../../shared/domain'
 
+type StorageRecord = Record<string, unknown>
+
 const SERVER_TYPES: ServerType[] = ['vanilla', 'paper', 'fabric', 'forge']
 
-function isRecord(value: unknown): value is Record<string, unknown> {
+function isRecord(value: unknown): value is StorageRecord {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
@@ -111,11 +114,23 @@ export function isServerLock(value: unknown): value is ServerLock {
   )
 }
 
-export function isLocalState(value: unknown): value is LocalState {
+export function isServerSetupState(value: unknown): value is ServerSetupState {
   if (!isRecord(value)) {
     return false
   }
 
+  if (value.status === 'not-configured' || value.status === 'downloading') {
+    return value.errorMessage === null && value.completedAt === null
+  }
+
+  if (value.status === 'ready') {
+    return value.errorMessage === null && isString(value.completedAt)
+  }
+
+  return value.status === 'error' && isString(value.errorMessage) && value.completedAt === null
+}
+
+function hasLocalStateBaseFields(value: StorageRecord): boolean {
   return (
     (value.player === null || isPlayer(value.player)) &&
     isServerConfig(value.serverConfig) &&
@@ -124,4 +139,12 @@ export function isLocalState(value: unknown): value is LocalState {
     isNullableString(value.activeSessionId) &&
     typeof value.dirty === 'boolean'
   )
+}
+
+export function isLegacyLocalState(value: unknown): value is Omit<LocalState, 'serverSetup'> {
+  return isRecord(value) && !('serverSetup' in value) && hasLocalStateBaseFields(value)
+}
+
+export function isLocalState(value: unknown): value is LocalState {
+  return isRecord(value) && hasLocalStateBaseFields(value) && isServerSetupState(value.serverSetup)
 }

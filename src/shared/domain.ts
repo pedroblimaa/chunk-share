@@ -26,35 +26,40 @@ export interface JavaConfig {
   isValidated: boolean
 }
 
-export type LatestWorld =
-  | {
-      status: 'empty'
-    }
-  | {
-      status: 'ready'
-      worldVersion: number
-      fileName: string
-      uploadedAt: string
-      uploadedBy: Player
-    }
+export type ServerSetupStatus = 'not-configured' | 'downloading' | 'ready' | 'error'
 
-export type ServerLock =
-  | {
-      status: 'unlocked'
-    }
-  | {
-      status: 'locked'
-      lockedBy: Player
-      sessionId: string
-      worldVersion: number
-      startedAt: string
-      lastHeartbeat: string
-    }
+export interface ServerSetupState {
+  status: ServerSetupStatus
+  errorMessage: string | null
+  completedAt: string | null
+}
+
+export type LatestWorldStatus = 'empty' | 'ready'
+
+export interface LatestWorld {
+  status: LatestWorldStatus
+  worldVersion?: number
+  fileName?: string
+  uploadedAt?: string
+  uploadedBy?: Player
+}
+
+export type ServerLockStatus = 'unlocked' | 'locked'
+
+export interface ServerLock {
+  status: ServerLockStatus
+  lockedBy?: Player
+  sessionId?: string
+  worldVersion?: number
+  startedAt?: string
+  lastHeartbeat?: string
+}
 
 export interface LocalState {
   player: Player | null
   serverConfig: ServerConfig
   javaConfig: JavaConfig
+  serverSetup: ServerSetupState
   localWorldVersion: number | null
   activeSessionId: string | null
   dirty: boolean

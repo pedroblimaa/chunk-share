@@ -6,5 +6,7 @@ out
 *.log*
 .mock-cloud/
 .mock-cloud-test/
+.chunkshare-server/
+.chunkshare-server-test/
 localState.json
 localState.test.json
