@@ -1,22 +1,28 @@
-import { contextBridge } from 'electron'
-import { electronAPI } from '@electron-toolkit/preload'
+import { contextBridge, ipcRenderer } from 'electron'
+import type { DashboardSnapshot } from '../shared/dashboard'
+import {
+  AUTH_SIGN_IN_WITH_GOOGLE_CHANNEL,
+  DASHBOARD_SNAPSHOT_CHANNEL
+} from '../shared/ipc-channels'
 
-// Custom APIs for renderer
-const api = {}
+const chunkShareApi = {
+  auth: {
+    signInWithGoogle: (): Promise<DashboardSnapshot> =>
+      ipcRenderer.invoke(AUTH_SIGN_IN_WITH_GOOGLE_CHANNEL)
+  },
+  dashboard: {
+    getSnapshot: (): Promise<DashboardSnapshot> => ipcRenderer.invoke(DASHBOARD_SNAPSHOT_CHANNEL)
+  }
+}
 
-// Use `contextBridge` APIs to expose Electron APIs to
-// renderer only if context isolation is enabled, otherwise
-// just add to the DOM global.
 if (process.contextIsolated) {
   try {
-    contextBridge.exposeInMainWorld('electron', electronAPI)
-    contextBridge.exposeInMainWorld('api', api)
+    contextBridge.exposeInMainWorld('chunkShare', chunkShareApi)
   } catch (error) {
     console.error(error)
   }
 } else {
-  // @ts-ignore (define in dts)
-  window.electron = electronAPI
-  // @ts-ignore (define in dts)
-  window.api = api
+  throw new Error('ChunkShare requires contextIsolation to be enabled.')
 }
+
+export type ChunkShareApi = typeof chunkShareApi

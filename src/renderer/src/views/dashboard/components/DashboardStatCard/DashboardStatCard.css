@@ -1,0 +1,32 @@
+.dashboard-stat-card {
+  background: var(--color-surface-panel);
+  border: 1px solid var(--color-border-panel);
+  border-radius: 12px;
+  min-height: 116px;
+  padding: 20px;
+  transition:
+    border-color 180ms ease,
+    transform 180ms ease;
+}
+
+.dashboard-screen-running .dashboard-stat-card {
+  border-color: var(--color-border-accent-muted);
+}
+
+.stat-card-icon {
+  color: var(--color-accent);
+  font-size: var(--font-size-icon-lg);
+  margin-bottom: 10px;
+}
+
+.dashboard-stat-card p {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-small);
+  margin-bottom: 6px;
+}
+
+.dashboard-stat-card strong {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-action);
+  font-weight: var(--font-weight-bold);
+}

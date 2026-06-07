@@ -1,8 +1,7 @@
-import { ElectronAPI } from '@electron-toolkit/preload'
+import type { ChunkShareApi } from './index'
 
 declare global {
   interface Window {
-    electron: ElectronAPI
-    api: unknown
+    chunkShare: ChunkShareApi
   }
 }

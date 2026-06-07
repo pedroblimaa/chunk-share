@@ -1,0 +1,46 @@
+:root {
+  --color-background-app: #131313;
+  --color-background-page: #101110;
+  --color-background-console: #121212;
+
+  --color-surface: #1e1e1e;
+  --color-surface-raised: #201f1f;
+  --color-surface-header: #252525;
+  --color-surface-hover: #2a2a2a;
+  --color-surface-hover-strong: #393939;
+  --color-surface-active: rgba(255, 255, 255, 0.05);
+  --color-surface-muted: #353534;
+  --color-surface-panel: rgba(30, 30, 30, 0.78);
+
+  --color-border-subtle: #2a2a2a;
+  --color-border-emphasis: #404a3a;
+  --color-border-panel: rgba(42, 42, 42, 0.9);
+  --color-border-accent-muted: rgba(128, 220, 91, 0.24);
+  --color-border-accent: rgba(128, 220, 91, 0.5);
+
+  --color-text-primary: #e5e2e1;
+  --color-text-secondary: #bfcab5;
+  --color-text-muted: #899481;
+  --color-text-on-accent: #0a3100;
+  --color-text-inverse: #ffffff;
+
+  --color-accent: #80dc5b;
+  --color-accent-strong: #9bfa74;
+  --color-accent-button: #47a025;
+  --color-accent-brand: #4ba429;
+  --color-accent-brand-mark: #0a3100;
+  --color-accent-pattern: rgba(71, 160, 37, 0.55);
+  --color-accent-glow: rgba(128, 220, 91, 0.1);
+  --color-accent-glow-soft: rgba(128, 220, 91, 0.08);
+
+  --color-danger: #b3312c;
+  --color-danger-glow: rgba(179, 49, 44, 0.22);
+  --color-danger-text: #ffb4ab;
+  --color-warning: #fbbc05;
+
+  --color-shadow-strong: rgba(0, 0, 0, 0.4);
+  --color-shadow-soft: rgba(0, 0, 0, 0.34);
+
+  --color-scrollbar-thumb: #3a4636;
+  --color-scrollbar-thumb-muted: #4b5746;
+}

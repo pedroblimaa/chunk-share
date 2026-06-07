@@ -1,34 +1,48 @@
-import Versions from './components/Versions'
-import electronLogo from './assets/electron.svg'
+import { useEffect, useState } from 'react'
+import type { DashboardSnapshot } from '../../shared/dashboard'
+import AuthView from './views/auth/AuthView/AuthView'
+import DashboardView from './views/dashboard/DashboardView/DashboardView'
 
 function App(): React.JSX.Element {
-  const ipcHandle = (): void => window.electron.ipcRenderer.send('ping')
+  const [snapshot, setSnapshot] = useState<DashboardSnapshot | null>(null)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [isSigningIn, setIsSigningIn] = useState(false)
+
+  useEffect(() => {
+    window.chunkShare.dashboard
+      .getSnapshot()
+      .then(setSnapshot)
+      .catch((error: unknown) => {
+        const message = error instanceof Error ? error.message : 'Unable to load dashboard data.'
+        setErrorMessage(message)
+      })
+  }, [])
+
+  const signInWithGoogle = async (): Promise<void> => {
+    setIsSigningIn(true)
+    setErrorMessage(null)
+
+    try {
+      const nextSnapshot = await window.chunkShare.auth.signInWithGoogle()
+      setSnapshot(nextSnapshot)
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Unable to sign in with Google.'
+      setErrorMessage(message)
+    } finally {
+      setIsSigningIn(false)
+    }
+  }
+
+  if (snapshot?.signedInUser) {
+    return <DashboardView snapshot={snapshot} />
+  }
 
   return (
-    <>
-      <img alt="logo" className="logo" src={electronLogo} />
-      <div className="creator">Powered by electron-vite</div>
-      <div className="text">
-        Build an Electron app with <span className="react">React</span>
-        &nbsp;and <span className="ts">TypeScript</span>
-      </div>
-      <p className="tip">
-        Please try pressing <code>F12</code> to open the devTool
-      </p>
-      <div className="actions">
-        <div className="action">
-          <a href="https://electron-vite.org/" target="_blank" rel="noreferrer">
-            Documentation
-          </a>
-        </div>
-        <div className="action">
-          <a target="_blank" rel="noreferrer" onClick={ipcHandle}>
-            Send IPC
-          </a>
-        </div>
-      </div>
-      <Versions></Versions>
-    </>
+    <AuthView
+      errorMessage={errorMessage}
+      isSigningIn={isSigningIn}
+      onSignIn={signInWithGoogle}
+    />
   )
 }
 

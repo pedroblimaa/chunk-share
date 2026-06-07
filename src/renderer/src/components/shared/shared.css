@@ -1,0 +1,67 @@
+.secondary-sidebar-button,
+.create-instance-button,
+.server-toggle-button,
+.power-indicator,
+.primary-server-button,
+.danger-server-button,
+.overflow-button,
+.icon-button,
+.connection-pill button,
+.console-panel button {
+  align-items: center;
+  border: 0;
+  cursor: pointer;
+  display: inline-flex;
+  font-family: inherit;
+  justify-content: center;
+}
+
+.dashboard-brand p,
+.user-avatar,
+.status-pill,
+.connection-pill,
+.server-state-summary p,
+.resource-meter strong,
+.compact-stat-card p,
+.console-line {
+  font-family: var(--font-family-mono);
+}
+
+.material-icon-filled {
+  font-variation-settings: 'FILL' 1;
+}
+
+.dashboard-content,
+.console-lines {
+  scrollbar-color: var(--color-scrollbar-thumb-muted) var(--color-background-console);
+  scrollbar-width: thin;
+}
+
+.dashboard-content::-webkit-scrollbar,
+.console-lines::-webkit-scrollbar {
+  height: 10px;
+  width: 10px;
+}
+
+.dashboard-content::-webkit-scrollbar-track,
+.console-lines::-webkit-scrollbar-track {
+  background: var(--color-background-console);
+  border-radius: 999px;
+}
+
+.dashboard-content::-webkit-scrollbar-thumb,
+.console-lines::-webkit-scrollbar-thumb {
+  background: var(--color-scrollbar-thumb);
+  border: 2px solid var(--color-background-console);
+  border-radius: 999px;
+}
+
+.dashboard-content::-webkit-scrollbar-thumb:hover,
+.console-lines::-webkit-scrollbar-thumb:hover {
+  background: var(--color-accent);
+}
+
+.dashboard-content::-webkit-scrollbar-corner,
+.console-lines::-webkit-scrollbar-corner {
+  background: var(--color-background-console);
+}

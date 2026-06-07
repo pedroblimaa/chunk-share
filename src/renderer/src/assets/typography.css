@@ -1,0 +1,34 @@
+:root {
+  --font-family-sans: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
+    Ubuntu, Cantarell, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  --font-family-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas,
+    Liberation Mono, monospace;
+
+  --font-size-caption: 12px;
+  --font-size-console: 13px;
+  --font-size-small: 14px;
+  --font-size-body: 16px;
+  --font-size-action: 18px;
+  --font-size-brand: 24px;
+  --font-size-icon-sm: 17px;
+  --font-size-icon-md: 18px;
+  --font-size-icon-lg: 28px;
+  --font-size-icon-xl: 36px;
+  --font-size-auth-title: 32px;
+  --font-size-state-title-mobile: 34px;
+  --font-size-dashboard-title-mobile: 36px;
+  --font-size-state-title: 42px;
+  --font-size-dashboard-title: 44px;
+
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  --line-height-body: 1.6;
+  --line-height-compact: 1;
+  --line-height-title: 1.1;
+  --line-height-dashboard-title: 1.08;
+  --line-height-copy: 1.5;
+  --line-height-console: 1.45;
+}

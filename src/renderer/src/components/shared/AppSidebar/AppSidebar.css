@@ -1,0 +1,96 @@
+.dashboard-sidebar {
+  background: var(--color-surface-raised);
+  border-right: 1px solid var(--color-border-emphasis);
+  display: flex;
+  flex: 0 0 260px;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.dashboard-brand {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  padding: 16px;
+}
+
+.dashboard-brand-mark {
+  align-items: center;
+  background: var(--color-accent-brand);
+  border-radius: 4px;
+  color: var(--color-accent-brand-mark);
+  display: flex;
+  height: 40px;
+  justify-content: center;
+  width: 40px;
+}
+
+.dashboard-brand h1 {
+  color: var(--color-accent);
+  font-size: var(--font-size-brand);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-compact);
+}
+
+.dashboard-brand p {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-caption);
+  line-height: var(--line-height-copy);
+  margin-top: 2px;
+}
+
+.dashboard-nav {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  margin-top: 16px;
+}
+
+.dashboard-nav-item {
+  align-items: center;
+  border-left: 4px solid transparent;
+  color: var(--color-text-secondary);
+  display: flex;
+  font-size: var(--font-size-action);
+  font-weight: var(--font-weight-medium);
+  gap: 12px;
+  min-height: 56px;
+  padding: 0 20px;
+  text-decoration: none;
+  transition:
+    background-color 140ms ease,
+    color 140ms ease;
+}
+
+.dashboard-nav-item:hover,
+.dashboard-nav-item.is-active {
+  background: var(--color-surface-active);
+  color: var(--color-text-primary);
+}
+
+.dashboard-nav-item.is-active {
+  border-left-color: var(--color-accent);
+  font-weight: var(--font-weight-bold);
+}
+
+.dashboard-sidebar-footer {
+  padding: 16px;
+}
+
+.secondary-sidebar-button {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 4px;
+  color: var(--color-accent);
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-bold);
+  gap: 10px;
+  min-height: 48px;
+  width: 100%;
+}
+
+@media (max-width: 1040px) {
+  .dashboard-sidebar {
+    display: none;
+  }
+}
