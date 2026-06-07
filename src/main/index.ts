@@ -4,6 +4,7 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { registerAuthIpcHandlers } from './ipc/auth-ipc'
 import { registerDashboardIpcHandlers } from './ipc/dashboard-ipc'
+import { registerStorageIpcHandlers } from './ipc/storage-ipc'
 
 function createWindow(): void {
   // Create the browser window.
@@ -55,6 +56,7 @@ app.whenReady().then(() => {
 
   registerDashboardIpcHandlers()
   registerAuthIpcHandlers()
+  registerStorageIpcHandlers()
 
   createWindow()
 

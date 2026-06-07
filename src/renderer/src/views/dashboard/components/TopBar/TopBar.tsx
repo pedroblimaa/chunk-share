@@ -28,7 +28,10 @@ function TopBar({ serverName, user }: TopBarProps): React.JSX.Element {
           <MaterialIcon name="add" />
           <span>Create Instance</span>
         </button>
-        <div className="user-avatar" aria-label={user ? `Signed in as ${user.name}` : 'Signed in user'}>
+        <div
+          className="user-avatar"
+          aria-label={user ? `Signed in as ${user.name}` : 'Signed in user'}
+        >
           {user?.avatarInitials ?? 'CS'}
         </div>
       </div>

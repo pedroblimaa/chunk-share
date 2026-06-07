@@ -1,4 +1,6 @@
-export type ServerStatus = 'not-configured' | 'stopped' | 'starting' | 'running' | 'crashed'
+import type { ServerStatus } from './domain'
+
+export type { ServerStatus } from './domain'
 
 export interface MockUser {
   id: string

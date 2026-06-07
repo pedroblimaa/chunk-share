@@ -118,10 +118,6 @@ function DashboardView({ snapshot }: DashboardPreviewProps): React.JSX.Element {
   const [isServerToggleAnimating, setIsServerToggleAnimating] = useState(false)
 
   useEffect(() => {
-    setDashboardSnapshot(snapshot)
-  }, [snapshot])
-
-  useEffect(() => {
     if (!isServerToggleAnimating) {
       return undefined
     }
@@ -185,9 +181,7 @@ function DashboardView({ snapshot }: DashboardPreviewProps): React.JSX.Element {
                   <p>Players</p>
                   <strong>
                     {dashboardSnapshot.players.online}{' '}
-                    <span>
-                      / {dashboardSnapshot.players.max}
-                    </span>
+                    <span>/ {dashboardSnapshot.players.max}</span>
                   </strong>
                 </section>
               </div>

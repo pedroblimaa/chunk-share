@@ -38,11 +38,7 @@ function App(): React.JSX.Element {
   }
 
   return (
-    <AuthView
-      errorMessage={errorMessage}
-      isSigningIn={isSigningIn}
-      onSignIn={signInWithGoogle}
-    />
+    <AuthView errorMessage={errorMessage} isSigningIn={isSigningIn} onSignIn={signInWithGoogle} />
   )
 }
 

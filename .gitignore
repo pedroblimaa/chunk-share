@@ -4,3 +4,7 @@ out
 .DS_Store
 .eslintcache
 *.log*
+.mock-cloud/
+.mock-cloud-test/
+localState.json
+localState.test.json
