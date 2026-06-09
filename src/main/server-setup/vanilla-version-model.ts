@@ -25,6 +25,7 @@ export interface VersionMetadata {
 
 export interface VanillaMinecraftVersion {
   id: string
+  metadataUrl: string
 }
 
 export interface VanillaServerDownload {

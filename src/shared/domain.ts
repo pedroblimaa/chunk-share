@@ -34,26 +34,30 @@ export interface ServerSetupState {
   completedAt: string | null
 }
 
-export type LatestWorldStatus = 'empty' | 'ready'
+export type LatestWorld =
+  | {
+      status: 'empty'
+    }
+  | {
+      status: 'ready'
+      worldVersion: number
+      fileName: string
+      uploadedAt: string
+      uploadedBy: Player
+    }
 
-export interface LatestWorld {
-  status: LatestWorldStatus
-  worldVersion?: number
-  fileName?: string
-  uploadedAt?: string
-  uploadedBy?: Player
-}
-
-export type ServerLockStatus = 'unlocked' | 'locked'
-
-export interface ServerLock {
-  status: ServerLockStatus
-  lockedBy?: Player
-  sessionId?: string
-  worldVersion?: number
-  startedAt?: string
-  lastHeartbeat?: string
-}
+export type ServerLock =
+  | {
+      status: 'unlocked'
+    }
+  | {
+      status: 'locked'
+      lockedBy: Player
+      sessionId: string
+      worldVersion: number
+      startedAt: string
+      lastHeartbeat: string
+    }
 
 export interface LocalState {
   player: Player | null

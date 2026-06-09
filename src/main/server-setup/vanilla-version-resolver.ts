@@ -14,23 +14,19 @@ export async function listVanillaReleaseVersions(): Promise<VanillaMinecraftVers
 
   return manifest.versions
     .filter((version) => version.type === 'release')
-    .map((version) => ({ id: version.id }))
+    .map((version) => ({
+      id: version.id,
+      metadataUrl: version.url
+    }))
 }
 
 export async function resolveVanillaServerDownload(
-  minecraftVersion: string
+  minecraftVersion: string,
+  metadataUrl?: string
 ): Promise<VanillaServerDownload> {
-  const manifest = await fetchJson<VersionManifest>(VANILLA_VERSION_MANIFEST_URL, isVersionManifest)
-  const version = manifest.versions.find(
-    (manifestVersion) =>
-      manifestVersion.id === minecraftVersion && manifestVersion.type === 'release'
-  )
-
-  if (!version) {
-    throw new ServerSetupError(`Minecraft release version "${minecraftVersion}" was not found.`)
-  }
-
-  const versionMetadata = await fetchJson<VersionMetadata>(version.url, isVersionMetadata)
+  const versionMetadataUrl =
+    metadataUrl ?? (await resolveVanillaVersionMetadataUrl(minecraftVersion))
+  const versionMetadata = await fetchJson<VersionMetadata>(versionMetadataUrl, isVersionMetadata)
   const serverDownload = versionMetadata.downloads.server
 
   if (!serverDownload) {
@@ -45,6 +41,17 @@ export async function resolveVanillaServerDownload(
     sha1: serverDownload.sha1,
     size: serverDownload.size
   }
+}
+
+async function resolveVanillaVersionMetadataUrl(minecraftVersion: string): Promise<string> {
+  const manifest = await fetchJson<VersionManifest>(VANILLA_VERSION_MANIFEST_URL, isVersionManifest)
+  const version = manifest.versions.find((v) => v.id === minecraftVersion && v.type === 'release')
+
+  if (!version) {
+    throw new ServerSetupError(`Minecraft release version "${minecraftVersion}" was not found.`)
+  }
+
+  return version.url
 }
 
 async function fetchJson<T>(url: string, validate: (value: unknown) => value is T): Promise<T> {
