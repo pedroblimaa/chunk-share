@@ -16,6 +16,25 @@
   gap: 8px;
 }
 
+.breadcrumb-segment {
+  align-items: center;
+  display: inline-flex;
+  gap: 8px;
+}
+
+.breadcrumb-segment button {
+  background: transparent;
+  border: 0;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font: inherit;
+  padding: 0;
+}
+
+.breadcrumb-segment button:hover {
+  color: var(--color-accent);
+}
+
 .dashboard-breadcrumbs strong {
   color: var(--color-text-primary);
   font-weight: var(--font-weight-bold);
@@ -44,17 +63,6 @@
   color: var(--color-text-primary);
 }
 
-.create-instance-button {
-  background: var(--color-accent);
-  border-radius: 4px;
-  color: var(--color-text-on-accent);
-  font-size: var(--font-size-body);
-  font-weight: var(--font-weight-bold);
-  gap: 8px;
-  min-height: 40px;
-  padding: 0 20px;
-}
-
 .user-avatar {
   align-items: center;
   background: var(--color-surface);
@@ -78,7 +86,7 @@
     display: none;
   }
 
-  .create-instance-button span:last-child {
+  .create-instance-button .chunk-button-label {
     display: none;
   }
 }

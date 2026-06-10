@@ -11,6 +11,7 @@ import TopBar from '../components/TopBar/TopBar'
 
 interface DashboardPreviewProps {
   snapshot: DashboardSnapshot
+  onNavigateToServers: () => void
 }
 
 type ConsoleLogEntry = Pick<ConsoleLogLine, 'source' | 'message' | 'tone'>
@@ -113,7 +114,10 @@ function stopServer(snapshot: DashboardSnapshot): DashboardSnapshot {
   }
 }
 
-function DashboardView({ snapshot }: DashboardPreviewProps): React.JSX.Element {
+function DashboardView({
+  snapshot,
+  onNavigateToServers
+}: DashboardPreviewProps): React.JSX.Element {
   const [dashboardSnapshot, setDashboardSnapshot] = useState(snapshot)
   const [isServerToggleAnimating, setIsServerToggleAnimating] = useState(false)
 
@@ -144,10 +148,18 @@ function DashboardView({ snapshot }: DashboardPreviewProps): React.JSX.Element {
         isServerToggleAnimating ? ' is-server-toggle-animating' : ''
       }`}
     >
-      <AppSidebar />
+      <AppSidebar addServerDisabled addServerTitle="Only one server is supported in the MVP." />
 
       <div className="dashboard-main">
-        <TopBar serverName={dashboardSnapshot.serverName} user={dashboardSnapshot.signedInUser} />
+        <TopBar
+          user={dashboardSnapshot.signedInUser}
+          breadcrumbs={[
+            { label: 'Servers', onClick: onNavigateToServers },
+            { label: dashboardSnapshot.serverName }
+          ]}
+          createInstanceDisabled
+          createInstanceTitle="Only one server is supported in the MVP."
+        />
 
         <main className="dashboard-content">
           <ServerHeader

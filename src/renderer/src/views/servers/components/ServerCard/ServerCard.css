@@ -1,0 +1,209 @@
+.server-card {
+  animation: server-card-enter 260ms ease-out both;
+  background:
+    linear-gradient(180deg, rgba(128, 220, 91, 0.08), transparent 42%), var(--color-surface-panel);
+  border: 1px solid var(--color-border-panel);
+  border-radius: 8px;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-height: 280px;
+  padding: 18px;
+  text-align: left;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
+}
+
+.server-card:hover,
+.server-card:focus-visible {
+  border-color: var(--color-border-accent);
+  box-shadow: 0 16px 34px var(--color-shadow-soft);
+  outline: 0;
+  transform: translateY(-3px);
+}
+
+.server-card-top,
+.server-card-body,
+.server-card-footer,
+.server-card-stats {
+  position: relative;
+}
+
+.server-card-top {
+  align-items: flex-start;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.server-status-pill,
+.server-version-pill {
+  align-items: center;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-emphasis);
+  border-radius: 4px;
+  color: var(--color-text-secondary);
+  display: inline-flex;
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-bold);
+  gap: 8px;
+  min-height: 30px;
+  padding: 0 10px;
+}
+
+.server-status-pill span {
+  background: var(--color-text-muted);
+  border-radius: 999px;
+  height: 8px;
+  width: 8px;
+}
+
+.server-status-pill-running span {
+  background: var(--color-accent);
+  box-shadow: 0 0 12px var(--color-accent);
+}
+
+.server-status-pill-starting span {
+  background: var(--color-warning);
+}
+
+.server-version-pill {
+  color: var(--color-text-muted);
+}
+
+.server-version-pill .material-symbols-outlined {
+  font-size: var(--font-size-body);
+}
+
+.server-card-body {
+  align-items: center;
+  display: flex;
+  gap: 18px;
+  justify-content: space-between;
+  margin-top: auto;
+}
+
+.server-card-body h3 {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-title);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-compact);
+}
+
+.server-card-body p {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-small);
+  margin-top: 6px;
+  text-transform: capitalize;
+}
+
+.server-player-count {
+  align-items: baseline;
+  border: 3px solid var(--color-border-accent-muted);
+  border-radius: 999px;
+  display: flex;
+  flex: 0 0 auto;
+  height: 56px;
+  justify-content: center;
+  width: 56px;
+}
+
+.server-player-count strong,
+.server-player-count span {
+  line-height: 54px;
+}
+
+.server-player-count strong {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-action);
+  font-weight: var(--font-weight-bold);
+}
+
+.server-player-count span {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-caption);
+}
+
+.server-card-stats {
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 6px;
+  display: grid;
+  gap: 1px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  overflow: hidden;
+}
+
+.server-card-stats div {
+  background: rgba(16, 17, 16, 0.64);
+  padding: 12px;
+}
+
+.server-card-stats dt {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+}
+
+.server-card-stats dd {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-bold);
+}
+
+.server-card-footer {
+  border-top: 1px solid var(--color-border-subtle);
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 16px;
+}
+
+.server-manage-action {
+  align-items: center;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-emphasis);
+  border-radius: 4px;
+  color: var(--color-text-primary);
+  display: inline-flex;
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-bold);
+  gap: 8px;
+  min-height: 38px;
+  padding: 0 18px;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease;
+}
+
+.server-card:hover .server-manage-action,
+.server-card:focus-visible .server-manage-action {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--color-text-on-accent);
+}
+
+@media (max-width: 720px) {
+  .server-card-stats {
+    grid-template-columns: 1fr;
+  }
+}
+
+@keyframes server-card-enter {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

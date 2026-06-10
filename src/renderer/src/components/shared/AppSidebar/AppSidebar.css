@@ -77,18 +77,6 @@
   padding: 16px;
 }
 
-.secondary-sidebar-button {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: 4px;
-  color: var(--color-accent);
-  font-size: var(--font-size-body);
-  font-weight: var(--font-weight-bold);
-  gap: 10px;
-  min-height: 48px;
-  width: 100%;
-}
-
 @media (max-width: 1040px) {
   .dashboard-sidebar {
     display: none;
