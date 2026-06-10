@@ -5,6 +5,7 @@ import { Readable } from 'stream'
 import { pipeline } from 'stream/promises'
 import type { ReadableStream as NodeReadableStream } from 'stream/web'
 import type { LocalState, ServerConfig } from '../../shared/domain'
+import type { SetupVanillaServerInput } from '../../shared/server-setup'
 import { saveServerSetupResult, saveServerSetupState } from '../storage/local-state-store'
 import {
   managedServerEulaFilePath,
@@ -18,14 +19,6 @@ import { resolveVanillaServerDownload } from './vanilla-version-resolver'
 const SERVER_JAR_TEMP_FILE_PATH = `${managedServerJarFilePath}.tmp`
 const DEFAULT_LEVEL_NAME = 'world'
 const DEFAULT_MOTD = 'ChunkShare Minecraft Server'
-
-export interface SetupVanillaServerInput {
-  name: string
-  minecraftVersion: string
-  minecraftVersionMetadataUrl?: string
-  port: number
-  eulaAccepted: boolean
-}
 
 export async function setupVanillaServer(input: SetupVanillaServerInput): Promise<LocalState> {
   validateSetupInput(input)
@@ -76,6 +69,13 @@ function validateSetupInput(input: SetupVanillaServerInput): void {
 
   if (!input.minecraftVersion.trim()) {
     throw new ServerSetupError('Minecraft version is required.')
+  }
+
+  if (
+    input.minecraftVersionMetadataUrl !== undefined &&
+    !input.minecraftVersionMetadataUrl.trim()
+  ) {
+    throw new ServerSetupError('Minecraft version metadata URL cannot be empty.')
   }
 
   if (!Number.isSafeInteger(input.port) || input.port < 1 || input.port > 65535) {

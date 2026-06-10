@@ -23,11 +23,6 @@ export interface VersionMetadata {
   }
 }
 
-export interface VanillaMinecraftVersion {
-  id: string
-  metadataUrl: string
-}
-
 export interface VanillaServerDownload {
   minecraftVersion: string
   serverJarUrl: string

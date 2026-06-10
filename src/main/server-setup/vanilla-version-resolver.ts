@@ -1,8 +1,8 @@
 import { ServerSetupError } from './server-setup-error'
+import type { VanillaMinecraftVersion } from '../../shared/server-setup'
 import {
   VANILLA_VERSION_MANIFEST_URL,
   type ServerDownloadMetadata,
-  type VanillaMinecraftVersion,
   type VanillaServerDownload,
   type VersionManifest,
   type VersionManifestVersion,
