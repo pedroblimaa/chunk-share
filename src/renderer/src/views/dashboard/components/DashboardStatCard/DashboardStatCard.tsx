@@ -17,11 +17,11 @@ function DashboardStatCard({
 }: DashboardStatCardProps): React.JSX.Element {
   return (
     <section className="dashboard-stat-card">
-      <MaterialIcon name={icon} className="stat-card-icon" />
-      <p>
-        {label}
+      <div className="dashboard-stat-card-heading">
+        <MaterialIcon name={icon} className="stat-card-icon" />
+        <p>{label}</p>
         {badge && <span className="dashboard-stat-card-badge">{badge}</span>}
-      </p>
+      </div>
       <strong>{value}</strong>
     </section>
   )

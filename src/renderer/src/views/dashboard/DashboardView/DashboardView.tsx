@@ -90,6 +90,7 @@ function DashboardView({
   const [errorCopyStatus, setErrorCopyStatus] = useState<CopyStatus>('idle')
   const [addressCopyStatus, setAddressCopyStatus] = useState<CopyStatus>('idle')
   const [isServerToggleAnimating, setIsServerToggleAnimating] = useState(false)
+  const [connectionDetailsOpen, setConnectionDetailsOpen] = useState(false)
 
   useEffect(() => {
     let isMounted = true
@@ -208,16 +209,24 @@ function DashboardView({
   }
 
   async function copyConnectionAddressDetails(): Promise<void> {
-    if (!connectionAddressDetails) {
+    if (!dashboardSnapshot.connectionAddress) {
       return
     }
 
     try {
-      await navigator.clipboard.writeText(connectionAddressDetails)
+      await navigator.clipboard.writeText(dashboardSnapshot.connectionAddress)
       setAddressCopyStatus('copied')
     } catch {
       setAddressCopyStatus('failed')
     }
+  }
+
+  function toggleConnectionDetails(): void {
+    setConnectionDetailsOpen((isOpen) => !isOpen)
+  }
+
+  function closeConnectionDetails(): void {
+    setConnectionDetailsOpen(false)
   }
 
   const toggleDisabled =
@@ -269,29 +278,20 @@ function DashboardView({
             </div>
           )}
 
-          {connectionAddressDetails && (
-            <div className="dashboard-runtime-addresses">
-              <MaterialIcon name="lan" />
-              <span>{connectionAddressDetails}</span>
-              <button
-                aria-label={addressCopyButtonLabel}
-                className={`dashboard-runtime-copy-button${addressCopyButtonStateClass}`}
-                title={addressCopyButtonLabel}
-                type="button"
-                onClick={copyConnectionAddressDetails}
-              >
-                <MaterialIcon name={COPY_STATUS_ICONS[addressCopyStatus]} />
-              </button>
-            </div>
-          )}
-
           <ServerHeader
             name={dashboardSnapshot.serverName}
             status={dashboardSnapshot.serverStatus}
             connectionAddress={dashboardSnapshot.connectionAddress}
+            connectionAddressDetails={connectionAddressDetails}
+            connectionDetailsOpen={connectionDetailsOpen}
             isAnimating={isServerToggleAnimating}
             toggleDisabled={toggleDisabled}
+            copyConnectionDetailsLabel={addressCopyButtonLabel}
+            copyConnectionDetailsStateClass={addressCopyButtonStateClass}
             onCopyConnectionAddress={copyConnectionAddress}
+            onCopyConnectionAddressDetails={copyConnectionAddressDetails}
+            onCloseConnectionDetails={closeConnectionDetails}
+            onToggleConnectionDetails={toggleConnectionDetails}
             onToggleServer={handleServerToggle}
           />
 

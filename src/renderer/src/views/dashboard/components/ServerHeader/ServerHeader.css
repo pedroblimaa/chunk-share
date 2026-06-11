@@ -21,7 +21,7 @@
 }
 
 .status-pill,
-.connection-pill {
+.connection-menu-button {
   align-items: center;
   background: var(--color-surface);
   border: 1px solid var(--color-border-subtle);
@@ -75,24 +75,93 @@
   background: var(--color-danger-text);
 }
 
-.connection-pill {
-  border-radius: 4px;
-  color: var(--color-accent);
-  font-size: var(--font-size-small);
-  gap: 8px;
-  padding: 0 10px 0 12px;
+.connection-menu {
+  position: relative;
 }
 
-.connection-pill button {
-  background: transparent;
+.connection-menu-button {
+  border-radius: 4px;
+  color: var(--color-accent);
+  cursor: pointer;
+  font-size: var(--font-size-small);
+  gap: 8px;
+  padding: 0 12px;
+}
+
+.connection-menu-button:hover,
+.connection-menu-button:focus-visible,
+.connection-menu-button[aria-expanded='true'] {
+  background: var(--color-accent-glow);
+  border-color: var(--color-border-subtle);
+  outline: 0;
+}
+
+.connection-menu-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.connection-popover {
+  align-items: center;
+  animation: server-connection-popover-enter 160ms ease-out both;
+  backdrop-filter: blur(3px);
+  background: rgba(0, 0, 0, 0.72);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 8px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.38);
   color: var(--color-text-secondary);
+  display: flex;
+  gap: 12px;
+  left: 0;
+  min-width: min(420px, calc(100vw - 64px));
+  padding: 12px;
+  position: absolute;
+  top: calc(100% + 8px);
+  z-index: 5;
+}
+
+.connection-popover p {
+  flex: 1;
+  font-size: var(--font-size-small);
+  overflow-wrap: anywhere;
+}
+
+.connection-popover-copy {
+  align-items: center;
+  background: transparent;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 6px;
+  color: var(--color-text-secondary);
+  display: inline-flex;
+  flex: 0 0 auto;
   height: 28px;
+  justify-content: center;
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease,
+    transform 140ms ease;
   width: 28px;
 }
 
-.connection-pill button:disabled {
-  cursor: not-allowed;
-  opacity: 0.45;
+.connection-popover-copy:hover,
+.connection-popover-copy:focus-visible,
+.connection-popover-copy.is-copied {
+  background: var(--color-accent-glow);
+  border-color: var(--color-border-accent);
+  color: var(--color-accent);
+  outline: 0;
+}
+
+.connection-popover-copy:active {
+  transform: scale(0.92);
+}
+
+.connection-popover-copy.is-copied {
+  animation: server-connection-copy-pop 320ms ease-out;
+}
+
+.connection-popover-copy.is-failed {
+  animation: server-connection-copy-shake 260ms ease-out;
 }
 
 .server-actions {
@@ -215,6 +284,11 @@
   .server-actions .overflow-button {
     min-height: 52px;
   }
+
+  .connection-popover {
+    left: auto;
+    right: 0;
+  }
 }
 
 @keyframes server-toggle-button-pop {
@@ -259,5 +333,46 @@
 
   50% {
     box-shadow: 0 0 18px rgba(230, 180, 76, 0.28);
+  }
+}
+
+@keyframes server-connection-popover-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes server-connection-copy-pop {
+  0% {
+    transform: scale(0.92);
+  }
+
+  55% {
+    transform: scale(1.1);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes server-connection-copy-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  35% {
+    transform: translateX(-2px);
+  }
+
+  70% {
+    transform: translateX(2px);
   }
 }
