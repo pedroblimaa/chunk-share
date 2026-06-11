@@ -1,12 +1,21 @@
 import type { LocalState, ServerConfig, ServerSetupState } from '../../shared/domain'
 import { readJsonFile, writeJsonFile } from './json-file-store'
-import { DEFAULT_LOCAL_STATE, DEFAULT_SERVER_SETUP_STATE } from './storage-defaults'
+import {
+  DEFAULT_LOCAL_STATE,
+  DEFAULT_SERVER_CONFIG,
+  DEFAULT_SERVER_SETUP_STATE
+} from './storage-defaults'
 import { StorageError } from './storage-error'
 import { localStateFilePath } from './storage-paths'
 import { isLegacyLocalState, isLocalState, isServerConfig } from './storage-validation'
 
 type StoredLocalState = LocalState | Omit<LocalState, 'serverSetup'>
-type LocalStateChanges = Partial<Pick<LocalState, 'serverConfig' | 'serverSetup'>>
+type LocalStateChanges = Partial<
+  Pick<
+    LocalState,
+    'activeSessionId' | 'dirty' | 'localWorldVersion' | 'serverConfig' | 'serverSetup'
+  >
+>
 
 export interface LocalStateSnapshot {
   localState: LocalState
@@ -70,6 +79,16 @@ export async function saveServerSetupResult(
   }
 
   return saveLocalStateChanges({ serverConfig, serverSetup })
+}
+
+export function resetConfiguredServer(): Promise<LocalState> {
+  return saveLocalStateChanges({
+    activeSessionId: null,
+    dirty: false,
+    localWorldVersion: null,
+    serverConfig: DEFAULT_SERVER_CONFIG,
+    serverSetup: DEFAULT_SERVER_SETUP_STATE
+  })
 }
 
 function isStoredLocalState(value: unknown): value is StoredLocalState {

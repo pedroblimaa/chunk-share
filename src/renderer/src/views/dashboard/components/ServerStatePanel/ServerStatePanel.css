@@ -77,10 +77,27 @@
   outline-offset: 4px;
 }
 
+.power-indicator:disabled {
+  cursor: not-allowed;
+  opacity: 0.56;
+  transform: none;
+}
+
 .server-state-panel-running .power-indicator {
   border-color: var(--color-accent);
   color: var(--color-accent);
   transform: scale(1.03);
+}
+
+.server-state-panel-starting .power-indicator,
+.server-state-panel-stopping .power-indicator {
+  border-color: var(--color-warning);
+  color: var(--color-warning);
+}
+
+.server-state-panel-starting .power-indicator .material-symbols-outlined,
+.server-state-panel-stopping .power-indicator .material-symbols-outlined {
+  animation: server-state-icon-spin 900ms linear infinite;
 }
 
 .power-indicator .material-symbols-outlined {
@@ -171,5 +188,11 @@
 
   100% {
     transform: translateY(0);
+  }
+}
+
+@keyframes server-state-icon-spin {
+  to {
+    transform: rotate(360deg);
   }
 }

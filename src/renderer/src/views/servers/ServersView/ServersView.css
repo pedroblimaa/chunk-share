@@ -9,6 +9,65 @@
   grid-template-columns: repeat(auto-fit, minmax(300px, 380px));
 }
 
+.servers-error-message {
+  align-items: center;
+  animation: servers-empty-enter 180ms ease-out both;
+  background: var(--color-surface-panel);
+  border: 1px solid rgba(255, 111, 111, 0.34);
+  border-radius: 6px;
+  color: #ffb4b4;
+  display: flex;
+  gap: 10px;
+  padding: 12px 14px;
+}
+
+.servers-error-message .material-symbols-outlined {
+  font-size: var(--font-size-title);
+}
+
+.servers-error-message span {
+  flex: 1;
+  overflow-wrap: anywhere;
+}
+
+.servers-error-copy-button {
+  align-items: center;
+  background: rgba(255, 111, 111, 0.08);
+  border: 1px solid rgba(255, 111, 111, 0.28);
+  border-radius: 6px;
+  color: #ffb4b4;
+  cursor: pointer;
+  display: inline-flex;
+  flex: 0 0 auto;
+  height: 32px;
+  justify-content: center;
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease,
+    transform 140ms ease;
+  width: 32px;
+}
+
+.servers-error-copy-button:hover,
+.servers-error-copy-button:focus-visible,
+.servers-error-copy-button.is-copied {
+  background: rgba(255, 111, 111, 0.16);
+  border-color: rgba(255, 111, 111, 0.52);
+  outline: 0;
+}
+
+.servers-error-copy-button:active {
+  transform: scale(0.92);
+}
+
+.servers-error-copy-button.is-copied {
+  animation: servers-copy-button-pop 320ms ease-out;
+}
+
+.servers-error-copy-button.is-failed {
+  animation: servers-copy-button-shake 260ms ease-out;
+}
+
 .servers-empty-state {
   align-items: center;
   animation: servers-empty-enter 260ms ease-out both;
@@ -78,5 +137,34 @@
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes servers-copy-button-pop {
+  0% {
+    transform: scale(0.92);
+  }
+
+  55% {
+    transform: scale(1.1);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes servers-copy-button-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  35% {
+    transform: translateX(-2px);
+  }
+
+  70% {
+    transform: translateX(2px);
   }
 }

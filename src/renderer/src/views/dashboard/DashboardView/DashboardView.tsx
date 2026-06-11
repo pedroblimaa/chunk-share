@@ -1,8 +1,10 @@
 import './DashboardView.css'
 
 import { useEffect, useState } from 'react'
-import type { ConsoleLogLine, DashboardSnapshot } from '../../../../../shared/dashboard'
+import type { DashboardSnapshot } from '../../../../../shared/dashboard'
+import type { ServerRuntimeSnapshot } from '../../../../../shared/server-runtime'
 import AppSidebar from '../../../components/shared/AppSidebar/AppSidebar'
+import MaterialIcon from '../../../components/shared/MaterialIcon/MaterialIcon'
 import ConsoleOutput from '../components/ConsoleOutput/ConsoleOutput'
 import DashboardStatCard from '../components/DashboardStatCard/DashboardStatCard'
 import ServerHeader from '../components/ServerHeader/ServerHeader'
@@ -14,103 +16,56 @@ interface DashboardPreviewProps {
   onNavigateToServers: () => void
 }
 
-type ConsoleLogEntry = Pick<ConsoleLogLine, 'source' | 'message' | 'tone'>
+type CopyStatus = 'idle' | 'copied' | 'failed'
 
-const STARTED_SERVER_LOGS: ConsoleLogEntry[] = [
-  {
-    source: 'Server thread/INFO',
-    message: 'Preparing spawn area for world "Vanilla Survival"',
-    tone: 'default'
-  },
-  {
-    source: 'Server thread/INFO',
-    message: 'Starting Minecraft server on play.chunkshare.app',
-    tone: 'default'
-  },
-  {
-    source: 'Server thread/INFO',
-    message: 'Done! Server is ready for players.',
-    tone: 'success'
-  }
-]
-
-const STOPPED_SERVER_LOGS: ConsoleLogEntry[] = [
-  {
-    source: 'Server thread/INFO',
-    message: 'Stopping server',
-    tone: 'default'
-  },
-  {
-    source: 'Server thread/INFO',
-    message: 'Saving players',
-    tone: 'default'
-  },
-  {
-    source: 'Server thread/INFO',
-    message: 'Saving worlds',
-    tone: 'default'
-  },
-  {
-    source: 'Server thread/INFO',
-    message: 'Server stopped gracefully.',
-    tone: 'success'
-  }
-]
-
-function getConsoleTimestamp(): string {
-  return new Intl.DateTimeFormat(undefined, {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit'
-  }).format(new Date())
+const COPY_STATUS_LABELS: Record<CopyStatus, string> = {
+  copied: 'Copied',
+  failed: 'Copy Failed',
+  idle: 'Copy Error'
 }
 
-function createConsoleLogs(prefix: string, entries: ConsoleLogEntry[]): ConsoleLogLine[] {
-  const timestamp = getConsoleTimestamp()
-
-  return entries.map((entry, index) => ({
-    id: `${prefix}-${timestamp}-${index}`,
-    timestamp,
-    ...entry
-  }))
+const COPY_STATUS_ICONS: Record<CopyStatus, string> = {
+  copied: 'check',
+  failed: 'error_outline',
+  idle: 'content_copy'
 }
 
-function startServer(snapshot: DashboardSnapshot): DashboardSnapshot {
+function getPrimaryConnectionAddress(runtimeSnapshot: ServerRuntimeSnapshot): string | null {
+  const addresses = runtimeSnapshot.connectionAddresses
+  const address = addresses.find((a) => a.isPrimary)?.address ?? addresses[0]?.address
+
+  return address || null
+}
+
+function applyRuntimeSnapshot(
+  snapshot: DashboardSnapshot,
+  runtimeSnapshot: ServerRuntimeSnapshot
+): DashboardSnapshot {
+  const serverIsActive =
+    runtimeSnapshot.status === 'starting' ||
+    runtimeSnapshot.status === 'running' ||
+    runtimeSnapshot.status === 'stopping'
+
+  const players = {
+    ...snapshot.players,
+    online: serverIsActive ? 1 : 0
+  }
+
+  const resources = {
+    cpuPercent: serverIsActive ? snapshot.resources.cpuPercent : 0,
+    memoryUsedMb: serverIsActive ? snapshot.resources.memoryUsedMb : 0,
+    memoryTotalMb: snapshot.resources.memoryTotalMb
+  }
+
   return {
     ...snapshot,
-    serverStatus: 'running',
-    lastActiveLabel: 'Active now',
-    currentHost: snapshot.signedInUser?.name ?? 'You',
-    players: {
-      ...snapshot.players,
-      online: 1
-    },
-    resources: {
-      cpuPercent: 18.4,
-      memoryUsedMb: 2460,
-      memoryTotalMb: snapshot.resources.memoryTotalMb
-    },
-    consoleLogs: createConsoleLogs('server-started', STARTED_SERVER_LOGS)
-  }
-}
-
-function stopServer(snapshot: DashboardSnapshot): DashboardSnapshot {
-  return {
-    ...snapshot,
-    serverStatus: 'stopped',
-    lastActiveLabel: 'Just now',
-    currentHost: null,
-    latestSaveLabel: 'Just now',
-    players: {
-      ...snapshot.players,
-      online: 0
-    },
-    resources: {
-      cpuPercent: 0,
-      memoryUsedMb: 0,
-      memoryTotalMb: snapshot.resources.memoryTotalMb
-    },
-    consoleLogs: createConsoleLogs('server-stopped', STOPPED_SERVER_LOGS)
+    serverStatus: runtimeSnapshot.status,
+    lastActiveLabel: serverIsActive ? 'Active now' : snapshot.lastActiveLabel,
+    currentHost: serverIsActive ? (snapshot.signedInUser?.name ?? 'You') : null,
+    connectionAddress: getPrimaryConnectionAddress(runtimeSnapshot),
+    players,
+    resources,
+    consoleLogs: runtimeSnapshot.logs
   }
 }
 
@@ -119,7 +74,50 @@ function DashboardView({
   onNavigateToServers
 }: DashboardPreviewProps): React.JSX.Element {
   const [dashboardSnapshot, setDashboardSnapshot] = useState(snapshot)
+  const [runtimeSnapshot, setRuntimeSnapshot] = useState<ServerRuntimeSnapshot | null>(null)
+  const [runtimeErrorMessage, setRuntimeErrorMessage] = useState<string | null>(null)
+  const [errorCopyStatus, setErrorCopyStatus] = useState<CopyStatus>('idle')
+  const [addressCopyStatus, setAddressCopyStatus] = useState<CopyStatus>('idle')
   const [isServerToggleAnimating, setIsServerToggleAnimating] = useState(false)
+
+  useEffect(() => {
+    let isMounted = true
+
+    window.chunkShare.serverRuntime
+      .getSnapshot()
+      .then((nextRuntimeSnapshot) => {
+        if (!isMounted) {
+          return
+        }
+
+        setRuntimeSnapshot(nextRuntimeSnapshot)
+        setDashboardSnapshot((currentSnapshot) =>
+          applyRuntimeSnapshot(currentSnapshot, nextRuntimeSnapshot)
+        )
+      })
+      .catch((error: unknown) => {
+        if (!isMounted) {
+          return
+        }
+
+        const message = error instanceof Error ? error.message : 'Unable to load server runtime.'
+        setRuntimeErrorMessage(message)
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
+
+  useEffect(() => {
+    return window.chunkShare.serverRuntime.onEvent((runtimeEvent) => {
+      setRuntimeSnapshot(runtimeEvent.snapshot)
+      setRuntimeErrorMessage(runtimeEvent.snapshot.errorMessage)
+      setDashboardSnapshot((currentSnapshot) =>
+        applyRuntimeSnapshot(currentSnapshot, runtimeEvent.snapshot)
+      )
+    })
+  }, [])
 
   useEffect(() => {
     if (!isServerToggleAnimating) {
@@ -133,14 +131,95 @@ function DashboardView({
     return () => window.clearTimeout(animationTimer)
   }, [isServerToggleAnimating])
 
-  function handleServerToggle(): void {
-    setDashboardSnapshot((currentSnapshot) =>
-      currentSnapshot.serverStatus === 'running'
-        ? stopServer(currentSnapshot)
-        : startServer(currentSnapshot)
-    )
+  useEffect(() => {
+    if (errorCopyStatus === 'idle') {
+      return undefined
+    }
+
+    const resetCopyStatusTimer = window.setTimeout(() => {
+      setErrorCopyStatus('idle')
+    }, 1600)
+
+    return () => window.clearTimeout(resetCopyStatusTimer)
+  }, [errorCopyStatus])
+
+  useEffect(() => {
+    if (addressCopyStatus === 'idle') {
+      return undefined
+    }
+
+    const resetCopyStatusTimer = window.setTimeout(() => {
+      setAddressCopyStatus('idle')
+    }, 1600)
+
+    return () => window.clearTimeout(resetCopyStatusTimer)
+  }, [addressCopyStatus])
+
+  async function handleServerToggle(): Promise<void> {
+    setRuntimeErrorMessage(null)
     setIsServerToggleAnimating(true)
+
+    try {
+      const nextRuntimeSnapshot =
+        dashboardSnapshot.serverStatus === 'running'
+          ? await window.chunkShare.serverRuntime.stop()
+          : await window.chunkShare.serverRuntime.start()
+
+      setRuntimeSnapshot(nextRuntimeSnapshot)
+      setDashboardSnapshot((currentSnapshot) =>
+        applyRuntimeSnapshot(currentSnapshot, nextRuntimeSnapshot)
+      )
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Unable to toggle server.'
+      setRuntimeErrorMessage(message)
+    }
   }
+
+  async function copyConnectionAddress(): Promise<void> {
+    if (!dashboardSnapshot.connectionAddress) {
+      return
+    }
+
+    await navigator.clipboard.writeText(dashboardSnapshot.connectionAddress)
+  }
+
+  async function copyRuntimeError(): Promise<void> {
+    if (!runtimeErrorMessage) {
+      return
+    }
+
+    try {
+      await navigator.clipboard.writeText(runtimeErrorMessage)
+      setErrorCopyStatus('copied')
+    } catch {
+      setErrorCopyStatus('failed')
+    }
+  }
+
+  async function copyConnectionAddressDetails(): Promise<void> {
+    if (!connectionAddressDetails) {
+      return
+    }
+
+    try {
+      await navigator.clipboard.writeText(connectionAddressDetails)
+      setAddressCopyStatus('copied')
+    } catch {
+      setAddressCopyStatus('failed')
+    }
+  }
+
+  const toggleDisabled =
+    dashboardSnapshot.serverStatus === 'starting' ||
+    dashboardSnapshot.serverStatus === 'stopping' ||
+    dashboardSnapshot.serverStatus === 'crashed'
+  const connectionAddressDetails = runtimeSnapshot?.connectionAddresses
+    .map((connectionAddress) => `${connectionAddress.label}: ${connectionAddress.address}`)
+    .join(', ')
+  const errorCopyButtonLabel = COPY_STATUS_LABELS[errorCopyStatus]
+  const errorCopyButtonStateClass = errorCopyStatus === 'idle' ? '' : ` is-${errorCopyStatus}`
+  const addressCopyButtonLabel = COPY_STATUS_LABELS[addressCopyStatus]
+  const addressCopyButtonStateClass = addressCopyStatus === 'idle' ? '' : ` is-${addressCopyStatus}`
 
   return (
     <div
@@ -162,16 +241,54 @@ function DashboardView({
         />
 
         <main className="dashboard-content">
+          {runtimeErrorMessage && (
+            <div className="dashboard-runtime-error" role="alert">
+              <MaterialIcon name="error" />
+              <span>{runtimeErrorMessage}</span>
+              <button
+                aria-label={errorCopyButtonLabel}
+                className={`dashboard-runtime-error-copy${errorCopyButtonStateClass}`}
+                title={errorCopyButtonLabel}
+                type="button"
+                onClick={copyRuntimeError}
+              >
+                <MaterialIcon name={COPY_STATUS_ICONS[errorCopyStatus]} />
+              </button>
+            </div>
+          )}
+
+          {connectionAddressDetails && (
+            <div className="dashboard-runtime-addresses">
+              <MaterialIcon name="lan" />
+              <span>{connectionAddressDetails}</span>
+              <button
+                aria-label={addressCopyButtonLabel}
+                className={`dashboard-runtime-copy-button${addressCopyButtonStateClass}`}
+                title={addressCopyButtonLabel}
+                type="button"
+                onClick={copyConnectionAddressDetails}
+              >
+                <MaterialIcon name={COPY_STATUS_ICONS[addressCopyStatus]} />
+              </button>
+            </div>
+          )}
+
           <ServerHeader
             name={dashboardSnapshot.serverName}
             status={dashboardSnapshot.serverStatus}
             connectionAddress={dashboardSnapshot.connectionAddress}
             isAnimating={isServerToggleAnimating}
+            toggleDisabled={toggleDisabled}
+            onCopyConnectionAddress={copyConnectionAddress}
             onToggleServer={handleServerToggle}
           />
 
           <div className="dashboard-grid">
-            <ServerStatePanel snapshot={dashboardSnapshot} onToggleServer={handleServerToggle} />
+            <ServerStatePanel
+              snapshot={dashboardSnapshot}
+              toggleDisabled={toggleDisabled}
+              onToggleServer={handleServerToggle}
+            />
 
             <div className="dashboard-side-stats">
               <DashboardStatCard

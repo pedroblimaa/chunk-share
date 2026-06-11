@@ -1,7 +1,8 @@
 import { ipcMain } from 'electron'
-import type { SetupVanillaServerInput } from '../../shared/server-setup'
+import type { ServerSetupProgressEvent, SetupVanillaServerInput } from '../../shared/server-setup'
 import {
   SERVER_SETUP_LIST_VANILLA_VERSIONS_CHANNEL,
+  SERVER_SETUP_PROGRESS_CHANNEL,
   SERVER_SETUP_SETUP_VANILLA_SERVER_CHANNEL
 } from '../../shared/ipc-channels'
 import { setupVanillaServer } from '../server-setup/server-setup-service'
@@ -12,13 +13,17 @@ import { getStorageSnapshot } from '../storage/storage-service'
 export function registerServerSetupIpcHandlers(): void {
   ipcMain.handle(SERVER_SETUP_LIST_VANILLA_VERSIONS_CHANNEL, () => listVanillaReleaseVersions())
 
-  ipcMain.handle(SERVER_SETUP_SETUP_VANILLA_SERVER_CHANNEL, async (_, payload: unknown) => {
+  ipcMain.handle(SERVER_SETUP_SETUP_VANILLA_SERVER_CHANNEL, async (event, payload: unknown) => {
     if (!isSetupVanillaServerInput(payload)) {
       throw new StorageError('Invalid server setup payload.')
     }
 
+    const sendProgress = (progressEvent: ServerSetupProgressEvent): void => {
+      event.sender.send(SERVER_SETUP_PROGRESS_CHANNEL, progressEvent)
+    }
+
     try {
-      await setupVanillaServer(payload)
+      await setupVanillaServer(payload, sendProgress)
     } catch (error) {
       const storageSnapshot = await getStorageSnapshot()
 

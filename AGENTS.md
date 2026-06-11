@@ -4,6 +4,16 @@
 
 This is an Electron Vite application using React and TypeScript. Main-process code lives in `src/main`, with IPC handlers under `src/main/ipc` and persistence utilities under `src/main/storage`. The preload bridge is in `src/preload`, shared types and channel constants are in `src/shared`, and renderer code lives in `src/renderer/src`. Renderer components are grouped by feature under `src/renderer/src/views` and shared UI under `src/renderer/src/components/shared`. Static styles are in `src/renderer/src/assets`. Packaging assets are split between `build` and `resources`.
 
+## Product Context
+
+ChunkShare is a desktop app for friends who want to share one Minecraft world without paying for always-on hosting. The app manages a local Minecraft dedicated server, versioned world snapshots, and handoff safety so different friends can take turns hosting the same shared world.
+
+Core flow: check if someone is hosting, download the latest world version, start a local dedicated server, let friends play, stop safely, save the world as a new version, then unlock it for the next host.
+
+Key concepts: versioned world zip snapshots, no live world sync while the server is running, `lock.json` to prevent two hosts, `sessionId` to prevent stale writes, dirty-state detection for unsafe shutdowns, heartbeat checks for current host liveness, local `.mock-cloud/` storage first, and Google Drive storage later.
+
+Keep renderer work UI-only. Filesystem, Java validation, Minecraft server process management, zip/unzip, mock cloud storage, and future Google Drive integration belong in Electron main behind typed preload APIs.
+
 ## Build, Test, and Development Commands
 
 - `pnpm install`: install dependencies and Electron native app deps.
@@ -38,6 +48,8 @@ Keep renderer access to main-process features behind typed preload APIs and shar
 ## Agent Collaboration Guidelines
 
 Act as a senior pair-programming assistant. For new tasks, inspect relevant files first, explain what you found, propose a concrete implementation plan, and wait for approval before coding. After approval, implement one small step at a time and pause for review before continuing to the next step.
+
+Keep user-facing messages concise and high-signal. Prefer short summaries, concrete next steps, and direct answers over long explanations. When the user asks for status or context, answer in a few bullets. Avoid repeating obvious repo facts unless they matter for the current decision.
 
 Before each step, state what will change and why. After each step, summarize the files changed, the reason for the change, and how to test it. Ask before broad architectural, data, security, dependency, or project-structure changes.
 

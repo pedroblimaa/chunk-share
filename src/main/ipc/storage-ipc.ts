@@ -1,14 +1,21 @@
 import { ipcMain } from 'electron'
 import {
+  STORAGE_DELETE_SERVER_CHANNEL,
   STORAGE_SAVE_SERVER_CONFIG_CHANNEL,
   STORAGE_SNAPSHOT_CHANNEL
 } from '../../shared/ipc-channels'
-import { getStorageSnapshot, updateServerConfig } from '../storage/storage-service'
+import {
+  deleteConfiguredServer,
+  getStorageSnapshot,
+  updateServerConfig
+} from '../storage/storage-service'
 import { StorageError } from '../storage/storage-error'
 import { isServerConfig } from '../storage/storage-validation'
 
 export function registerStorageIpcHandlers(): void {
   ipcMain.handle(STORAGE_SNAPSHOT_CHANNEL, () => getStorageSnapshot())
+
+  ipcMain.handle(STORAGE_DELETE_SERVER_CHANNEL, () => deleteConfiguredServer())
 
   ipcMain.handle(STORAGE_SAVE_SERVER_CONFIG_CHANNEL, (_, serverConfig: unknown) => {
     if (!isServerConfig(serverConfig)) {

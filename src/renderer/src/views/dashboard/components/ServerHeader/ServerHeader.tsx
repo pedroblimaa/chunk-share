@@ -8,6 +8,8 @@ interface ServerHeaderProps {
   status: ServerStatus
   connectionAddress: string | null
   isAnimating: boolean
+  toggleDisabled?: boolean
+  onCopyConnectionAddress: () => void
   onToggleServer: () => void
 }
 
@@ -19,15 +21,39 @@ function isServerRunning(status: ServerStatus): boolean {
   return status === 'running'
 }
 
+function getToggleButtonLabel(status: ServerStatus): string {
+  if (status === 'starting') {
+    return 'Starting...'
+  }
+
+  if (status === 'stopping') {
+    return 'Stopping...'
+  }
+
+  return isServerRunning(status) ? 'Stop Server' : 'Start Server'
+}
+
+function getToggleButtonIcon(status: ServerStatus): string {
+  if (status === 'starting' || status === 'stopping') {
+    return 'sync'
+  }
+
+  return isServerRunning(status) ? 'stop' : 'play_arrow'
+}
+
 function ServerHeader({
   name,
   status,
   connectionAddress,
   isAnimating,
+  toggleDisabled = false,
+  onCopyConnectionAddress,
   onToggleServer
 }: ServerHeaderProps): React.JSX.Element {
   const serverIsRunning = isServerRunning(status)
-  const toggleButtonLabel = serverIsRunning ? 'Stop Server' : 'Start Server'
+  const serverIsBusy = status === 'starting' || status === 'stopping'
+  const toggleButtonLabel = getToggleButtonLabel(status)
+  const toggleButtonIcon = getToggleButtonIcon(status)
 
   return (
     <section className="server-header">
@@ -41,7 +67,12 @@ function ServerHeader({
 
           <div className="connection-pill">
             <span>{connectionAddress ?? 'No address yet'}</span>
-            <button type="button" aria-label="Copy server address">
+            <button
+              type="button"
+              aria-label="Copy server address"
+              disabled={!connectionAddress}
+              onClick={onCopyConnectionAddress}
+            >
               <MaterialIcon name="content_copy" />
             </button>
           </div>
@@ -53,11 +84,12 @@ function ServerHeader({
           aria-label={toggleButtonLabel}
           className={`server-toggle-button is-${serverIsRunning ? 'running' : 'stopped'}${
             isAnimating ? ' is-animating' : ''
-          }`}
+          }${serverIsBusy ? ' is-busy' : ''}`}
+          disabled={toggleDisabled}
           type="button"
           onClick={onToggleServer}
         >
-          <MaterialIcon name={serverIsRunning ? 'stop' : 'play_arrow'} filled />
+          <MaterialIcon name={toggleButtonIcon} filled />
           <span>{toggleButtonLabel}</span>
         </button>
         <button className="overflow-button" type="button" aria-label="More server actions">

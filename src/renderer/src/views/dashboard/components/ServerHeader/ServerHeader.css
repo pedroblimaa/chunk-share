@@ -57,7 +57,21 @@
   color: var(--color-accent);
 }
 
-.status-crashed span {
+.status-starting,
+.status-stopping {
+  animation: server-status-pulse 1200ms ease-in-out infinite;
+  border-color: var(--color-warning);
+  color: var(--color-warning);
+}
+
+.status-starting span,
+.status-stopping span {
+  background: var(--color-warning);
+  box-shadow: 0 0 12px var(--color-warning);
+}
+
+.status-crashed span,
+.status-error span {
   background: var(--color-danger-text);
 }
 
@@ -74,6 +88,11 @@
   color: var(--color-text-secondary);
   height: 28px;
   width: 28px;
+}
+
+.connection-pill button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
 }
 
 .server-actions {
@@ -136,12 +155,27 @@
   transform: translateY(-1px);
 }
 
+.server-toggle-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.68;
+  transform: none;
+}
+
 .server-toggle-button.is-animating {
   animation: server-toggle-button-pop 420ms ease-out;
 }
 
 .server-toggle-button.is-animating::after {
   animation: server-toggle-button-flash 420ms ease-out;
+}
+
+.server-toggle-button.is-busy {
+  background: var(--color-warning);
+  color: var(--color-text-on-accent);
+}
+
+.server-toggle-button.is-busy .material-symbols-outlined {
+  animation: server-toggle-icon-spin 900ms linear infinite;
 }
 
 .server-actions .overflow-button {
@@ -208,5 +242,22 @@
   100% {
     opacity: 0;
     transform: scale(1.25);
+  }
+}
+
+@keyframes server-toggle-icon-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes server-status-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 rgba(0, 0, 0, 0);
+  }
+
+  50% {
+    box-shadow: 0 0 18px rgba(230, 180, 76, 0.28);
   }
 }

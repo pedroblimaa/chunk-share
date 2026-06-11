@@ -5,6 +5,7 @@ import MaterialIcon from '../../../../components/shared/MaterialIcon/MaterialIco
 
 interface ServerStatePanelProps {
   snapshot: DashboardSnapshot
+  toggleDisabled?: boolean
   onToggleServer: () => void
 }
 
@@ -16,7 +17,11 @@ function formatState(status: DashboardSnapshot['serverStatus']): string {
   return status[0].toUpperCase() + status.slice(1)
 }
 
-function ServerStatePanel({ snapshot, onToggleServer }: ServerStatePanelProps): React.JSX.Element {
+function ServerStatePanel({
+  snapshot,
+  toggleDisabled = false,
+  onToggleServer
+}: ServerStatePanelProps): React.JSX.Element {
   const memoryPercent =
     snapshot.resources.memoryTotalMb === 0
       ? 0
@@ -35,6 +40,7 @@ function ServerStatePanel({ snapshot, onToggleServer }: ServerStatePanelProps): 
             className="power-indicator"
             type="button"
             aria-label={snapshot.serverStatus === 'running' ? 'Stop server' : 'Start server'}
+            disabled={toggleDisabled}
             onClick={onToggleServer}
           >
             <MaterialIcon name="power_settings_new" />
