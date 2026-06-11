@@ -53,7 +53,10 @@ function ServerStatePanel({
 
         <div className="resource-grid">
           <div className="resource-meter">
-            <p>CPU Usage</p>
+            <p>
+              CPU Usage
+              {snapshot.resources.isMocked && <span className="resource-meter-badge">Mocked</span>}
+            </p>
             <strong>{snapshot.resources.cpuPercent.toFixed(1)}%</strong>
             <span className="meter-track">
               <span style={{ width: `${snapshot.resources.cpuPercent}%` }} />
@@ -61,7 +64,10 @@ function ServerStatePanel({
           </div>
 
           <div className="resource-meter">
-            <p>Memory</p>
+            <p>
+              Memory
+              {snapshot.resources.isMocked && <span className="resource-meter-badge">Mocked</span>}
+            </p>
             <strong>
               {snapshot.resources.memoryUsedMb} / {snapshot.resources.memoryTotalMb} MB
             </strong>

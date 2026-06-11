@@ -6,13 +6,22 @@ interface DashboardStatCardProps {
   icon: string
   label: string
   value: string
+  badge?: string
 }
 
-function DashboardStatCard({ icon, label, value }: DashboardStatCardProps): React.JSX.Element {
+function DashboardStatCard({
+  icon,
+  label,
+  value,
+  badge
+}: DashboardStatCardProps): React.JSX.Element {
   return (
     <section className="dashboard-stat-card">
       <MaterialIcon name={icon} className="stat-card-icon" />
-      <p>{label}</p>
+      <p>
+        {label}
+        {badge && <span className="dashboard-stat-card-badge">{badge}</span>}
+      </p>
       <strong>{value}</strong>
     </section>
   )

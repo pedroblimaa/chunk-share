@@ -20,10 +20,24 @@ export interface ServerConnectionAddress {
   isPrimary: boolean
 }
 
+export interface ServerRuntimePlayers {
+  online: number
+  max: number
+}
+
+export interface ServerRuntimeResources {
+  cpuPercent: number
+  memoryUsedMb: number
+  memoryTotalMb: number
+  isMocked: boolean
+}
+
 export interface ServerRuntimeSnapshot {
   status: ServerRuntimeStatus
   errorMessage: string | null
   connectionAddresses: ServerConnectionAddress[]
+  players: ServerRuntimePlayers
+  resources: ServerRuntimeResources
   logs: ServerRuntimeLogLine[]
 }
 

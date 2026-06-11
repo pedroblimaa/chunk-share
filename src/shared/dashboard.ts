@@ -19,6 +19,7 @@ export interface ServerResourceUsage {
   cpuPercent: number
   memoryUsedMb: number
   memoryTotalMb: number
+  isMocked: boolean
 }
 
 export interface PlayerSummary {

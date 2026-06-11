@@ -1,10 +1,13 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'child_process'
-import { stat } from 'fs/promises'
+import { readFile, stat } from 'fs/promises'
 import { networkInterfaces } from 'os'
+import { join } from 'path'
 import type {
   ServerConnectionAddress,
   ServerRuntimeEvent,
   ServerRuntimeLogLine,
+  ServerRuntimePlayers,
+  ServerRuntimeResources,
   ServerRuntimeSnapshot,
   ServerRuntimeStatus
 } from '../../shared/server-runtime'
@@ -16,16 +19,28 @@ type ServerRuntimeListener = (event: ServerRuntimeEvent) => void
 type RuntimeLogTone = ServerRuntimeLogLine['tone']
 
 const SERVER_READY_PATTERN = /Done \(.+\)! For help, type "help"/
+const PLAYER_LIST_PATTERN = /There are (\d+) of a max of (\d+) players online/
 const SERVER_STOP_TIMEOUT_MS = 15_000
+const PLAYER_POLL_INTERVAL_MS = 10_000
 const JAVA_COMMAND = 'java'
 const JAVA_ARGS = ['-Xmx4G', '-Xms2G', '-jar', 'server.jar', 'nogui']
+const DEFAULT_PLAYER_LIMIT = 20
+const MOCK_RESOURCES: ServerRuntimeResources = {
+  cpuPercent: 0,
+  memoryUsedMb: 0,
+  memoryTotalMb: 4096,
+  isMocked: true
+}
 
 let serverProcess: ChildProcessWithoutNullStreams | null = null
 let stopTimeout: NodeJS.Timeout | null = null
+let playerPollInterval: NodeJS.Timeout | null = null
 let status: ServerRuntimeStatus = 'stopped'
 let errorMessage: string | null = null
 let logs: ServerRuntimeLogLine[] = []
 let connectionAddresses: ServerConnectionAddress[] = []
+let players: ServerRuntimePlayers = { online: 0, max: DEFAULT_PLAYER_LIMIT }
+let resources: ServerRuntimeResources = MOCK_RESOURCES
 const listeners = new Set<ServerRuntimeListener>()
 
 export function getServerRuntimeSnapshot(): ServerRuntimeSnapshot {
@@ -33,6 +48,8 @@ export function getServerRuntimeSnapshot(): ServerRuntimeSnapshot {
     status,
     errorMessage,
     connectionAddresses,
+    players,
+    resources,
     logs
   }
 }
@@ -63,6 +80,8 @@ export async function startMinecraftServer(): Promise<ServerRuntimeSnapshot> {
   errorMessage = null
   logs = []
   connectionAddresses = getConnectionAddresses(localState.serverConfig.port)
+  players = { online: 0, max: await readMaxPlayers(serverFolderPath) }
+  resources = MOCK_RESOURCES
   emitRuntimeEvent()
   addLogLine('ChunkShare', `Starting Minecraft server with ${JAVA_COMMAND} ${JAVA_ARGS.join(' ')}`)
 
@@ -92,6 +111,7 @@ function attachServerProcessListeners(minecraftProcess: ChildProcessWithoutNullS
 
   minecraftProcess.once('close', (exitCode) => {
     clearStopTimeout()
+    stopPlayerPolling()
 
     if (status === 'error') {
       serverProcess = null
@@ -105,6 +125,7 @@ function attachServerProcessListeners(minecraftProcess: ChildProcessWithoutNullS
       ? null
       : `Minecraft server exited with code ${exitCode ?? 'unknown'}.`
     serverProcess = null
+    players = { ...players, online: 0 }
 
     emitRuntimeEvent()
   })
@@ -114,12 +135,14 @@ export async function stopMinecraftServer(): Promise<ServerRuntimeSnapshot> {
   if (!serverProcess) {
     status = 'stopped'
     errorMessage = null
+    players = { ...players, online: 0 }
     emitRuntimeEvent()
     return getServerRuntimeSnapshot()
   }
 
   status = 'stopping'
   errorMessage = null
+  stopPlayerPolling()
   emitRuntimeEvent()
   addLogLine('ChunkShare', 'Sending graceful stop command to Minecraft server.')
   serverProcess.stdin.write('stop\n')
@@ -143,12 +166,17 @@ function handleServerOutput(output: string, source: string, fallbackTone: Runtim
     .map((line) => line.trim())
     .filter(Boolean)
     .forEach((line) => {
+      if (updatePlayersFromListResponse(line)) {
+        return
+      }
+
       const tone = getLogTone(line, fallbackTone)
       addLogLine(source, line, tone)
       detectJavaClassVersionMismatch(line)
 
       if (status === 'starting' && SERVER_READY_PATTERN.test(line)) {
         status = 'running'
+        startPlayerPolling()
         emitRuntimeEvent()
       }
     })
@@ -170,6 +198,7 @@ function addLogLine(source: string, message: string, tone: RuntimeLogTone = 'def
 function finishWithError(message: string): void {
   status = 'error'
   errorMessage = message
+  stopPlayerPolling()
   addLogLine('ChunkShare', message, 'error')
 }
 
@@ -188,6 +217,59 @@ function emitRuntimeEvent(logLine?: ServerRuntimeLogLine): void {
   }
 
   listeners.forEach((listener) => listener(event))
+}
+
+function startPlayerPolling(): void {
+  pollPlayerList()
+
+  if (playerPollInterval) {
+    return
+  }
+
+  playerPollInterval = setInterval(pollPlayerList, PLAYER_POLL_INTERVAL_MS)
+}
+
+function stopPlayerPolling(): void {
+  if (!playerPollInterval) {
+    return
+  }
+
+  clearInterval(playerPollInterval)
+  playerPollInterval = null
+}
+
+function pollPlayerList(): void {
+  if (!serverProcess || status !== 'running' || !serverProcess.stdin.writable) {
+    return
+  }
+
+  serverProcess.stdin.write('list\n')
+}
+
+function updatePlayersFromListResponse(line: string): boolean {
+  const match = line.match(PLAYER_LIST_PATTERN)
+
+  if (!match) {
+    return false
+  }
+
+  players = {
+    online: Number(match[1]),
+    max: Number(match[2])
+  }
+
+  emitRuntimeEvent()
+
+  return true
+}
+
+async function readMaxPlayers(serverFolderPath: string): Promise<number> {
+  const properties = await readFile(join(serverFolderPath, 'server.properties'), 'utf8').catch(
+    () => ''
+  )
+  const match = properties.match(/^max-players=(\d+)$/m)
+
+  return match ? Number(match[1]) : DEFAULT_PLAYER_LIMIT
 }
 
 function getConnectionAddresses(port: number): ServerConnectionAddress[] {

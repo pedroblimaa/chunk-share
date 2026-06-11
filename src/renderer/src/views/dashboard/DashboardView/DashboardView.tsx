@@ -30,6 +30,9 @@ const COPY_STATUS_ICONS: Record<CopyStatus, string> = {
   idle: 'content_copy'
 }
 
+const MOCK_LATEST_SAVE_LABEL = '2 hours ago'
+const MOCK_WORLD_VERSION_LABEL = '1.21.1'
+
 function getPrimaryConnectionAddress(runtimeSnapshot: ServerRuntimeSnapshot): string | null {
   const addresses = runtimeSnapshot.connectionAddresses
   const address = addresses.find((a) => a.isPrimary)?.address ?? addresses[0]?.address
@@ -37,31 +40,39 @@ function getPrimaryConnectionAddress(runtimeSnapshot: ServerRuntimeSnapshot): st
   return address || null
 }
 
+function isServerActive(status: ServerRuntimeSnapshot['status']): boolean {
+  return status === 'starting' || status === 'running' || status === 'stopping'
+}
+
+function getCurrentHost(snapshot: DashboardSnapshot, serverIsActive: boolean): string | null {
+  return serverIsActive ? (snapshot.signedInUser?.name ?? 'You') : null
+}
+
 function applyRuntimeSnapshot(
   snapshot: DashboardSnapshot,
   runtimeSnapshot: ServerRuntimeSnapshot
 ): DashboardSnapshot {
-  const serverIsActive =
-    runtimeSnapshot.status === 'starting' ||
-    runtimeSnapshot.status === 'running' ||
-    runtimeSnapshot.status === 'stopping'
+  const serverIsActive = isServerActive(runtimeSnapshot.status)
 
   const players = {
-    ...snapshot.players,
-    online: serverIsActive ? 1 : 0
+    online: serverIsActive ? runtimeSnapshot.players.online : 0,
+    max: runtimeSnapshot.players.max
   }
 
   const resources = {
-    cpuPercent: serverIsActive ? snapshot.resources.cpuPercent : 0,
-    memoryUsedMb: serverIsActive ? snapshot.resources.memoryUsedMb : 0,
-    memoryTotalMb: snapshot.resources.memoryTotalMb
+    ...runtimeSnapshot.resources,
+    cpuPercent: serverIsActive ? runtimeSnapshot.resources.cpuPercent : 0,
+    memoryUsedMb: serverIsActive ? runtimeSnapshot.resources.memoryUsedMb : 0
   }
 
   return {
     ...snapshot,
-    serverStatus: runtimeSnapshot.status,
+    serverStatus:
+      snapshot.serverStatus === 'not-configured' && runtimeSnapshot.status === 'stopped'
+        ? snapshot.serverStatus
+        : runtimeSnapshot.status,
     lastActiveLabel: serverIsActive ? 'Active now' : snapshot.lastActiveLabel,
-    currentHost: serverIsActive ? (snapshot.signedInUser?.name ?? 'You') : null,
+    currentHost: getCurrentHost(snapshot, serverIsActive),
     connectionAddress: getPrimaryConnectionAddress(runtimeSnapshot),
     players,
     resources,
@@ -210,6 +221,7 @@ function DashboardView({
   }
 
   const toggleDisabled =
+    dashboardSnapshot.serverStatus === 'not-configured' ||
     dashboardSnapshot.serverStatus === 'starting' ||
     dashboardSnapshot.serverStatus === 'stopping' ||
     dashboardSnapshot.serverStatus === 'crashed'
@@ -294,12 +306,14 @@ function DashboardView({
               <DashboardStatCard
                 icon="save"
                 label="Latest Save"
-                value={dashboardSnapshot.latestSaveLabel}
+                value={MOCK_LATEST_SAVE_LABEL}
+                badge="Mocked"
               />
               <DashboardStatCard
                 icon="info"
                 label="World Version"
-                value={`${dashboardSnapshot.minecraftVersion} (${dashboardSnapshot.serverType})`}
+                value={MOCK_WORLD_VERSION_LABEL}
+                badge="Mocked"
               />
               <div className="compact-stat-grid">
                 <section className="compact-stat-card">
