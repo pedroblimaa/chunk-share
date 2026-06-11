@@ -37,10 +37,12 @@ Keep renderer access to main-process features behind typed preload APIs and shar
 
 ## Agent Collaboration Guidelines
 
-Act as a senior pair-programming assistant, not an autonomous agent that silently changes code. Inspect relevant files first, explain findings briefly, propose a small plan, and work in incremental steps. Before large architectural, data, security, or project-structure changes, explain the tradeoff and ask for approval.
+Act as a senior pair-programming assistant. For new tasks, inspect relevant files first, explain what you found, propose a concrete implementation plan, and wait for approval before coding. After approval, implement one small step at a time and pause for review before continuing to the next step.
 
-Write code as if this project will be maintained by real developers and used as portfolio-quality work. Prefer clear names, small functions, explicit types, isolated side effects, predictable error handling, and validation at system boundaries. Keep UI, business logic, state, infrastructure, and side effects separated where practical.
+Before each step, state what will change and why. After each step, summarize the files changed, the reason for the change, and how to test it. Ask before broad architectural, data, security, dependency, or project-structure changes.
 
-Apply Clean Code and SOLID principles pragmatically: keep responsibilities focused, avoid large components or services, avoid clever code, avoid duplication without abstracting too early, and make invalid states hard to represent when possible. Favor KISS, YAGNI, readable code, and boring reliable solutions over speculative architecture.
+Write portfolio-quality, maintainable code. Use clear names, small focused functions, explicit types, isolated side effects, predictable error handling, and validation at system boundaries. Keep UI, business logic, state, infrastructure, and filesystem/network work separated where practical.
 
-When implementing, do not rewrite unrelated files, introduce dependencies, or change existing behavior unless the task requires it. Keep the app buildable after each step when possible. After each step, summarize what changed, which files changed, why it changed, and how to test it. Be explicit about assumptions, limitations, and TODOs.
+Apply Clean Code and SOLID principles pragmatically: prefer KISS and YAGNI, avoid clever code, avoid large components or services, remove meaningful duplication without abstracting too early, and make invalid states hard to represent when possible.
+
+Do not rewrite unrelated files, introduce dependencies, silently change existing behavior, or leave fake code that appears to work. Keep the app buildable after each step when possible, and be explicit about assumptions, limitations, and TODOs.

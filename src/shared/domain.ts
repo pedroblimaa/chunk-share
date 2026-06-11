@@ -26,6 +26,14 @@ export interface JavaConfig {
   isValidated: boolean
 }
 
+export type ServerSetupStatus = 'not-configured' | 'downloading' | 'ready' | 'error'
+
+export interface ServerSetupState {
+  status: ServerSetupStatus
+  errorMessage: string | null
+  completedAt: string | null
+}
+
 export type LatestWorld =
   | {
       status: 'empty'
@@ -55,6 +63,7 @@ export interface LocalState {
   player: Player | null
   serverConfig: ServerConfig
   javaConfig: JavaConfig
+  serverSetup: ServerSetupState
   localWorldVersion: number | null
   activeSessionId: string | null
   dirty: boolean

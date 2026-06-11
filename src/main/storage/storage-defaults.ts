@@ -3,7 +3,8 @@ import type {
   LatestWorld,
   LocalState,
   ServerConfig,
-  ServerLock
+  ServerLock,
+  ServerSetupState
 } from '../../shared/domain'
 
 export const DEFAULT_SERVER_CONFIG: ServerConfig = {
@@ -29,10 +30,17 @@ export const DEFAULT_SERVER_LOCK: ServerLock = {
   status: 'unlocked'
 }
 
+export const DEFAULT_SERVER_SETUP_STATE: ServerSetupState = {
+  status: 'not-configured',
+  errorMessage: null,
+  completedAt: null
+}
+
 export const DEFAULT_LOCAL_STATE: LocalState = {
   player: null,
   serverConfig: DEFAULT_SERVER_CONFIG,
   javaConfig: DEFAULT_JAVA_CONFIG,
+  serverSetup: DEFAULT_SERVER_SETUP_STATE,
   localWorldVersion: null,
   activeSessionId: null,
   dirty: false

@@ -1,8 +1,19 @@
 import './AppSidebar.css'
 
+import Button from '../Button/Button'
 import MaterialIcon from '../MaterialIcon/MaterialIcon'
 
-function AppSidebar(): React.JSX.Element {
+interface AppSidebarProps {
+  addServerDisabled?: boolean
+  addServerTitle?: string
+  onAddServer?: () => void
+}
+
+function AppSidebar({
+  addServerDisabled = false,
+  addServerTitle,
+  onAddServer
+}: AppSidebarProps): React.JSX.Element {
   return (
     <aside className="dashboard-sidebar">
       <div className="dashboard-brand">
@@ -31,10 +42,17 @@ function AppSidebar(): React.JSX.Element {
       </nav>
 
       <div className="dashboard-sidebar-footer">
-        <button className="secondary-sidebar-button" type="button">
-          <MaterialIcon name="add" />
-          <span>Add Server</span>
-        </button>
+        <Button
+          variant="secondary"
+          size="large"
+          fullWidth
+          icon="add"
+          disabled={addServerDisabled}
+          title={addServerTitle}
+          onClick={onAddServer}
+        >
+          Add Server
+        </Button>
       </div>
     </aside>
   )
