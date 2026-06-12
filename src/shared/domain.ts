@@ -1,4 +1,11 @@
-export type ServerStatus = 'not-configured' | 'stopped' | 'starting' | 'running' | 'crashed'
+export type ServerStatus =
+  | 'not-configured'
+  | 'stopped'
+  | 'starting'
+  | 'running'
+  | 'stopping'
+  | 'crashed'
+  | 'error'
 
 export type ServerType = 'vanilla' | 'paper' | 'fabric' | 'forge'
 

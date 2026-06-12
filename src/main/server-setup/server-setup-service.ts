@@ -5,7 +5,11 @@ import { Readable } from 'stream'
 import { pipeline } from 'stream/promises'
 import type { ReadableStream as NodeReadableStream } from 'stream/web'
 import type { LocalState, ServerConfig } from '../../shared/domain'
-import type { SetupVanillaServerInput } from '../../shared/server-setup'
+import {
+  ServerSetupProgressStep as Step,
+  type ServerSetupProgressEvent,
+  type SetupVanillaServerInput
+} from '../../shared/server-setup'
 import { saveServerSetupResult, saveServerSetupState } from '../storage/local-state-store'
 import {
   managedServerEulaFilePath,
@@ -19,34 +23,54 @@ import { resolveVanillaServerDownload } from './vanilla-version-resolver'
 const SERVER_JAR_TEMP_FILE_PATH = `${managedServerJarFilePath}.tmp`
 const DEFAULT_LEVEL_NAME = 'world'
 const DEFAULT_MOTD = 'ChunkShare Minecraft Server'
+type ServerSetupProgressListener = (event: ServerSetupProgressEvent) => void
 
-export async function setupVanillaServer(input: SetupVanillaServerInput): Promise<LocalState> {
+export async function setupVanillaServer(
+  input: SetupVanillaServerInput,
+  onProgress?: ServerSetupProgressListener
+): Promise<LocalState> {
   validateSetupInput(input)
 
   await markSetupDownloading()
 
   try {
-    const serverConfig = await prepareVanillaServer(input)
+    const serverConfig = await prepareVanillaServer(input, onProgress)
+    const localState = await markSetupReady(serverConfig)
+    onProgress?.({ step: Step.Ready })
 
-    return markSetupReady(serverConfig)
+    return localState
   } catch (error) {
     await removeTempServerJar()
-    await markSetupError(getErrorMessage(error))
+    const errorMessage = getErrorMessage(error)
+    await markSetupError(errorMessage)
     throw error
   }
 }
 
-async function prepareVanillaServer(input: SetupVanillaServerInput): Promise<ServerConfig> {
+async function prepareVanillaServer(
+  input: SetupVanillaServerInput,
+  onProgress?: ServerSetupProgressListener
+): Promise<ServerConfig> {
+  onProgress?.({ step: Step.CreatingFolder })
   await mkdir(managedServerFolderPath, { recursive: true })
 
+  onProgress?.({ step: Step.ResolvingVersion })
   const serverDownload = await resolveVanillaServerDownload(
     input.minecraftVersion,
     input.minecraftVersionMetadataUrl
   )
+
+  onProgress?.({ step: Step.DownloadingJar })
   await downloadServerJar(serverDownload.serverJarUrl)
+
+  onProgress?.({ step: Step.VerifyingJar })
   await verifyServerJar(serverDownload.size, serverDownload.sha1)
   await rename(SERVER_JAR_TEMP_FILE_PATH, managedServerJarFilePath)
+
+  onProgress?.({ step: Step.WritingProperties })
   await writeServerProperties(input)
+
+  onProgress?.({ step: Step.WritingEula })
   await writeAcceptedEula()
 
   return {

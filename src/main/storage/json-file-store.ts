@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto'
 import { mkdir, readFile, rename, writeFile } from 'fs/promises'
 import { dirname } from 'path'
 import { StorageError } from './storage-error'
@@ -45,7 +46,7 @@ export async function writeJsonFile<T>(
 
   await mkdir(dirname(filePath), { recursive: true })
 
-  const tempFilePath = `${filePath}.tmp`
+  const tempFilePath = `${filePath}.${process.pid}.${randomUUID()}.tmp`
   const json = `${JSON.stringify(value, null, 2)}\n`
 
   await writeFile(tempFilePath, json, 'utf-8')

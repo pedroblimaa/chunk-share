@@ -1,9 +1,9 @@
 .dashboard-stat-card {
   background: var(--color-surface-panel);
   border: 1px solid var(--color-border-panel);
-  border-radius: 12px;
-  min-height: 116px;
-  padding: 20px;
+  border-radius: 10px;
+  min-height: 104px;
+  padding: 16px;
   transition:
     border-color 180ms ease,
     transform 180ms ease;
@@ -15,14 +15,32 @@
 
 .stat-card-icon {
   color: var(--color-accent);
-  font-size: var(--font-size-icon-lg);
-  margin-bottom: 10px;
+  font-size: var(--font-size-icon-sm);
+}
+
+.dashboard-stat-card-heading {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
 }
 
 .dashboard-stat-card p {
   color: var(--color-text-secondary);
+  flex: 1;
   font-size: var(--font-size-small);
-  margin-bottom: 6px;
+  min-width: 0;
+}
+
+.dashboard-stat-card-badge {
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 999px;
+  color: var(--color-text-muted);
+  flex: 0 0 auto;
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-medium);
+  line-height: 1;
+  padding: 3px 7px;
 }
 
 .dashboard-stat-card strong {

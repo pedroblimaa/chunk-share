@@ -1,10 +1,10 @@
 .server-state-panel {
   background: var(--color-surface-panel);
   border: 1px solid var(--color-border-panel);
-  border-radius: 12px;
-  min-height: 260px;
+  border-radius: 10px;
+  min-height: 236px;
   overflow: hidden;
-  padding: 28px;
+  padding: 24px;
   position: relative;
   transition:
     border-color 220ms ease,
@@ -37,7 +37,7 @@
   color: var(--color-text-secondary);
   font-size: var(--font-size-action);
   font-weight: var(--font-weight-medium);
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
 .server-state-summary {
@@ -54,13 +54,13 @@
   color: var(--color-surface-muted);
   cursor: pointer;
   display: flex;
-  height: 72px;
+  height: 56px;
   justify-content: center;
   transition:
     border-color 220ms ease,
     color 220ms ease,
     transform 220ms ease;
-  width: 72px;
+  width: 56px;
 }
 
 .power-indicator:hover {
@@ -77,14 +77,31 @@
   outline-offset: 4px;
 }
 
+.power-indicator:disabled {
+  cursor: not-allowed;
+  opacity: 0.56;
+  transform: none;
+}
+
 .server-state-panel-running .power-indicator {
   border-color: var(--color-accent);
   color: var(--color-accent);
   transform: scale(1.03);
 }
 
+.server-state-panel-starting .power-indicator,
+.server-state-panel-stopping .power-indicator {
+  border-color: var(--color-warning);
+  color: var(--color-warning);
+}
+
+.server-state-panel-starting .power-indicator .material-symbols-outlined,
+.server-state-panel-stopping .power-indicator .material-symbols-outlined {
+  animation: server-state-icon-spin 900ms linear infinite;
+}
+
 .power-indicator .material-symbols-outlined {
-  font-size: var(--font-size-icon-xl);
+  font-size: var(--font-size-icon-lg);
 }
 
 .server-state-summary h3 {
@@ -97,27 +114,42 @@
 .server-state-summary p {
   color: var(--color-text-secondary);
   font-size: var(--font-size-console);
-  margin-top: 8px;
+  margin-top: 6px;
 }
 
 .resource-grid {
   display: grid;
-  gap: 16px;
+  gap: 14px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  margin-top: 44px;
+  margin-top: 28px;
 }
 
 .resource-meter {
   background: var(--color-background-console);
   border: 1px solid var(--color-border-subtle);
-  border-radius: 4px;
-  padding: 16px;
+  border-radius: 6px;
+  padding: 14px;
 }
 
 .resource-meter p {
+  align-items: center;
   color: var(--color-text-secondary);
+  display: flex;
   font-size: var(--font-size-small);
+  gap: 8px;
+  justify-content: space-between;
   margin-bottom: 6px;
+}
+
+.resource-meter-badge {
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 999px;
+  color: var(--color-text-muted);
+  flex: 0 0 auto;
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-medium);
+  line-height: 1;
+  padding: 3px 7px;
 }
 
 .resource-meter strong {
@@ -152,7 +184,7 @@
   }
 
   .server-state-panel {
-    padding: 22px;
+    padding: 20px;
   }
 
   .server-state-summary h3 {
@@ -171,5 +203,11 @@
 
   100% {
     transform: translateY(0);
+  }
+}
+
+@keyframes server-state-icon-spin {
+  to {
+    transform: rotate(360deg);
   }
 }

@@ -8,5 +8,6 @@ out
 .mock-cloud-test/
 .chunkshare-server/
 .chunkshare-server-test/
+.chunkshare-backups/
 localState.json
 localState.test.json
