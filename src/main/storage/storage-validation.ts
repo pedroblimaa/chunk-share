@@ -1,6 +1,6 @@
 import type {
   JavaConfig,
-  LatestWorld,
+  LatestSave,
   LocalState,
   Player,
   ServerConfig,
@@ -77,21 +77,19 @@ export function isJavaConfig(value: unknown): value is JavaConfig {
   )
 }
 
-export function isLatestWorld(value: unknown): value is LatestWorld {
-  if (!isRecord(value)) {
-    return false
-  }
-
-  if (value.status === 'empty') {
-    return Object.keys(value).length === 1
+export function isLatestSave(value: unknown): value is LatestSave {
+  if (value === null) {
+    return true
   }
 
   return (
-    value.status === 'ready' &&
-    isPositiveInteger(value.worldVersion) &&
+    isRecord(value) &&
+    isPositiveInteger(value.saveVersion) &&
     isString(value.fileName) &&
     isString(value.uploadedAt) &&
-    isPlayer(value.uploadedBy)
+    isPlayer(value.uploadedBy) &&
+    isString(value.minecraftVersion) &&
+    isServerType(value.serverType)
   )
 }
 
@@ -108,7 +106,7 @@ export function isServerLock(value: unknown): value is ServerLock {
     value.status === 'locked' &&
     isPlayer(value.lockedBy) &&
     isString(value.sessionId) &&
-    isPositiveInteger(value.worldVersion) &&
+    isPositiveInteger(value.saveVersion) &&
     isString(value.startedAt) &&
     isString(value.lastHeartbeat)
   )
@@ -135,14 +133,10 @@ function hasLocalStateBaseFields(value: StorageRecord): boolean {
     (value.player === null || isPlayer(value.player)) &&
     isServerConfig(value.serverConfig) &&
     isJavaConfig(value.javaConfig) &&
-    isNullablePositiveInteger(value.localWorldVersion) &&
+    isNullablePositiveInteger(value.localSaveVersion) &&
     isNullableString(value.activeSessionId) &&
     typeof value.dirty === 'boolean'
   )
-}
-
-export function isLegacyLocalState(value: unknown): value is Omit<LocalState, 'serverSetup'> {
-  return isRecord(value) && !('serverSetup' in value) && hasLocalStateBaseFields(value)
 }
 
 export function isLocalState(value: unknown): value is LocalState {

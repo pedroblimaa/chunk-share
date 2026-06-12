@@ -1,6 +1,6 @@
 import type {
   JavaConfig,
-  LatestWorld,
+  LatestSave,
   LocalState,
   ServerConfig,
   ServerLock,
@@ -22,9 +22,7 @@ export const DEFAULT_JAVA_CONFIG: JavaConfig = {
   isValidated: false
 }
 
-export const DEFAULT_LATEST_WORLD: LatestWorld = {
-  status: 'empty'
-}
+export const DEFAULT_LATEST_SAVE: LatestSave = null
 
 export const DEFAULT_SERVER_LOCK: ServerLock = {
   status: 'unlocked'
@@ -41,7 +39,7 @@ export const DEFAULT_LOCAL_STATE: LocalState = {
   serverConfig: DEFAULT_SERVER_CONFIG,
   javaConfig: DEFAULT_JAVA_CONFIG,
   serverSetup: DEFAULT_SERVER_SETUP_STATE,
-  localWorldVersion: null,
+  localSaveVersion: null,
   activeSessionId: null,
   dirty: false
 }
