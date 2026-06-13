@@ -12,6 +12,7 @@ interface ServerHeaderProps {
   connectionDetailsOpen?: boolean
   isAnimating: boolean
   toggleDisabled?: boolean
+  toggleButtonTooltip?: string
   copyConnectionDetailsLabel?: string
   copyConnectionDetailsStateClass?: string
   onCopyConnectionAddress: () => void
@@ -57,6 +58,7 @@ function ServerHeader({
   connectionDetailsOpen = false,
   isAnimating,
   toggleDisabled = false,
+  toggleButtonTooltip,
   copyConnectionDetailsLabel = 'Copy Connection',
   copyConnectionDetailsStateClass = '',
   onCopyConnectionAddress,
@@ -137,6 +139,7 @@ function ServerHeader({
             isAnimating ? ' is-animating' : ''
           }${serverIsBusy ? ' is-busy' : ''}`}
           disabled={toggleDisabled}
+          title={toggleButtonTooltip}
           type="button"
           onClick={onToggleServer}
         >

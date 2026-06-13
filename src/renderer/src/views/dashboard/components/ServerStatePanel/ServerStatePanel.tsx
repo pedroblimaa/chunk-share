@@ -8,6 +8,7 @@ interface ServerStatePanelProps {
   lastActiveLabel: string
   snapshot: DashboardSnapshot
   toggleDisabled?: boolean
+  toggleButtonTooltip?: string
   onToggleServer: () => void
 }
 
@@ -23,6 +24,7 @@ function ServerStatePanel({
   lastActiveLabel,
   snapshot,
   toggleDisabled = false,
+  toggleButtonTooltip,
   onToggleServer
 }: ServerStatePanelProps): React.JSX.Element {
   const syncView = getServerSyncView(snapshot.syncStatus)
@@ -45,6 +47,7 @@ function ServerStatePanel({
             type="button"
             aria-label={snapshot.serverStatus === 'running' ? 'Stop server' : 'Start server'}
             disabled={toggleDisabled}
+            title={toggleButtonTooltip}
             onClick={onToggleServer}
           >
             <MaterialIcon name="power_settings_new" />

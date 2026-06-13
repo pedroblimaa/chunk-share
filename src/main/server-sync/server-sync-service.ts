@@ -138,7 +138,7 @@ async function updateAvailableRule({
     return null
   }
 
-  return createDecision(ServerSyncStatus.UpdateAvailable, true)
+  return createDecision(ServerSyncStatus.UpdateAvailable, false)
 }
 
 async function localNewerRule({

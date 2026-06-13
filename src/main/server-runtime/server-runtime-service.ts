@@ -2,6 +2,7 @@ import { spawn, type ChildProcessWithoutNullStreams } from 'child_process'
 import { readFile, stat } from 'fs/promises'
 import { networkInterfaces } from 'os'
 import { join } from 'path'
+import type { ServerSyncSnapshot, ServerSyncStatus } from '../../shared/server-sync'
 import type {
   ServerConnectionAddress,
   ServerRuntimeEvent,
@@ -12,7 +13,7 @@ import type {
   ServerRuntimeStatus
 } from '../../shared/server-runtime'
 import { publishInitialServerSave } from '../storage/server-save-publisher'
-import { readLocalState } from '../storage/local-state-store'
+import { getServerSyncSnapshot } from '../server-sync/server-sync-service'
 import { managedServerFolderPath, managedServerJarFilePath } from '../storage/storage-paths'
 import { ServerRuntimeError } from './server-runtime-error'
 
@@ -71,11 +72,14 @@ export async function startMinecraftServer(): Promise<ServerRuntimeSnapshot> {
     throw new ServerRuntimeError('Minecraft server is already starting, running, or stopping.')
   }
 
-  const localState = await readLocalState()
+  const storageSnapshot = await getServerSyncSnapshot()
+  const { localState, serverSync } = storageSnapshot
 
   if (localState.serverSetup.status !== 'ready') {
     throw new ServerRuntimeError('Server setup must be completed before starting Minecraft.')
   }
+
+  assertServerSyncAllowsStart(serverSync)
 
   const serverFolderPath = localState.serverConfig.serverFolderPath ?? managedServerFolderPath
 
@@ -255,6 +259,34 @@ function getPublishErrorMessage(error: unknown): string {
   }
 
   return 'Unable to publish initial server save.'
+}
+
+function assertServerSyncAllowsStart(serverSync: ServerSyncSnapshot): void {
+  if (serverSync.isStartAllowed) {
+    return
+  }
+
+  throw new ServerRuntimeError(getSyncStartBlockedMessage(serverSync))
+}
+
+function getSyncStartBlockedMessage(serverSync: ServerSyncSnapshot): string {
+  const blockedMessages: Record<ServerSyncStatus, string> = {
+    ready: 'Server is ready to start.',
+    'no-cloud-save': 'Server is ready to start because no shared save has been published yet.',
+    'update-available':
+      'A newer shared save is available. Update the local server before starting.',
+    'locked-by-other': `This server is already hosted by ${
+      serverSync.lockedBy?.displayName ?? 'another user'
+    }.`,
+    'stale-lock': 'The previous host lock is stale. Starting is allowed.',
+    incompatible: 'The shared save does not match this local server version or type.',
+    'local-newer': 'The local save is newer than the shared save. Review it before starting.',
+    'missing-cloud-file': serverSync.latestSave
+      ? `The shared save file ${serverSync.latestSave.fileName} is missing.`
+      : 'The shared save file is missing.'
+  }
+
+  return blockedMessages[serverSync.status]
 }
 
 function emitRuntimeEvent(logLine?: ServerRuntimeLogLine): void {

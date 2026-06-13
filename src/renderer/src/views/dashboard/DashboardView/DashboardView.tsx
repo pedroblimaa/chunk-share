@@ -5,7 +5,7 @@ import type { DashboardSnapshot } from '../../../../../shared/dashboard'
 import type { ServerRuntimeSnapshot } from '../../../../../shared/server-runtime'
 import AppSidebar from '../../../components/shared/AppSidebar/AppSidebar'
 import MaterialIcon from '../../../components/shared/MaterialIcon/MaterialIcon'
-import { formatLatestSaveLabel } from '../../../utils/server-sync-ui'
+import { formatLatestSaveLabel, getServerSyncView } from '../../../utils/server-sync-ui'
 import ConsoleOutput from '../components/ConsoleOutput/ConsoleOutput'
 import DashboardStatCard from '../components/DashboardStatCard/DashboardStatCard'
 import ServerHeader from '../components/ServerHeader/ServerHeader'
@@ -242,14 +242,21 @@ function DashboardView({
     setConnectionDetailsOpen(false)
   }
 
+  const syncView = getServerSyncView(dashboardSnapshot.syncStatus)
+  const syncBlocksStart =
+    dashboardSnapshot.serverStatus !== 'running' && !dashboardSnapshot.syncStatus.isStartAllowed
   const toggleDisabled =
     dashboardSnapshot.serverStatus === 'not-configured' ||
     dashboardSnapshot.serverStatus === 'starting' ||
     dashboardSnapshot.serverStatus === 'stopping' ||
-    dashboardSnapshot.serverStatus === 'crashed'
+    dashboardSnapshot.serverStatus === 'crashed' ||
+    syncBlocksStart
+
+  const toggleButtonTooltip = syncBlocksStart ? syncView.message : undefined
   const connectionAddressDetails = runtimeSnapshot?.connectionAddresses
     .map((connectionAddress) => `${connectionAddress.label}: ${connectionAddress.address}`)
     .join(', ')
+
   const errorCopyButtonLabel = COPY_STATUS_LABELS[errorCopyStatus]
   const errorCopyButtonStateClass = errorCopyStatus === 'idle' ? '' : ` is-${errorCopyStatus}`
   const addressCopyButtonLabel = COPY_STATUS_LABELS[addressCopyStatus]
@@ -303,6 +310,7 @@ function DashboardView({
             connectionDetailsOpen={connectionDetailsOpen}
             isAnimating={isServerToggleAnimating}
             toggleDisabled={toggleDisabled}
+            toggleButtonTooltip={toggleButtonTooltip}
             copyConnectionDetailsLabel={addressCopyButtonLabel}
             copyConnectionDetailsStateClass={addressCopyButtonStateClass}
             onCopyConnectionAddress={copyConnectionAddress}
@@ -317,6 +325,7 @@ function DashboardView({
               lastActiveLabel={lastActiveLabel}
               snapshot={dashboardSnapshot}
               toggleDisabled={toggleDisabled}
+              toggleButtonTooltip={toggleButtonTooltip}
               onToggleServer={handleServerToggle}
             />
 
