@@ -44,7 +44,6 @@ export interface DashboardSnapshot {
   lastActiveLabel: string
   currentHost: string | null
   latestSaveLabel: string
-  worldVersion: number
   connectionAddress: string | null
   players: PlayerSummary
   resources: ServerResourceUsage

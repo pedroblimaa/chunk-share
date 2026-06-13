@@ -30,9 +30,6 @@ const COPY_STATUS_ICONS: Record<CopyStatus, string> = {
   idle: 'content_copy'
 }
 
-const MOCK_LATEST_SAVE_LABEL = '2 hours ago'
-const MOCK_WORLD_VERSION_LABEL = '1.21.1'
-
 function getPrimaryConnectionAddress(runtimeSnapshot: ServerRuntimeSnapshot): string | null {
   const addresses = runtimeSnapshot.connectionAddresses
   const address = addresses.find((a) => a.isPrimary)?.address ?? addresses[0]?.address
@@ -92,6 +89,18 @@ function DashboardView({
   const [isServerToggleAnimating, setIsServerToggleAnimating] = useState(false)
   const [connectionDetailsOpen, setConnectionDetailsOpen] = useState(false)
 
+  async function refreshDashboardSnapshot(
+    nextRuntimeSnapshot: ServerRuntimeSnapshot
+  ): Promise<void> {
+    try {
+      const nextDashboardSnapshot = await window.chunkShare.dashboard.getSnapshot()
+      setDashboardSnapshot(applyRuntimeSnapshot(nextDashboardSnapshot, nextRuntimeSnapshot))
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Unable to refresh dashboard.'
+      setRuntimeErrorMessage(message)
+    }
+  }
+
   useEffect(() => {
     let isMounted = true
 
@@ -128,6 +137,10 @@ function DashboardView({
       setDashboardSnapshot((currentSnapshot) =>
         applyRuntimeSnapshot(currentSnapshot, runtimeEvent.snapshot)
       )
+
+      if (runtimeEvent.snapshot.status === 'stopped') {
+        void refreshDashboardSnapshot(runtimeEvent.snapshot)
+      }
     })
   }, [])
 
@@ -170,12 +183,12 @@ function DashboardView({
   async function handleServerToggle(): Promise<void> {
     setRuntimeErrorMessage(null)
     setIsServerToggleAnimating(true)
+    const serverWasRunning = dashboardSnapshot.serverStatus === 'running'
 
     try {
-      const nextRuntimeSnapshot =
-        dashboardSnapshot.serverStatus === 'running'
-          ? await window.chunkShare.serverRuntime.stop()
-          : await window.chunkShare.serverRuntime.start()
+      const nextRuntimeSnapshot = serverWasRunning
+        ? await window.chunkShare.serverRuntime.stop()
+        : await window.chunkShare.serverRuntime.start()
 
       setRuntimeSnapshot(nextRuntimeSnapshot)
       setDashboardSnapshot((currentSnapshot) =>
@@ -306,14 +319,12 @@ function DashboardView({
               <DashboardStatCard
                 icon="save"
                 label="Latest Save"
-                value={MOCK_LATEST_SAVE_LABEL}
-                badge="Mocked"
+                value={dashboardSnapshot.latestSaveLabel}
               />
               <DashboardStatCard
                 icon="info"
                 label="World Version"
-                value={MOCK_WORLD_VERSION_LABEL}
-                badge="Mocked"
+                value={dashboardSnapshot.minecraftVersion}
               />
               <div className="compact-stat-grid">
                 <section className="compact-stat-card">

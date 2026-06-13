@@ -17,7 +17,7 @@ export async function getStorageSnapshot(): Promise<StorageSnapshot> {
   ])
 
   return {
-    latestWorld: mockCloudSnapshot.latestWorld,
+    latestSave: mockCloudSnapshot.latestSave,
     serverLock: mockCloudSnapshot.serverLock,
     localState: localStateSnapshot.localState
   }

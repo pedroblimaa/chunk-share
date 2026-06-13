@@ -9,7 +9,7 @@ const LOCAL_STATE_FILE_NAME = process.env.CHUNK_SHARE_LOCAL_STATE_FILE ?? 'local
 
 export const mockCloudFolderPath = join(PROJECT_ROOT, MOCK_CLOUD_FOLDER_NAME)
 export const mockCloudVersionsFolderPath = join(mockCloudFolderPath, 'versions')
-export const latestWorldFilePath = join(mockCloudFolderPath, 'latest.json')
+export const latestSaveFilePath = join(mockCloudFolderPath, 'latest.json')
 export const serverLockFilePath = join(mockCloudFolderPath, 'lock.json')
 export const managedServerFolderPath = join(PROJECT_ROOT, SERVER_FOLDER_NAME)
 export const managedServerBackupsFolderPath = join(PROJECT_ROOT, SERVER_BACKUPS_FOLDER_NAME)

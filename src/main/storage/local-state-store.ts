@@ -7,13 +7,12 @@ import {
 } from './storage-defaults'
 import { StorageError } from './storage-error'
 import { localStateFilePath } from './storage-paths'
-import { isLegacyLocalState, isLocalState, isServerConfig } from './storage-validation'
+import { isLocalState, isServerConfig } from './storage-validation'
 
-type StoredLocalState = LocalState | Omit<LocalState, 'serverSetup'>
 type LocalStateChanges = Partial<
   Pick<
     LocalState,
-    'activeSessionId' | 'dirty' | 'localWorldVersion' | 'serverConfig' | 'serverSetup'
+    'activeSessionId' | 'dirty' | 'localSaveVersion' | 'serverConfig' | 'serverSetup'
   >
 >
 
@@ -34,24 +33,7 @@ export async function readLocalStateSnapshot(): Promise<LocalStateSnapshot> {
 }
 
 export async function readLocalState(): Promise<LocalState> {
-  const localState = await readJsonFile<StoredLocalState>(
-    localStateFilePath,
-    DEFAULT_LOCAL_STATE,
-    isStoredLocalState
-  )
-
-  if (isLocalState(localState)) {
-    return localState
-  }
-
-  const migratedLocalState: LocalState = {
-    ...localState,
-    serverSetup: DEFAULT_SERVER_SETUP_STATE
-  }
-
-  await writeLocalState(migratedLocalState)
-
-  return migratedLocalState
+  return readJsonFile(localStateFilePath, DEFAULT_LOCAL_STATE, isLocalState)
 }
 
 export function writeLocalState(localState: LocalState): Promise<void> {
@@ -81,18 +63,18 @@ export async function saveServerSetupResult(
   return saveLocalStateChanges({ serverConfig, serverSetup })
 }
 
+export function saveLocalSaveVersion(localSaveVersion: number | null): Promise<LocalState> {
+  return saveLocalStateChanges({ localSaveVersion })
+}
+
 export function resetConfiguredServer(): Promise<LocalState> {
   return saveLocalStateChanges({
     activeSessionId: null,
     dirty: false,
-    localWorldVersion: null,
+    localSaveVersion: null,
     serverConfig: DEFAULT_SERVER_CONFIG,
     serverSetup: DEFAULT_SERVER_SETUP_STATE
   })
-}
-
-function isStoredLocalState(value: unknown): value is StoredLocalState {
-  return isLocalState(value) || isLegacyLocalState(value)
 }
 
 async function saveLocalStateChanges(changes: LocalStateChanges): Promise<LocalState> {

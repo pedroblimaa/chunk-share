@@ -41,17 +41,14 @@ export interface ServerSetupState {
   completedAt: string | null
 }
 
-export type LatestWorld =
-  | {
-      status: 'empty'
-    }
-  | {
-      status: 'ready'
-      worldVersion: number
-      fileName: string
-      uploadedAt: string
-      uploadedBy: Player
-    }
+export type LatestSave = {
+  saveVersion: number
+  fileName: string
+  uploadedAt: string
+  uploadedBy: Player
+  minecraftVersion: MinecraftVersion
+  serverType: ServerType
+} | null
 
 export type ServerLock =
   | {
@@ -61,7 +58,7 @@ export type ServerLock =
       status: 'locked'
       lockedBy: Player
       sessionId: string
-      worldVersion: number
+      saveVersion: number
       startedAt: string
       lastHeartbeat: string
     }
@@ -71,13 +68,13 @@ export interface LocalState {
   serverConfig: ServerConfig
   javaConfig: JavaConfig
   serverSetup: ServerSetupState
-  localWorldVersion: number | null
+  localSaveVersion: number | null
   activeSessionId: string | null
   dirty: boolean
 }
 
 export interface StorageSnapshot {
-  latestWorld: LatestWorld
+  latestSave: LatestSave
   serverLock: ServerLock
   localState: LocalState
 }

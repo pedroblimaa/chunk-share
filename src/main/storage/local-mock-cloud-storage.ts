@@ -1,17 +1,17 @@
 import { mkdir } from 'fs/promises'
-import type { LatestWorld, ServerLock } from '../../shared/domain'
+import type { LatestSave, ServerLock } from '../../shared/domain'
 import { readJsonFile, writeJsonFile } from './json-file-store'
-import { DEFAULT_LATEST_WORLD, DEFAULT_SERVER_LOCK } from './storage-defaults'
+import { DEFAULT_LATEST_SAVE, DEFAULT_SERVER_LOCK } from './storage-defaults'
 import {
-  latestWorldFilePath,
+  latestSaveFilePath,
   mockCloudFolderPath,
   mockCloudVersionsFolderPath,
   serverLockFilePath
 } from './storage-paths'
-import { isLatestWorld, isServerLock } from './storage-validation'
+import { isLatestSave, isServerLock } from './storage-validation'
 
 export interface LocalMockCloudSnapshot {
-  latestWorld: LatestWorld
+  latestSave: LatestSave
   serverLock: ServerLock
   paths: {
     cloudFolder: string
@@ -22,7 +22,7 @@ export interface LocalMockCloudSnapshot {
 export async function ensureLocalMockCloud(): Promise<void> {
   await mkdir(mockCloudFolderPath, { recursive: true })
   await mkdir(mockCloudVersionsFolderPath, { recursive: true })
-  await readLatestWorld()
+  await readLatestSave()
   await readServerLock()
 }
 
@@ -30,7 +30,7 @@ export async function readLocalMockCloudSnapshot(): Promise<LocalMockCloudSnapsh
   await ensureLocalMockCloud()
 
   return {
-    latestWorld: await readLatestWorld(),
+    latestSave: await readLatestSave(),
     serverLock: await readServerLock(),
     paths: {
       cloudFolder: mockCloudFolderPath,
@@ -39,12 +39,12 @@ export async function readLocalMockCloudSnapshot(): Promise<LocalMockCloudSnapsh
   }
 }
 
-export function readLatestWorld(): Promise<LatestWorld> {
-  return readJsonFile(latestWorldFilePath, DEFAULT_LATEST_WORLD, isLatestWorld)
+export function readLatestSave(): Promise<LatestSave> {
+  return readJsonFile(latestSaveFilePath, DEFAULT_LATEST_SAVE, isLatestSave)
 }
 
-export function writeLatestWorld(latestWorld: LatestWorld): Promise<void> {
-  return writeJsonFile(latestWorldFilePath, latestWorld, isLatestWorld)
+export function writeLatestSave(latestSave: LatestSave): Promise<void> {
+  return writeJsonFile(latestSaveFilePath, latestSave, isLatestSave)
 }
 
 export function readServerLock(): Promise<ServerLock> {
