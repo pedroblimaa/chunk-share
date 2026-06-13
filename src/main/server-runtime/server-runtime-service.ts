@@ -1,7 +1,9 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'child_process'
+import { randomUUID } from 'crypto'
 import { readFile, stat } from 'fs/promises'
 import { networkInterfaces } from 'os'
 import { join } from 'path'
+import { ServerLockStatus, type Player, type StorageSnapshot } from '../../shared/domain'
 import type { ServerSyncSnapshot, ServerSyncStatus } from '../../shared/server-sync'
 import type {
   ServerConnectionAddress,
@@ -14,7 +16,10 @@ import type {
 } from '../../shared/server-runtime'
 import { publishInitialServerSave } from '../storage/server-save-publisher'
 import { getServerSyncSnapshot } from '../server-sync/server-sync-service'
+import { writeServerLock } from '../storage/local-mock-cloud-storage'
+import { saveActiveSessionId } from '../storage/local-state-store'
 import { managedServerFolderPath, managedServerJarFilePath } from '../storage/storage-paths'
+import { getSignedInMockUser } from '../mock-dashboard'
 import { ServerRuntimeError } from './server-runtime-error'
 
 type ServerRuntimeListener = (event: ServerRuntimeEvent) => void
@@ -38,6 +43,7 @@ let serverProcess: ChildProcessWithoutNullStreams | null = null
 let stopTimeout: NodeJS.Timeout | null = null
 let playerPollInterval: NodeJS.Timeout | null = null
 let userRequestedStop = false
+let activeRuntimeSessionId: string | null = null
 let status: ServerRuntimeStatus = 'stopped'
 let errorMessage: string | null = null
 let logs: ServerRuntimeLogLine[] = []
@@ -86,6 +92,8 @@ export async function startMinecraftServer(): Promise<ServerRuntimeSnapshot> {
   await assertFolderExists(serverFolderPath)
   await assertFileExists(managedServerJarFilePath)
 
+  activeRuntimeSessionId = await createHostingLock(storageSnapshot)
+
   status = 'starting'
   errorMessage = null
   logs = []
@@ -117,6 +125,7 @@ function attachServerProcessListeners(minecraftProcess: ChildProcessWithoutNullS
   minecraftProcess.once('error', (error) => {
     serverProcess = null
     userRequestedStop = false
+    void clearHostingLockAfterStartFailure()
     finishWithError(getProcessStartErrorMessage(error))
   })
 
@@ -259,6 +268,67 @@ function getPublishErrorMessage(error: unknown): string {
   }
 
   return 'Unable to publish initial server save.'
+}
+
+async function createHostingLock(storageSnapshot: StorageSnapshot): Promise<string> {
+  const sessionId = randomUUID()
+  const now = new Date().toISOString()
+  const saveVersion =
+    storageSnapshot.latestSave?.saveVersion ?? storageSnapshot.localState.localSaveVersion ?? 0
+
+  try {
+    await writeServerLock({
+      status: ServerLockStatus.Locked,
+      lockedBy: getHostingPlayer(storageSnapshot),
+      sessionId,
+      saveVersion,
+      startedAt: now,
+      lastHeartbeat: now
+    })
+    await saveActiveSessionId(sessionId)
+  } catch (error) {
+    await writeServerLock({
+      status: ServerLockStatus.Unlocked
+    }).catch(() => undefined)
+
+    throw error
+  }
+
+  return sessionId
+}
+
+async function clearHostingLockAfterStartFailure(): Promise<void> {
+  if (!activeRuntimeSessionId) {
+    return
+  }
+
+  await writeServerLock({ status: ServerLockStatus.Unlocked })
+  await saveActiveSessionId(null)
+
+  activeRuntimeSessionId = null
+}
+
+function getHostingPlayer(storageSnapshot: StorageSnapshot): Player {
+  if (storageSnapshot.localState.player) {
+    return storageSnapshot.localState.player
+  }
+
+  const signedInUser = getSignedInMockUser()
+  if (signedInUser) {
+    return {
+      id: signedInUser.id,
+      displayName: signedInUser.name,
+      email: signedInUser.email,
+      avatarInitials: signedInUser.avatarInitials
+    }
+  }
+
+  return {
+    id: 'local-host',
+    displayName: 'Local Host',
+    email: 'local@chunkshare.local',
+    avatarInitials: 'LH'
+  }
 }
 
 function assertServerSyncAllowsStart(serverSync: ServerSyncSnapshot): void {

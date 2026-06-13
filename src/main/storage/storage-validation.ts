@@ -30,6 +30,10 @@ function isPositiveInteger(value: unknown): value is number {
   return Number.isSafeInteger(value) && Number(value) > 0
 }
 
+function isNonNegativeInteger(value: unknown): value is number {
+  return Number.isSafeInteger(value) && Number(value) >= 0
+}
+
 function isNullablePositiveInteger(value: unknown): value is number | null {
   return value === null || isPositiveInteger(value)
 }
@@ -107,7 +111,7 @@ export function isServerLock(value: unknown): value is ServerLock {
     value.status === ServerLockStatus.Locked &&
     isPlayer(value.lockedBy) &&
     isString(value.sessionId) &&
-    isPositiveInteger(value.saveVersion) &&
+    isNonNegativeInteger(value.saveVersion) &&
     isString(value.startedAt) &&
     isString(value.lastHeartbeat)
   )
