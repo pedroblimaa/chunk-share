@@ -14,7 +14,7 @@ import type {
   ServerRuntimeSnapshot,
   ServerRuntimeStatus
 } from '../../shared/server-runtime'
-import { publishInitialServerSave } from '../storage/server-save-publisher'
+import { publishServerSave } from '../storage/server-save-publisher'
 import { getServerSyncSnapshot } from '../server-sync/server-sync-service'
 import { writeServerLock } from '../storage/local-mock-cloud-storage'
 import { saveActiveSessionId } from '../storage/local-state-store'
@@ -149,7 +149,7 @@ async function handleServerProcessClose(exitCode: number | null): Promise<void> 
   players = { ...players, online: 0 }
 
   if (userRequestedStop && exitCode === 0) {
-    await publishInitialSaveAfterCleanStop()
+    await publishSaveAfterCleanStop()
     return
   }
 
@@ -161,15 +161,28 @@ async function handleServerProcessClose(exitCode: number | null): Promise<void> 
   emitRuntimeEvent()
 }
 
-async function publishInitialSaveAfterCleanStop(): Promise<void> {
-  addLogLine('ChunkShare', 'Publishing initial server save.')
+async function publishSaveAfterCleanStop(): Promise<void> {
+  addLogLine('ChunkShare', 'Publishing server save.')
 
   try {
-    await publishInitialServerSave()
+    const publishResult = await publishServerSave()
     userRequestedStop = false
     status = 'stopped'
     errorMessage = null
-    addLogLine('ChunkShare', 'Initial server save published.', 'success')
+    addLogLine(
+      'ChunkShare',
+      `Server save v${publishResult.latestSave.saveVersion} published.`,
+      'success'
+    )
+
+    if (publishResult.cleanupError) {
+      addLogLine(
+        'ChunkShare',
+        `Server save published, but old save cleanup failed: ${publishResult.cleanupError.message}`,
+        'warning'
+      )
+    }
+
     emitRuntimeEvent()
   } catch (error) {
     userRequestedStop = false
@@ -264,10 +277,10 @@ function getProcessStartErrorMessage(error: Error): string {
 
 function getPublishErrorMessage(error: unknown): string {
   if (error instanceof Error) {
-    return `Unable to publish initial server save: ${error.message}`
+    return `Unable to publish server save: ${error.message}`
   }
 
-  return 'Unable to publish initial server save.'
+  return 'Unable to publish server save.'
 }
 
 async function createHostingLock(storageSnapshot: StorageSnapshot): Promise<string> {
