@@ -4,6 +4,7 @@ import type { KeyboardEvent } from 'react'
 import type { ServerStatus } from '../../../../../../shared/dashboard'
 import type { ServerSyncSnapshot } from '../../../../../../shared/server-sync'
 import MaterialIcon from '../../../../components/shared/MaterialIcon/MaterialIcon'
+import { getServerSyncView } from '../../../../utils/server-sync-ui'
 
 export interface ServerCardSummary {
   id: string
@@ -53,6 +54,8 @@ function ServerCard({
   onDelete,
   onOpen
 }: ServerCardProps): React.JSX.Element {
+  const syncView = getServerSyncView(server.syncStatus)
+
   function openFromKeyboard(event: KeyboardEvent): void {
     if (!isOpenKey(event)) {
       return
@@ -82,6 +85,10 @@ function ServerCard({
           <span className="server-version-pill">
             <MaterialIcon name="sell" />
             Vanilla {server.minecraftVersion}
+          </span>
+          <span className={`server-sync-pill server-sync-pill-${syncView.tone}`}>
+            <MaterialIcon name="sync" />
+            {syncView.label}
           </span>
         </div>
 

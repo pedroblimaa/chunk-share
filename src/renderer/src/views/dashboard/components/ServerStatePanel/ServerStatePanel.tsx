@@ -2,6 +2,7 @@ import './ServerStatePanel.css'
 
 import type { DashboardSnapshot } from '../../../../../../shared/dashboard'
 import MaterialIcon from '../../../../components/shared/MaterialIcon/MaterialIcon'
+import { getServerSyncView } from '../../../../utils/server-sync-ui'
 
 interface ServerStatePanelProps {
   lastActiveLabel: string
@@ -24,6 +25,7 @@ function ServerStatePanel({
   toggleDisabled = false,
   onToggleServer
 }: ServerStatePanelProps): React.JSX.Element {
+  const syncView = getServerSyncView(snapshot.syncStatus)
   const memoryPercent =
     snapshot.resources.memoryTotalMb === 0
       ? 0
@@ -50,6 +52,10 @@ function ServerStatePanel({
           <div>
             <h3>{formatState(snapshot.serverStatus)}</h3>
             <p>Last active: {lastActiveLabel}</p>
+            <p className={`server-sync-status server-sync-status-${syncView.tone}`}>
+              <MaterialIcon name="sync" />
+              <span>{syncView.label}</span>
+            </p>
           </div>
         </div>
 

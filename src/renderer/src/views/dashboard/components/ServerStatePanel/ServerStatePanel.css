@@ -117,6 +117,32 @@
   margin-top: 6px;
 }
 
+.server-sync-status {
+  align-items: center;
+  display: flex;
+  gap: 6px;
+}
+
+.server-sync-status .material-symbols-outlined {
+  font-size: var(--font-size-body);
+}
+
+.server-sync-status-success {
+  color: var(--color-accent);
+}
+
+.server-sync-status-warning {
+  color: var(--color-warning);
+}
+
+.server-sync-status-danger {
+  color: #ffb4b4;
+}
+
+.server-sync-status-neutral {
+  color: var(--color-text-muted);
+}
+
 .resource-grid {
   display: grid;
   gap: 14px;
