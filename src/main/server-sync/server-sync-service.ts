@@ -132,13 +132,14 @@ async function missingCloudFileRule({
 
 async function updateAvailableRule({
   latestSave,
-  localSaveVersion
+  localSaveVersion,
+  localState
 }: ServerSyncRuleContext): Promise<ServerSyncDecision | null> {
   if (!latestSave || latestSave.saveVersion <= localSaveVersion) {
     return null
   }
 
-  return createDecision(ServerSyncStatus.UpdateAvailable, false)
+  return createDecision(ServerSyncStatus.UpdateAvailable, !localState.dirty)
 }
 
 async function localNewerRule({

@@ -3,7 +3,7 @@ import { join } from 'path'
 import type { ServerConfig, StorageSnapshot } from '../../shared/domain'
 import { getServerSyncSnapshot } from '../server-sync/server-sync-service'
 import { readLocalState, resetConfiguredServer, saveServerConfig } from './local-state-store'
-import { managedServerBackupsFolderPath, managedServerFolderPath } from './storage-paths'
+import { localServerBackupsFolderPath, localServerFolderPath } from './storage-paths'
 
 export async function getStorageSnapshot(): Promise<StorageSnapshot> {
   return getServerSyncSnapshot()
@@ -17,7 +17,7 @@ export async function updateServerConfig(serverConfig: ServerConfig): Promise<St
 
 export async function deleteConfiguredServer(): Promise<StorageSnapshot> {
   const localState = await readLocalState()
-  const serverFolderPath = localState.serverConfig.serverFolderPath ?? managedServerFolderPath
+  const serverFolderPath = localState.serverConfig.serverFolderPath ?? localServerFolderPath
 
   await backupServerFolder(serverFolderPath, localState.serverConfig.name)
   await resetConfiguredServer()
@@ -30,10 +30,10 @@ async function backupServerFolder(serverFolderPath: string, serverName: string):
     return
   }
 
-  await mkdir(managedServerBackupsFolderPath, { recursive: true })
+  await mkdir(localServerBackupsFolderPath, { recursive: true })
 
   const backupFolderPath = join(
-    managedServerBackupsFolderPath,
+    localServerBackupsFolderPath,
     `${createBackupNameSlug(serverName)}-${createBackupTimestamp()}`
   )
 

@@ -12,15 +12,15 @@ import {
 } from '../../shared/server-setup'
 import { saveServerSetupResult, saveServerSetupState } from '../storage/local-state-store'
 import {
-  managedServerEulaFilePath,
-  managedServerFolderPath,
-  managedServerJarFilePath,
-  managedServerPropertiesFilePath
+  localServerEulaFilePath,
+  localServerFolderPath,
+  localServerJarFilePath,
+  localServerPropertiesFilePath
 } from '../storage/storage-paths'
 import { ServerSetupError } from './server-setup-error'
 import { resolveVanillaServerDownload } from './vanilla-version-resolver'
 
-const SERVER_JAR_TEMP_FILE_PATH = `${managedServerJarFilePath}.tmp`
+const SERVER_JAR_TEMP_FILE_PATH = `${localServerJarFilePath}.tmp`
 const DEFAULT_LEVEL_NAME = 'world'
 const DEFAULT_MOTD = 'ChunkShare Minecraft Server'
 type ServerSetupProgressListener = (event: ServerSetupProgressEvent) => void
@@ -52,7 +52,7 @@ async function prepareVanillaServer(
   onProgress?: ServerSetupProgressListener
 ): Promise<ServerConfig> {
   onProgress?.({ step: Step.CreatingFolder })
-  await mkdir(managedServerFolderPath, { recursive: true })
+  await mkdir(localServerFolderPath, { recursive: true })
 
   onProgress?.({ step: Step.ResolvingVersion })
   const serverDownload = await resolveVanillaServerDownload(
@@ -65,7 +65,7 @@ async function prepareVanillaServer(
 
   onProgress?.({ step: Step.VerifyingJar })
   await verifyServerJar(serverDownload.size, serverDownload.sha1)
-  await rename(SERVER_JAR_TEMP_FILE_PATH, managedServerJarFilePath)
+  await rename(SERVER_JAR_TEMP_FILE_PATH, localServerJarFilePath)
 
   onProgress?.({ step: Step.WritingProperties })
   await writeServerProperties(input)
@@ -77,7 +77,7 @@ async function prepareVanillaServer(
     name: input.name.trim(),
     serverType: 'vanilla',
     minecraftVersion: input.minecraftVersion.trim(),
-    serverFolderPath: managedServerFolderPath,
+    serverFolderPath: localServerFolderPath,
     port: input.port
   }
 }
@@ -160,13 +160,13 @@ async function writeServerProperties(input: SetupVanillaServerInput): Promise<vo
     'spawn-protection=16'
   ].join('\n')
 
-  await writeFile(managedServerPropertiesFilePath, `${properties}\n`, 'utf-8')
+  await writeFile(localServerPropertiesFilePath, `${properties}\n`, 'utf-8')
 }
 
 async function writeAcceptedEula(): Promise<void> {
   const eula = ['# Accepted through ChunkShare setup wizard.', 'eula=true'].join('\n')
 
-  await writeFile(managedServerEulaFilePath, `${eula}\n`, 'utf-8')
+  await writeFile(localServerEulaFilePath, `${eula}\n`, 'utf-8')
 }
 
 function markSetupDownloading(): Promise<LocalState> {

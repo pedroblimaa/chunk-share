@@ -4,7 +4,7 @@ import { readFile, stat } from 'fs/promises'
 import { networkInterfaces } from 'os'
 import { join } from 'path'
 import { ServerLockStatus, type Player, type StorageSnapshot } from '../../shared/domain'
-import type { ServerSyncSnapshot, ServerSyncStatus } from '../../shared/server-sync'
+import { ServerSyncStatus, type ServerSyncSnapshot } from '../../shared/server-sync'
 import type {
   ServerConnectionAddress,
   ServerRuntimeEvent,
@@ -15,10 +15,11 @@ import type {
   ServerRuntimeStatus
 } from '../../shared/server-runtime'
 import { publishServerSave } from '../storage/server-save-publisher'
+import { restoreLatestServerSave } from '../storage/server-save-restorer'
 import { getServerSyncSnapshot } from '../server-sync/server-sync-service'
 import { writeServerLock } from '../storage/local-mock-cloud-storage'
 import { saveActiveSessionId } from '../storage/local-state-store'
-import { managedServerFolderPath, managedServerJarFilePath } from '../storage/storage-paths'
+import { localServerFolderPath, localServerJarFilePath } from '../storage/storage-paths'
 import { getSignedInMockUser } from '../mock-dashboard'
 import { ServerRuntimeError } from './server-runtime-error'
 
@@ -78,19 +79,26 @@ export async function startMinecraftServer(): Promise<ServerRuntimeSnapshot> {
     throw new ServerRuntimeError('Minecraft server is already starting, running, or stopping.')
   }
 
-  const storageSnapshot = await getServerSyncSnapshot()
-  const { localState, serverSync } = storageSnapshot
+  let storageSnapshot = await getServerSyncSnapshot()
+  let { localState, serverSync } = storageSnapshot
 
   if (localState.serverSetup.status !== 'ready') {
     throw new ServerRuntimeError('Server setup must be completed before starting Minecraft.')
   }
 
+  if (serverSync.status === ServerSyncStatus.UpdateAvailable) {
+    await restoreLatestServerSave(storageSnapshot)
+    storageSnapshot = await getServerSyncSnapshot()
+    localState = storageSnapshot.localState
+    serverSync = storageSnapshot.serverSync
+  }
+
   assertServerSyncAllowsStart(serverSync)
 
-  const serverFolderPath = localState.serverConfig.serverFolderPath ?? managedServerFolderPath
+  const serverFolderPath = localState.serverConfig.serverFolderPath ?? localServerFolderPath
 
   await assertFolderExists(serverFolderPath)
-  await assertFileExists(managedServerJarFilePath)
+  await assertFileExists(localServerJarFilePath)
 
   activeRuntimeSessionId = await createHostingLock(storageSnapshot)
 

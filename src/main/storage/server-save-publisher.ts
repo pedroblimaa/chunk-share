@@ -8,7 +8,7 @@ import { renameWithRetry } from './file-system-utils'
 import { readLatestSave, writeLatestSave } from './local-mock-cloud-storage'
 import { readLocalState, saveLocalSaveVersion } from './local-state-store'
 import { StorageError } from './storage-error'
-import { managedServerFolderPath, mockCloudVersionsFolderPath } from './storage-paths'
+import { localServerFolderPath, mockCloudVersionsFolderPath } from './storage-paths'
 
 const MAX_RETAINED_SAVE_VERSIONS = 3
 const SERVER_SAVE_FILE_PATTERN = /^server-v(\d+)\.zip$/
@@ -28,7 +28,7 @@ export async function publishServerSave(): Promise<PublishServerSaveResult> {
   const existingVersionFiles = await listServerSaveVersionFiles()
   const nextSaveVersion = getNextSaveVersion(latestSave, existingVersionFiles)
   const localState = await readLocalState()
-  const serverFolderPath = managedServerFolderPath
+  const serverFolderPath = localServerFolderPath
   const fileName = createServerSaveFileName(nextSaveVersion)
   const zipFilePath = join(mockCloudVersionsFolderPath, fileName)
 
