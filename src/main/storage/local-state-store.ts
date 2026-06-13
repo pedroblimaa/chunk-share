@@ -63,6 +63,10 @@ export async function saveServerSetupResult(
   return saveLocalStateChanges({ serverConfig, serverSetup })
 }
 
+export function saveLocalSaveVersion(localSaveVersion: number | null): Promise<LocalState> {
+  return saveLocalStateChanges({ localSaveVersion })
+}
+
 export function resetConfiguredServer(): Promise<LocalState> {
   return saveLocalStateChanges({
     activeSessionId: null,
