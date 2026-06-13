@@ -1,6 +1,6 @@
 import './ConsoleOutput.css'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { ConsoleLogLine } from '../../../../../../shared/dashboard'
 import MaterialIcon from '../../../../components/shared/MaterialIcon/MaterialIcon'
 
@@ -16,7 +16,7 @@ function formatConsoleLogLine(log: ConsoleLogLine): string {
 
 function ConsoleOutput({ logs }: ConsoleOutputProps): React.JSX.Element {
   const [copyStatus, setCopyStatus] = useState<CopyStatus>('idle')
-  const consoleEndRef = useRef<HTMLDivElement | null>(null)
+  const consoleLinesRef = useRef<HTMLDivElement | null>(null)
   const shouldStickToBottomRef = useRef(true)
 
   const consoleText = useMemo(() => logs.map(formatConsoleLogLine).join('\n'), [logs])
@@ -33,9 +33,11 @@ function ConsoleOutput({ logs }: ConsoleOutputProps): React.JSX.Element {
     return () => window.clearTimeout(resetCopyStatusTimer)
   }, [copyStatus])
 
-  useEffect(() => {
-    if (shouldStickToBottomRef.current) {
-      consoleEndRef.current?.scrollIntoView()
+  useLayoutEffect(() => {
+    const consoleLines = consoleLinesRef.current
+
+    if (consoleLines && shouldStickToBottomRef.current) {
+      consoleLines.scrollTop = consoleLines.scrollHeight
     }
   }, [logs.length])
 
@@ -88,6 +90,7 @@ function ConsoleOutput({ logs }: ConsoleOutputProps): React.JSX.Element {
       </header>
 
       <div
+        ref={consoleLinesRef}
         className="console-lines"
         aria-label="Server console output"
         onScroll={handleConsoleScroll}
@@ -97,7 +100,6 @@ function ConsoleOutput({ logs }: ConsoleOutputProps): React.JSX.Element {
             <span>[{log.timestamp}]</span> <span>[{log.source}]:</span> {log.message}
           </p>
         ))}
-        <div ref={consoleEndRef} />
       </div>
     </section>
   )

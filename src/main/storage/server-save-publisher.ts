@@ -15,12 +15,23 @@ export async function publishInitialServerSave(): Promise<LatestSave> {
   const latestSave = await readLatestSave()
 
   if (latestSave) {
-    return latestSave
+    const latestSaveFilePath = join(mockCloudVersionsFolderPath, latestSave.fileName)
+
+    if (await fileExists(latestSaveFilePath)) {
+      await saveLocalSaveVersion(latestSave.saveVersion)
+      return latestSave
+    }
+
+    if (latestSave.saveVersion !== INITIAL_SAVE_VERSION) {
+      throw new StorageError(
+        `Cannot recreate missing save file ${latestSave.fileName}; only the initial save is supported right now.`
+      )
+    }
   }
 
   const localState = await readLocalState()
   const serverFolderPath = managedServerFolderPath
-  const fileName = createServerSaveFileName(INITIAL_SAVE_VERSION)
+  const fileName = latestSave?.fileName ?? createServerSaveFileName(INITIAL_SAVE_VERSION)
   const zipFilePath = join(mockCloudVersionsFolderPath, fileName)
 
   await assertServerFolderExists(serverFolderPath)
@@ -35,10 +46,24 @@ export async function publishInitialServerSave(): Promise<LatestSave> {
     serverType: localState.serverConfig.serverType
   }
 
-  await writeLatestSave(nextLatestSave)
   await saveLocalSaveVersion(nextLatestSave.saveVersion)
+  await writeLatestSave(nextLatestSave)
 
   return nextLatestSave
+}
+
+async function fileExists(filePath: string): Promise<boolean> {
+  try {
+    const fileStats = await stat(filePath)
+
+    return fileStats.isFile()
+  } catch (error) {
+    if (isMissingFileError(error)) {
+      return false
+    }
+
+    throw error
+  }
 }
 
 function createServerSaveFileName(saveVersion: number): string {

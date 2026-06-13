@@ -1,5 +1,5 @@
 import type { DashboardSnapshot, MockUser } from '../../shared/dashboard'
-import type { LatestSave, LocalState, ServerConfig, StorageSnapshot } from '../../shared/domain'
+import type { LatestSave, ServerConfig, StorageSnapshot } from '../../shared/domain'
 import { getServerRuntimeSnapshot } from '../server-runtime/server-runtime-service'
 import { getStorageSnapshot } from '../storage/storage-service'
 import { getSignedInMockUser } from '../mock-dashboard'
@@ -35,10 +35,6 @@ function formatRelativeTime(date: Date): string {
   return 'Just now'
 }
 
-function getSaveVersion(latestSave: LatestSave, localState: LocalState): number {
-  return latestSave?.saveVersion ?? localState.localSaveVersion ?? 0
-}
-
 function getCurrentHost(signedInUser: MockUser | null, serverIsRunning: boolean): string | null {
   return serverIsRunning ? (signedInUser?.name ?? 'You') : null
 }
@@ -65,7 +61,6 @@ function buildDashboardSnapshot(
     lastActiveLabel: serverIsRunning ? 'Active now' : formatLatestSaveLabel(latestSave),
     currentHost: getCurrentHost(signedInUser, serverIsRunning),
     latestSaveLabel: formatLatestSaveLabel(latestSave),
-    saveVersion: getSaveVersion(latestSave, localState),
     connectionAddress:
       runtimeSnapshot.connectionAddresses.find((address) => address.isPrimary)?.address ??
       runtimeSnapshot.connectionAddresses[0]?.address ??

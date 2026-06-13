@@ -11,6 +11,7 @@ import type {
   ServerRuntimeSnapshot,
   ServerRuntimeStatus
 } from '../../shared/server-runtime'
+import { publishInitialServerSave } from '../storage/server-save-publisher'
 import { readLocalState } from '../storage/local-state-store'
 import { managedServerFolderPath, managedServerJarFilePath } from '../storage/storage-paths'
 import { ServerRuntimeError } from './server-runtime-error'
@@ -35,6 +36,7 @@ const MOCK_RESOURCES: ServerRuntimeResources = {
 let serverProcess: ChildProcessWithoutNullStreams | null = null
 let stopTimeout: NodeJS.Timeout | null = null
 let playerPollInterval: NodeJS.Timeout | null = null
+let userRequestedStop = false
 let status: ServerRuntimeStatus = 'stopped'
 let errorMessage: string | null = null
 let logs: ServerRuntimeLogLine[] = []
@@ -106,29 +108,56 @@ function attachServerProcessListeners(minecraftProcess: ChildProcessWithoutNullS
 
   minecraftProcess.once('error', (error) => {
     serverProcess = null
+    userRequestedStop = false
     finishWithError(getProcessStartErrorMessage(error))
   })
 
   minecraftProcess.once('close', (exitCode) => {
-    clearStopTimeout()
-    stopPlayerPolling()
-
-    if (status === 'error') {
-      serverProcess = null
-      emitRuntimeEvent()
-      return
-    }
-
-    const stoppedCleanly = exitCode === 0 || status === 'stopping' || status === 'stopped'
-    status = stoppedCleanly ? 'stopped' : 'crashed'
-    errorMessage = stoppedCleanly
-      ? null
-      : `Minecraft server exited with code ${exitCode ?? 'unknown'}.`
-    serverProcess = null
-    players = { ...players, online: 0 }
-
-    emitRuntimeEvent()
+    void handleServerProcessClose(exitCode)
   })
+}
+
+async function handleServerProcessClose(exitCode: number | null): Promise<void> {
+  clearStopTimeout()
+  stopPlayerPolling()
+
+  if (status === 'error') {
+    serverProcess = null
+    userRequestedStop = false
+    emitRuntimeEvent()
+    return
+  }
+
+  serverProcess = null
+  players = { ...players, online: 0 }
+
+  if (userRequestedStop && exitCode === 0) {
+    await publishInitialSaveAfterCleanStop()
+    return
+  }
+
+  userRequestedStop = false
+  status = exitCode === 0 ? 'stopped' : 'crashed'
+  errorMessage =
+    status === 'stopped' ? null : `Minecraft server exited with code ${exitCode ?? 'unknown'}.`
+
+  emitRuntimeEvent()
+}
+
+async function publishInitialSaveAfterCleanStop(): Promise<void> {
+  addLogLine('ChunkShare', 'Publishing initial server save.')
+
+  try {
+    await publishInitialServerSave()
+    userRequestedStop = false
+    status = 'stopped'
+    errorMessage = null
+    addLogLine('ChunkShare', 'Initial server save published.', 'success')
+    emitRuntimeEvent()
+  } catch (error) {
+    userRequestedStop = false
+    finishWithError(getPublishErrorMessage(error))
+  }
 }
 
 export async function stopMinecraftServer(): Promise<ServerRuntimeSnapshot> {
@@ -142,8 +171,13 @@ export async function stopMinecraftServer(): Promise<ServerRuntimeSnapshot> {
 
   status = 'stopping'
   errorMessage = null
+  userRequestedStop = true
   stopPlayerPolling()
   emitRuntimeEvent()
+
+  addLogLine('ChunkShare', 'Saving world before shutdown.')
+  serverProcess.stdin.write('save-all flush\n')
+
   addLogLine('ChunkShare', 'Sending graceful stop command to Minecraft server.')
   serverProcess.stdin.write('stop\n')
 
@@ -153,6 +187,7 @@ export async function stopMinecraftServer(): Promise<ServerRuntimeSnapshot> {
       return
     }
 
+    userRequestedStop = false
     finishWithError('Minecraft server did not stop within 15 seconds.')
     serverProcess.kill()
   }, SERVER_STOP_TIMEOUT_MS)
@@ -208,6 +243,14 @@ function getProcessStartErrorMessage(error: Error): string {
   }
 
   return `Unable to start Minecraft server: ${error.message}`
+}
+
+function getPublishErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return `Unable to publish initial server save: ${error.message}`
+  }
+
+  return 'Unable to publish initial server save.'
 }
 
 function emitRuntimeEvent(logLine?: ServerRuntimeLogLine): void {
