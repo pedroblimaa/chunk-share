@@ -7,6 +7,7 @@ import AppSidebar from '../../../components/shared/AppSidebar/AppSidebar'
 import Button from '../../../components/shared/Button/Button'
 import ConfirmationDialog from '../../../components/shared/ConfirmationDialog/ConfirmationDialog'
 import MaterialIcon from '../../../components/shared/MaterialIcon/MaterialIcon'
+import { formatLatestSaveLabel } from '../../../utils/server-sync-ui'
 import TopBar from '../../dashboard/components/TopBar/TopBar'
 import ServerCard, { type ServerCardSummary } from '../components/ServerCard/ServerCard'
 
@@ -30,7 +31,7 @@ function createConfiguredServer(storageSnapshot: StorageSnapshot | null): Server
     return []
   }
 
-  const { serverConfig, serverSetup } = storageSnapshot.localState
+  const { serverConfig } = storageSnapshot.localState
 
   return [
     {
@@ -39,7 +40,8 @@ function createConfiguredServer(storageSnapshot: StorageSnapshot | null): Server
       status: 'stopped',
       type: formatServerType(serverConfig.serverType),
       minecraftVersion: serverConfig.minecraftVersion,
-      latestSaveLabel: serverSetup.completedAt ? 'Setup complete' : 'Not published yet',
+      latestSaveLabel: formatLatestSaveLabel(storageSnapshot.serverSync.latestSave),
+      syncStatus: storageSnapshot.serverSync,
       currentHost: null,
       players: {
         online: 0,

@@ -1,3 +1,4 @@
+import { ServerLockStatus } from '../../shared/domain'
 import type {
   JavaConfig,
   LatestSave,
@@ -98,12 +99,12 @@ export function isServerLock(value: unknown): value is ServerLock {
     return false
   }
 
-  if (value.status === 'unlocked') {
+  if (value.status === ServerLockStatus.Unlocked) {
     return Object.keys(value).length === 1
   }
 
   return (
-    value.status === 'locked' &&
+    value.status === ServerLockStatus.Locked &&
     isPlayer(value.lockedBy) &&
     isString(value.sessionId) &&
     isPositiveInteger(value.saveVersion) &&

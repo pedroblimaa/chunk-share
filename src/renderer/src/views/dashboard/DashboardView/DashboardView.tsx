@@ -5,6 +5,7 @@ import type { DashboardSnapshot } from '../../../../../shared/dashboard'
 import type { ServerRuntimeSnapshot } from '../../../../../shared/server-runtime'
 import AppSidebar from '../../../components/shared/AppSidebar/AppSidebar'
 import MaterialIcon from '../../../components/shared/MaterialIcon/MaterialIcon'
+import { formatLatestSaveLabel } from '../../../utils/server-sync-ui'
 import ConsoleOutput from '../components/ConsoleOutput/ConsoleOutput'
 import DashboardStatCard from '../components/DashboardStatCard/DashboardStatCard'
 import ServerHeader from '../components/ServerHeader/ServerHeader'
@@ -37,7 +38,7 @@ function getPrimaryConnectionAddress(runtimeSnapshot: ServerRuntimeSnapshot): st
   return address || null
 }
 
-function isServerActive(status: ServerRuntimeSnapshot['status']): boolean {
+function isServerActive(status: DashboardSnapshot['serverStatus']): boolean {
   return status === 'starting' || status === 'running' || status === 'stopping'
 }
 
@@ -68,7 +69,6 @@ function applyRuntimeSnapshot(
       snapshot.serverStatus === 'not-configured' && runtimeSnapshot.status === 'stopped'
         ? snapshot.serverStatus
         : runtimeSnapshot.status,
-    lastActiveLabel: serverIsActive ? 'Active now' : snapshot.lastActiveLabel,
     currentHost: getCurrentHost(snapshot, serverIsActive),
     connectionAddress: getPrimaryConnectionAddress(runtimeSnapshot),
     players,
@@ -254,6 +254,10 @@ function DashboardView({
   const errorCopyButtonStateClass = errorCopyStatus === 'idle' ? '' : ` is-${errorCopyStatus}`
   const addressCopyButtonLabel = COPY_STATUS_LABELS[addressCopyStatus]
   const addressCopyButtonStateClass = addressCopyStatus === 'idle' ? '' : ` is-${addressCopyStatus}`
+  const latestSaveLabel = formatLatestSaveLabel(dashboardSnapshot.syncStatus.latestSave)
+  const lastActiveLabel = isServerActive(dashboardSnapshot.serverStatus)
+    ? 'Active now'
+    : latestSaveLabel
 
   return (
     <div
@@ -310,17 +314,14 @@ function DashboardView({
 
           <div className="dashboard-grid">
             <ServerStatePanel
+              lastActiveLabel={lastActiveLabel}
               snapshot={dashboardSnapshot}
               toggleDisabled={toggleDisabled}
               onToggleServer={handleServerToggle}
             />
 
             <div className="dashboard-side-stats">
-              <DashboardStatCard
-                icon="save"
-                label="Latest Save"
-                value={dashboardSnapshot.latestSaveLabel}
-              />
+              <DashboardStatCard icon="save" label="Latest Save" value={latestSaveLabel} />
               <DashboardStatCard
                 icon="info"
                 label="World Version"

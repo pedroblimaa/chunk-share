@@ -1,26 +1,12 @@
 import { mkdir, rename, stat } from 'fs/promises'
 import { join } from 'path'
 import type { ServerConfig, StorageSnapshot } from '../../shared/domain'
-import { readLocalMockCloudSnapshot } from './local-mock-cloud-storage'
-import {
-  readLocalState,
-  readLocalStateSnapshot,
-  resetConfiguredServer,
-  saveServerConfig
-} from './local-state-store'
+import { getServerSyncSnapshot } from '../server-sync/server-sync-service'
+import { readLocalState, resetConfiguredServer, saveServerConfig } from './local-state-store'
 import { managedServerBackupsFolderPath, managedServerFolderPath } from './storage-paths'
 
 export async function getStorageSnapshot(): Promise<StorageSnapshot> {
-  const [mockCloudSnapshot, localStateSnapshot] = await Promise.all([
-    readLocalMockCloudSnapshot(),
-    readLocalStateSnapshot()
-  ])
-
-  return {
-    latestSave: mockCloudSnapshot.latestSave,
-    serverLock: mockCloudSnapshot.serverLock,
-    localState: localStateSnapshot.localState
-  }
+  return getServerSyncSnapshot()
 }
 
 export async function updateServerConfig(serverConfig: ServerConfig): Promise<StorageSnapshot> {

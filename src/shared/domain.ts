@@ -1,3 +1,5 @@
+import type { ServerSyncSnapshot } from './server-sync'
+
 export type ServerStatus =
   | 'not-configured'
   | 'stopped'
@@ -10,6 +12,11 @@ export type ServerStatus =
 export type ServerType = 'vanilla' | 'paper' | 'fabric' | 'forge'
 
 export type MinecraftVersion = string
+
+export enum ServerLockStatus {
+  Unlocked = 'unlocked',
+  Locked = 'locked'
+}
 
 export interface Player {
   id: string
@@ -52,10 +59,10 @@ export type LatestSave = {
 
 export type ServerLock =
   | {
-      status: 'unlocked'
+      status: ServerLockStatus.Unlocked
     }
   | {
-      status: 'locked'
+      status: ServerLockStatus.Locked
       lockedBy: Player
       sessionId: string
       saveVersion: number
@@ -76,5 +83,6 @@ export interface LocalState {
 export interface StorageSnapshot {
   latestSave: LatestSave
   serverLock: ServerLock
+  serverSync: ServerSyncSnapshot
   localState: LocalState
 }

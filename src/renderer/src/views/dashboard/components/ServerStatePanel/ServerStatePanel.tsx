@@ -4,6 +4,7 @@ import type { DashboardSnapshot } from '../../../../../../shared/dashboard'
 import MaterialIcon from '../../../../components/shared/MaterialIcon/MaterialIcon'
 
 interface ServerStatePanelProps {
+  lastActiveLabel: string
   snapshot: DashboardSnapshot
   toggleDisabled?: boolean
   onToggleServer: () => void
@@ -18,6 +19,7 @@ function formatState(status: DashboardSnapshot['serverStatus']): string {
 }
 
 function ServerStatePanel({
+  lastActiveLabel,
   snapshot,
   toggleDisabled = false,
   onToggleServer
@@ -47,7 +49,7 @@ function ServerStatePanel({
           </button>
           <div>
             <h3>{formatState(snapshot.serverStatus)}</h3>
-            <p>Last active: {snapshot.lastActiveLabel}</p>
+            <p>Last active: {lastActiveLabel}</p>
           </div>
         </div>
 

@@ -1,3 +1,4 @@
+import { ServerLockStatus } from '../../shared/domain'
 import type {
   JavaConfig,
   LatestSave,
@@ -25,7 +26,7 @@ export const DEFAULT_JAVA_CONFIG: JavaConfig = {
 export const DEFAULT_LATEST_SAVE: LatestSave = null
 
 export const DEFAULT_SERVER_LOCK: ServerLock = {
-  status: 'unlocked'
+  status: ServerLockStatus.Unlocked
 }
 
 export const DEFAULT_SERVER_SETUP_STATE: ServerSetupState = {

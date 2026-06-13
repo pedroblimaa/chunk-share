@@ -67,6 +67,10 @@ export async function startMinecraftServer(): Promise<ServerRuntimeSnapshot> {
     throw new ServerRuntimeError('Minecraft server is already running.')
   }
 
+  if (status === 'starting' || status === 'running' || status === 'stopping') {
+    throw new ServerRuntimeError('Minecraft server is already starting, running, or stopping.')
+  }
+
   const localState = await readLocalState()
 
   if (localState.serverSetup.status !== 'ready') {

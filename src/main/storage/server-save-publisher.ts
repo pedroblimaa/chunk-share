@@ -1,9 +1,10 @@
 import { createWriteStream } from 'fs'
-import { mkdir, rename, rm, stat } from 'fs/promises'
+import { mkdir, rm, stat } from 'fs/promises'
 import { join } from 'path'
 import { ZipArchive } from 'archiver'
 import type { LatestSave, Player } from '../../shared/domain'
 import { getSignedInMockUser } from '../mock-dashboard'
+import { renameWithRetry } from './file-system-utils'
 import { readLatestSave, writeLatestSave } from './local-mock-cloud-storage'
 import { readLocalState, saveLocalSaveVersion } from './local-state-store'
 import { StorageError } from './storage-error'
@@ -106,7 +107,7 @@ async function zipFolder(sourceFolderPath: string, destinationFilePath: string):
   try {
     await zipFile.finalize()
     await zipFinished
-    await rename(tempFilePath, destinationFilePath)
+    await renameWithRetry(tempFilePath, destinationFilePath)
   } catch (error) {
     await rm(tempFilePath, { force: true })
     throw error

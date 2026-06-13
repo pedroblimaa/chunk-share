@@ -2,6 +2,7 @@ import './ServerCard.css'
 
 import type { KeyboardEvent } from 'react'
 import type { ServerStatus } from '../../../../../../shared/dashboard'
+import type { ServerSyncSnapshot } from '../../../../../../shared/server-sync'
 import MaterialIcon from '../../../../components/shared/MaterialIcon/MaterialIcon'
 
 export interface ServerCardSummary {
@@ -11,6 +12,7 @@ export interface ServerCardSummary {
   type: string
   minecraftVersion: string
   latestSaveLabel: string
+  syncStatus: ServerSyncSnapshot
   currentHost: string | null
   players: {
     online: number

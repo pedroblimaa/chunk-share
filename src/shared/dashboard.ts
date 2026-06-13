@@ -1,4 +1,5 @@
 import type { ServerStatus } from './domain'
+import type { ServerSyncSnapshot } from './server-sync'
 
 export type { ServerStatus } from './domain'
 
@@ -41,9 +42,8 @@ export interface DashboardSnapshot {
   serverStatus: ServerStatus
   serverType: string
   minecraftVersion: string
-  lastActiveLabel: string
   currentHost: string | null
-  latestSaveLabel: string
+  syncStatus: ServerSyncSnapshot
   connectionAddress: string | null
   players: PlayerSummary
   resources: ServerResourceUsage
