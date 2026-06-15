@@ -17,7 +17,11 @@ import { publishServerSave } from '../storage/server-save-publisher'
 import { restoreLatestServerSave } from '../storage/server-save-restorer'
 import { localServerFolderPath, localServerJarFilePath } from '../storage/storage-paths'
 import { parseMinecraftOutput, type MinecraftOutputEvent } from './minecraft-output-parser'
-import { clearHostingLockAfterStartFailure, createHostingLock } from './server-hosting-lock-manager'
+import {
+  clearHostingLockAfterCleanStop,
+  clearHostingLockAfterStartFailure,
+  createHostingLock
+} from './server-hosting-lock-manager'
 import { startHeartbeat, stopHeartbeat } from './server-heartbeat-manager'
 import { startPlayerPolling, stopPlayerPolling } from './server-player-poller'
 import { getConnectionAddresses } from './server-network-addresses'
@@ -222,6 +226,7 @@ class ServerRuntime {
 
     try {
       const publishResult = await publishServerSave()
+      await clearHostingLockAfterCleanStop()
       this.userRequestedStop = false
       this.status = 'stopped'
       this.errorMessage = null
@@ -239,10 +244,12 @@ class ServerRuntime {
         )
       }
 
+      this.addLogLine('ChunkShare', 'Server unlocked for the next host.', 'success')
+
       this.emitRuntimeEvent()
     } catch (error) {
       this.userRequestedStop = false
-      this.finishWithError(getPublishErrorMessage(error))
+      this.finishWithError(getStopCompletionErrorMessage(error))
     }
   }
 
@@ -393,6 +400,16 @@ function getPublishErrorMessage(error: unknown): string {
   }
 
   return 'Unable to publish server save.'
+}
+
+function getStopCompletionErrorMessage(error: unknown): string {
+  const message = error instanceof Error ? error.message : null
+
+  if (message?.startsWith('Cannot unlock server')) {
+    return `Server save published, but ChunkShare could not unlock the server: ${message}`
+  }
+
+  return getPublishErrorMessage(error)
 }
 
 function getConsoleTimestamp(): string {
