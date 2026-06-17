@@ -25,6 +25,12 @@ export interface Player {
   avatarInitials: string
 }
 
+export interface ServerConnectionAddress {
+  label: string
+  address: string
+  isPrimary: boolean
+}
+
 export interface ServerConfig {
   name: string
   serverType: ServerType
@@ -68,6 +74,7 @@ export type ServerLock =
       saveVersion: number
       startedAt: string
       lastHeartbeat: string
+      connectionAddresses: ServerConnectionAddress[]
     }
 
 export interface LocalState {

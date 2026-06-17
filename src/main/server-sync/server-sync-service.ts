@@ -11,7 +11,7 @@ import { ServerSyncStatus, type ServerSyncSnapshot } from '../../shared/server-s
 import { readLatestSave, readServerLock } from '../storage/local-mock-cloud-storage'
 import { readLocalState } from '../storage/local-state-store'
 import { mockCloudVersionsFolderPath } from '../storage/storage-paths'
-import { getSignedInMockUser } from '../mock-dashboard'
+import { getActiveRuntimeSessionId } from '../server-runtime/server-hosting-lock-manager'
 
 const STALE_LOCK_THRESHOLD_MS = 2 * 60 * 1000
 
@@ -185,12 +185,12 @@ function getLockState(serverLock: ServerLock): LockState {
     return { blocksCurrentUser: false, isStale: false }
   }
 
-  const isCurrentUserLock = serverLock.lockedBy.id === getSignedInMockUser()?.id
+  const isCurrentRuntimeLock = serverLock.sessionId === getActiveRuntimeSessionId()
   const heartbeatAgeMs = Date.now() - new Date(serverLock.lastHeartbeat).getTime()
   const isStale = !Number.isFinite(heartbeatAgeMs) || heartbeatAgeMs > STALE_LOCK_THRESHOLD_MS
 
   return {
-    blocksCurrentUser: !isCurrentUserLock && !isStale,
+    blocksCurrentUser: !isCurrentRuntimeLock && !isStale,
     isStale
   }
 }

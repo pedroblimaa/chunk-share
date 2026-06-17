@@ -12,6 +12,7 @@ import {
   SERVER_SETUP_PROGRESS_CHANNEL,
   SERVER_SETUP_SETUP_VANILLA_SERVER_CHANNEL,
   STORAGE_DELETE_SERVER_CHANNEL,
+  STORAGE_RESET_SERVER_LOCK_CHANNEL,
   STORAGE_SAVE_SERVER_CONFIG_CHANNEL,
   STORAGE_SNAPSHOT_CHANNEL
 } from '../shared/ipc-channels'
@@ -48,6 +49,8 @@ const chunkShareApi = {
   storage: {
     getSnapshot: (): Promise<StorageSnapshot> => ipcRenderer.invoke(STORAGE_SNAPSHOT_CHANNEL),
     deleteServer: (): Promise<StorageSnapshot> => ipcRenderer.invoke(STORAGE_DELETE_SERVER_CHANNEL),
+    resetServerLock: (): Promise<StorageSnapshot> =>
+      ipcRenderer.invoke(STORAGE_RESET_SERVER_LOCK_CHANNEL),
     saveServerConfig: (serverConfig: ServerConfig): Promise<StorageSnapshot> =>
       ipcRenderer.invoke(STORAGE_SAVE_SERVER_CONFIG_CHANNEL, serverConfig)
   },

@@ -2,7 +2,7 @@ import './ServerCard.css'
 
 import type { KeyboardEvent } from 'react'
 import type { ServerStatus } from '../../../../../../shared/dashboard'
-import type { ServerSyncSnapshot } from '../../../../../../shared/server-sync'
+import { ServerSyncStatus, type ServerSyncSnapshot } from '../../../../../../shared/server-sync'
 import MaterialIcon from '../../../../components/shared/MaterialIcon/MaterialIcon'
 import { getServerSyncView } from '../../../../utils/server-sync-ui'
 
@@ -29,18 +29,31 @@ interface ServerCardProps {
   onOpen: () => void
 }
 
-function getStatusLabel(status: ServerStatus): string {
+function getStatusLabel(server: ServerCardSummary): string {
+  if (server.status === 'stopped' && server.syncStatus.status === ServerSyncStatus.LockedByOther) {
+    return 'Online'
+  }
+
   const statusLabels: Record<ServerStatus, string> = {
     crashed: 'Needs Attention',
     error: 'Error',
     'not-configured': 'Not Configured',
-    running: 'Ready',
+    running: 'Running',
     starting: 'Starting',
     stopping: 'Stopping',
     stopped: 'Stopped'
   }
 
-  return statusLabels[status]
+  return statusLabels[server.status]
+}
+
+function getStatusPillClassName(server: ServerCardSummary): string {
+  const lockedClass =
+    server.status === 'stopped' && server.syncStatus.status === ServerSyncStatus.LockedByOther
+      ? ' server-status-pill-hosted'
+      : ''
+
+  return `server-status-pill server-status-pill-${server.status}${lockedClass}`
 }
 
 function isOpenKey(event: KeyboardEvent): boolean {
@@ -55,6 +68,9 @@ function ServerCard({
   onOpen
 }: ServerCardProps): React.JSX.Element {
   const syncView = getServerSyncView(server.syncStatus)
+  const serverIsJoinable = server.syncStatus.status === ServerSyncStatus.LockedByOther
+  const openButtonLabel = serverIsJoinable ? 'Join' : 'Manage'
+  const openButtonIcon = serverIsJoinable ? 'login' : 'settings'
 
   function openFromKeyboard(event: KeyboardEvent): void {
     if (!isOpenKey(event)) {
@@ -78,9 +94,9 @@ function ServerCard({
         onKeyDown={openFromKeyboard}
       >
         <div className="server-card-top">
-          <span className={`server-status-pill server-status-pill-${server.status}`}>
+          <span className={getStatusPillClassName(server)}>
             <span aria-hidden="true" />
-            {getStatusLabel(server.status)}
+            {getStatusLabel(server)}
           </span>
           <span className="server-version-pill">
             <MaterialIcon name="sell" />
@@ -117,8 +133,8 @@ function ServerCard({
 
       <div className="server-card-footer">
         <button className="server-manage-action" type="button" onClick={onOpen}>
-          <MaterialIcon name="settings" />
-          Manage
+          <MaterialIcon name={openButtonIcon} />
+          {openButtonLabel}
         </button>
         <button
           aria-label={`Delete ${server.name}`}

@@ -1,5 +1,7 @@
 import type { DashboardSnapshot, MockUser } from '../../shared/dashboard'
+import { ServerLockStatus } from '../../shared/domain'
 import type { ServerConfig, StorageSnapshot } from '../../shared/domain'
+import type { ServerConnectionAddress } from '../../shared/server-runtime'
 import { getServerRuntimeSnapshot } from '../server-runtime/server-runtime-service'
 import { getServerSyncSnapshot } from '../server-sync/server-sync-service'
 import { getSignedInMockUser } from '../mock-dashboard'
@@ -8,8 +10,34 @@ function formatServerType(serverType: ServerConfig['serverType']): string {
   return `${serverType.charAt(0).toUpperCase()}${serverType.slice(1)}`
 }
 
-function getCurrentHost(signedInUser: MockUser | null, serverIsRunning: boolean): string | null {
-  return serverIsRunning ? (signedInUser?.name ?? 'You') : null
+function getCurrentHost(
+  storageSnapshot: StorageSnapshot,
+  signedInUser: MockUser | null,
+  serverIsRunning: boolean
+): string | null {
+  if (serverIsRunning) {
+    return signedInUser?.name ?? 'You'
+  }
+
+  return storageSnapshot.serverSync.lockedBy?.displayName ?? null
+}
+
+function getSnapshotConnectionAddresses(
+  storageSnapshot: StorageSnapshot,
+  runtimeAddresses: ServerConnectionAddress[],
+  serverIsRunning: boolean
+): ServerConnectionAddress[] {
+  if (serverIsRunning) {
+    return runtimeAddresses
+  }
+
+  return storageSnapshot.serverLock.status === ServerLockStatus.Locked
+    ? storageSnapshot.serverLock.connectionAddresses
+    : []
+}
+
+function getPrimaryConnectionAddress(addresses: ServerConnectionAddress[]): string | null {
+  return addresses.find((address) => address.isPrimary)?.address ?? addresses[0]?.address ?? null
 }
 
 function buildDashboardSnapshot(
@@ -24,6 +52,11 @@ function buildDashboardSnapshot(
     runtimeSnapshot.status === 'starting' ||
     runtimeSnapshot.status === 'running' ||
     runtimeSnapshot.status === 'stopping'
+  const connectionAddresses = getSnapshotConnectionAddresses(
+    storageSnapshot,
+    runtimeSnapshot.connectionAddresses,
+    serverIsRunning
+  )
 
   return {
     signedInUser,
@@ -31,12 +64,10 @@ function buildDashboardSnapshot(
     serverStatus,
     serverType: formatServerType(localState.serverConfig.serverType),
     minecraftVersion: localState.serverConfig.minecraftVersion,
-    currentHost: getCurrentHost(signedInUser, serverIsRunning),
+    currentHost: getCurrentHost(storageSnapshot, signedInUser, serverIsRunning),
     syncStatus: serverSync,
-    connectionAddress:
-      runtimeSnapshot.connectionAddresses.find((address) => address.isPrimary)?.address ??
-      runtimeSnapshot.connectionAddresses[0]?.address ??
-      null,
+    connectionAddress: getPrimaryConnectionAddress(connectionAddresses),
+    connectionAddresses,
     players: runtimeSnapshot.players,
     resources: runtimeSnapshot.resources,
     consoleLogs: runtimeSnapshot.logs,

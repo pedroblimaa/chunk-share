@@ -2,7 +2,11 @@ import './DashboardView.css'
 
 import { useEffect, useState } from 'react'
 import type { DashboardSnapshot } from '../../../../../shared/dashboard'
-import type { ServerRuntimeSnapshot } from '../../../../../shared/server-runtime'
+import type {
+  ServerConnectionAddress,
+  ServerRuntimeSnapshot
+} from '../../../../../shared/server-runtime'
+import { ServerSyncStatus } from '../../../../../shared/server-sync'
 import AppSidebar from '../../../components/shared/AppSidebar/AppSidebar'
 import MaterialIcon from '../../../components/shared/MaterialIcon/MaterialIcon'
 import { formatLatestSaveLabel, getServerSyncView } from '../../../utils/server-sync-ui'
@@ -31,8 +35,9 @@ const COPY_STATUS_ICONS: Record<CopyStatus, string> = {
   idle: 'content_copy'
 }
 
-function getPrimaryConnectionAddress(runtimeSnapshot: ServerRuntimeSnapshot): string | null {
-  const addresses = runtimeSnapshot.connectionAddresses
+const DASHBOARD_REFRESH_INTERVAL_MS = 3_000
+
+function getPrimaryConnectionAddress(addresses: ServerConnectionAddress[]): string | null {
   const address = addresses.find((a) => a.isPrimary)?.address ?? addresses[0]?.address
 
   return address || null
@@ -43,7 +48,7 @@ function isServerActive(status: DashboardSnapshot['serverStatus']): boolean {
 }
 
 function getCurrentHost(snapshot: DashboardSnapshot, serverIsActive: boolean): string | null {
-  return serverIsActive ? (snapshot.signedInUser?.name ?? 'You') : null
+  return serverIsActive ? (snapshot.signedInUser?.name ?? 'You') : snapshot.currentHost
 }
 
 function applyRuntimeSnapshot(
@@ -62,6 +67,9 @@ function applyRuntimeSnapshot(
     cpuPercent: serverIsActive ? runtimeSnapshot.resources.cpuPercent : 0,
     memoryUsedMb: serverIsActive ? runtimeSnapshot.resources.memoryUsedMb : 0
   }
+  const connectionAddresses = serverIsActive
+    ? runtimeSnapshot.connectionAddresses
+    : snapshot.connectionAddresses
 
   return {
     ...snapshot,
@@ -70,7 +78,8 @@ function applyRuntimeSnapshot(
         ? snapshot.serverStatus
         : runtimeSnapshot.status,
     currentHost: getCurrentHost(snapshot, serverIsActive),
-    connectionAddress: getPrimaryConnectionAddress(runtimeSnapshot),
+    connectionAddress: getPrimaryConnectionAddress(connectionAddresses),
+    connectionAddresses,
     players,
     resources,
     consoleLogs: runtimeSnapshot.logs
@@ -82,7 +91,6 @@ function DashboardView({
   onNavigateToServers
 }: DashboardPreviewProps): React.JSX.Element {
   const [dashboardSnapshot, setDashboardSnapshot] = useState(snapshot)
-  const [runtimeSnapshot, setRuntimeSnapshot] = useState<ServerRuntimeSnapshot | null>(null)
   const [runtimeErrorMessage, setRuntimeErrorMessage] = useState<string | null>(null)
   const [errorCopyStatus, setErrorCopyStatus] = useState<CopyStatus>('idle')
   const [addressCopyStatus, setAddressCopyStatus] = useState<CopyStatus>('idle')
@@ -111,7 +119,6 @@ function DashboardView({
           return
         }
 
-        setRuntimeSnapshot(nextRuntimeSnapshot)
         setDashboardSnapshot((currentSnapshot) =>
           applyRuntimeSnapshot(currentSnapshot, nextRuntimeSnapshot)
         )
@@ -132,7 +139,6 @@ function DashboardView({
 
   useEffect(() => {
     return window.chunkShare.serverRuntime.onEvent((runtimeEvent) => {
-      setRuntimeSnapshot(runtimeEvent.snapshot)
       setRuntimeErrorMessage(runtimeEvent.snapshot.errorMessage)
       setDashboardSnapshot((currentSnapshot) =>
         applyRuntimeSnapshot(currentSnapshot, runtimeEvent.snapshot)
@@ -142,6 +148,20 @@ function DashboardView({
         void refreshDashboardSnapshot(runtimeEvent.snapshot)
       }
     })
+  }, [])
+
+  useEffect(() => {
+    const refreshTimer = window.setInterval(() => {
+      window.chunkShare.serverRuntime
+        .getSnapshot()
+        .then(refreshDashboardSnapshot)
+        .catch((error: unknown) => {
+          const message = error instanceof Error ? error.message : 'Unable to refresh dashboard.'
+          setRuntimeErrorMessage(message)
+        })
+    }, DASHBOARD_REFRESH_INTERVAL_MS)
+
+    return () => window.clearInterval(refreshTimer)
   }, [])
 
   useEffect(() => {
@@ -190,7 +210,6 @@ function DashboardView({
         ? await window.chunkShare.serverRuntime.stop()
         : await window.chunkShare.serverRuntime.start()
 
-      setRuntimeSnapshot(nextRuntimeSnapshot)
       setDashboardSnapshot((currentSnapshot) =>
         applyRuntimeSnapshot(currentSnapshot, nextRuntimeSnapshot)
       )
@@ -242,7 +261,19 @@ function DashboardView({
     setConnectionDetailsOpen(false)
   }
 
+  function handleHeaderServerAction(): void {
+    if (serverIsJoinable) {
+      setConnectionDetailsOpen(true)
+      return
+    }
+
+    void handleServerToggle()
+  }
+
   const syncView = getServerSyncView(dashboardSnapshot.syncStatus)
+  const serverIsJoinable =
+    dashboardSnapshot.syncStatus.status === ServerSyncStatus.LockedByOther &&
+    Boolean(dashboardSnapshot.connectionAddress)
   const syncBlocksStart =
     dashboardSnapshot.serverStatus !== 'running' && !dashboardSnapshot.syncStatus.isStartAllowed
   const toggleDisabled =
@@ -252,8 +283,9 @@ function DashboardView({
     dashboardSnapshot.serverStatus === 'crashed' ||
     syncBlocksStart
 
+  const headerToggleDisabled = serverIsJoinable ? false : toggleDisabled
   const toggleButtonTooltip = syncBlocksStart ? syncView.message : undefined
-  const connectionAddressDetails = runtimeSnapshot?.connectionAddresses
+  const connectionAddressDetails = dashboardSnapshot.connectionAddresses
     .map((connectionAddress) => `${connectionAddress.label}: ${connectionAddress.address}`)
     .join(', ')
 
@@ -309,15 +341,17 @@ function DashboardView({
             connectionAddressDetails={connectionAddressDetails}
             connectionDetailsOpen={connectionDetailsOpen}
             isAnimating={isServerToggleAnimating}
-            toggleDisabled={toggleDisabled}
-            toggleButtonTooltip={toggleButtonTooltip}
+            toggleDisabled={headerToggleDisabled}
+            toggleButtonTooltip={serverIsJoinable ? 'Show connection details' : toggleButtonTooltip}
+            toggleButtonLabel={serverIsJoinable ? 'Join Server' : undefined}
+            toggleButtonIcon={serverIsJoinable ? 'login' : undefined}
             copyConnectionDetailsLabel={addressCopyButtonLabel}
             copyConnectionDetailsStateClass={addressCopyButtonStateClass}
             onCopyConnectionAddress={copyConnectionAddress}
             onCopyConnectionAddressDetails={copyConnectionAddressDetails}
             onCloseConnectionDetails={closeConnectionDetails}
             onToggleConnectionDetails={toggleConnectionDetails}
-            onToggleServer={handleServerToggle}
+            onToggleServer={handleHeaderServerAction}
           />
 
           <div className="dashboard-grid">

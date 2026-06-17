@@ -34,10 +34,10 @@ export const SERVER_SYNC_VIEW_BY_STATUS = {
     message: 'A newer cloud save is available.'
   },
   [ServerSyncStatus.LockedByOther]: {
-    label: 'Hosted by someone',
-    tone: ServerSyncTone.Danger,
-    actionLabel: 'Wait for host',
-    message: 'Another user is actively hosting this server save.'
+    label: 'Online with someone',
+    tone: ServerSyncTone.Success,
+    actionLabel: 'Join server',
+    message: 'This server is online. Open connection details to join.'
   },
   [ServerSyncStatus.StaleLock]: {
     label: 'Stale lock',

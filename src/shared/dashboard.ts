@@ -1,4 +1,5 @@
 import type { ServerStatus } from './domain'
+import type { ServerConnectionAddress } from './server-runtime'
 import type { ServerSyncSnapshot } from './server-sync'
 
 export type { ServerStatus } from './domain'
@@ -45,6 +46,7 @@ export interface DashboardSnapshot {
   currentHost: string | null
   syncStatus: ServerSyncSnapshot
   connectionAddress: string | null
+  connectionAddresses: ServerConnectionAddress[]
   players: PlayerSummary
   resources: ServerResourceUsage
   consoleLogs: ConsoleLogLine[]

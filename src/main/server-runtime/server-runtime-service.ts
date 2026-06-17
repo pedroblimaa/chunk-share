@@ -105,12 +105,13 @@ class ServerRuntime {
     await assertFolderExists(serverFolderPath)
     await assertFileExists(localServerJarFilePath)
 
-    const sessionId = await createHostingLock(storageSnapshot)
+    const connectionAddresses = getConnectionAddresses(localState.serverConfig.port)
+    const sessionId = await createHostingLock(storageSnapshot, connectionAddresses)
 
     this.status = 'starting'
     this.errorMessage = null
     this.logs = []
-    this.connectionAddresses = getConnectionAddresses(localState.serverConfig.port)
+    this.connectionAddresses = connectionAddresses
     this.players = { online: 0, max: await readMaxPlayers(serverFolderPath) }
     this.resources = MOCK_RESOURCES
     this.emitRuntimeEvent()

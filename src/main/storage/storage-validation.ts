@@ -4,6 +4,7 @@ import type {
   LatestSave,
   LocalState,
   Player,
+  ServerConnectionAddress,
   ServerConfig,
   ServerLock,
   ServerSetupState,
@@ -53,6 +54,14 @@ function isPlayer(value: unknown): value is Player {
     isString(value.email) &&
     isString(value.avatarInitials)
   )
+}
+
+function isServerConnectionAddress(value: unknown): value is ServerConnectionAddress {
+  if (!isRecord(value)) {
+    return false
+  }
+
+  return isString(value.label) && isString(value.address) && typeof value.isPrimary === 'boolean'
 }
 
 export function isServerConfig(value: unknown): value is ServerConfig {
@@ -113,7 +122,9 @@ export function isServerLock(value: unknown): value is ServerLock {
     isString(value.sessionId) &&
     isNonNegativeInteger(value.saveVersion) &&
     isString(value.startedAt) &&
-    isString(value.lastHeartbeat)
+    isString(value.lastHeartbeat) &&
+    Array.isArray(value.connectionAddresses) &&
+    value.connectionAddresses.every(isServerConnectionAddress)
   )
 }
 

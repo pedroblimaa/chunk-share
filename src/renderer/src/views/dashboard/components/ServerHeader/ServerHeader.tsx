@@ -13,6 +13,8 @@ interface ServerHeaderProps {
   isAnimating: boolean
   toggleDisabled?: boolean
   toggleButtonTooltip?: string
+  toggleButtonLabel?: string
+  toggleButtonIcon?: string
   copyConnectionDetailsLabel?: string
   copyConnectionDetailsStateClass?: string
   onCopyConnectionAddress: () => void
@@ -59,6 +61,8 @@ function ServerHeader({
   isAnimating,
   toggleDisabled = false,
   toggleButtonTooltip,
+  toggleButtonLabel: toggleButtonLabelOverride,
+  toggleButtonIcon: toggleButtonIconOverride,
   copyConnectionDetailsLabel = 'Copy Connection',
   copyConnectionDetailsStateClass = '',
   onCopyConnectionAddress,
@@ -70,8 +74,8 @@ function ServerHeader({
   const connectionMenuRef = useRef<HTMLDivElement | null>(null)
   const serverIsRunning = isServerRunning(status)
   const serverIsBusy = status === 'starting' || status === 'stopping'
-  const toggleButtonLabel = getToggleButtonLabel(status)
-  const toggleButtonIcon = getToggleButtonIcon(status)
+  const toggleButtonLabel = toggleButtonLabelOverride ?? getToggleButtonLabel(status)
+  const toggleButtonIcon = toggleButtonIconOverride ?? getToggleButtonIcon(status)
 
   useEffect(() => {
     if (!connectionDetailsOpen) {

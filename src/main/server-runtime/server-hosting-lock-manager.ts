@@ -1,13 +1,28 @@
 import { randomUUID } from 'crypto'
-import { ServerLockStatus, type Player, type StorageSnapshot } from '../../shared/domain'
+import {
+  ServerLockStatus,
+  type Player,
+  type ServerConnectionAddress,
+  type StorageSnapshot
+} from '../../shared/domain'
 import { readServerLock, writeServerLock } from '../storage/local-mock-cloud-storage'
 import { saveActiveSessionId } from '../storage/local-state-store'
 import { getSignedInMockUser } from '../mock-dashboard'
 import { ServerRuntimeError } from './server-runtime-error'
 
 let activeRuntimeSessionId: string | null = null
+const STALE_LOCK_THRESHOLD_MS = 2 * 60 * 1000
 
-export async function createHostingLock(storageSnapshot: StorageSnapshot): Promise<string> {
+export function getActiveRuntimeSessionId(): string | null {
+  return activeRuntimeSessionId
+}
+
+export async function createHostingLock(
+  storageSnapshot: StorageSnapshot,
+  connectionAddresses: ServerConnectionAddress[]
+): Promise<string> {
+  await assertHostingLockCanBeAcquired()
+
   const sessionId = randomUUID()
   const now = new Date().toISOString()
   const saveVersion =
@@ -20,7 +35,8 @@ export async function createHostingLock(storageSnapshot: StorageSnapshot): Promi
       sessionId,
       saveVersion,
       startedAt: now,
-      lastHeartbeat: now
+      lastHeartbeat: now,
+      connectionAddresses
     })
     await saveActiveSessionId(sessionId)
   } catch (error) {
@@ -34,6 +50,25 @@ export async function createHostingLock(storageSnapshot: StorageSnapshot): Promi
   activeRuntimeSessionId = sessionId
 
   return sessionId
+}
+
+async function assertHostingLockCanBeAcquired(): Promise<void> {
+  const serverLock = await readServerLock()
+
+  if (serverLock.status === ServerLockStatus.Unlocked) {
+    return
+  }
+
+  const lockIsCurrentRuntimeSession = serverLock.sessionId === activeRuntimeSessionId
+  const lockIsStale = isStaleLock(serverLock.lastHeartbeat)
+
+  if (lockIsCurrentRuntimeSession || lockIsStale) {
+    return
+  }
+
+  throw new ServerRuntimeError(
+    `Cannot start server because ${serverLock.lockedBy.displayName} is already hosting it.`
+  )
 }
 
 export async function clearHostingLockAfterStartFailure(): Promise<void> {
@@ -89,4 +124,10 @@ function getHostingPlayer(storageSnapshot: StorageSnapshot): Player {
     email: 'local@chunkshare.local',
     avatarInitials: 'LH'
   }
+}
+
+function isStaleLock(lastHeartbeat: string): boolean {
+  const heartbeatAgeMs = Date.now() - new Date(lastHeartbeat).getTime()
+
+  return !Number.isFinite(heartbeatAgeMs) || heartbeatAgeMs > STALE_LOCK_THRESHOLD_MS
 }

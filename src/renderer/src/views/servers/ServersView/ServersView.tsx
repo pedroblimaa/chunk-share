@@ -3,6 +3,8 @@ import './ServersView.css'
 import { useEffect, useState } from 'react'
 import type { DashboardSnapshot } from '../../../../../shared/dashboard'
 import type { StorageSnapshot } from '../../../../../shared/domain'
+import type { ServerRuntimeSnapshot } from '../../../../../shared/server-runtime'
+import { ServerSyncStatus } from '../../../../../shared/server-sync'
 import AppSidebar from '../../../components/shared/AppSidebar/AppSidebar'
 import Button from '../../../components/shared/Button/Button'
 import ConfirmationDialog from '../../../components/shared/ConfirmationDialog/ConfirmationDialog'
@@ -17,35 +19,50 @@ interface ServersViewProps {
   snapshot: DashboardSnapshot
   storageSnapshot: StorageSnapshot | null
   onOpenServer: () => void
+  onRefreshStorageSnapshot: () => Promise<void>
 }
 
 const SINGLE_SERVER_DISABLED_REASON = 'Only one server is supported in the MVP.'
+const STORAGE_REFRESH_INTERVAL_MS = 3_000
 type CopyStatus = 'idle' | 'copied' | 'failed'
 
 function formatServerType(serverType: string): string {
   return `${serverType.charAt(0).toUpperCase()}${serverType.slice(1)}`
 }
 
-function createConfiguredServer(storageSnapshot: StorageSnapshot | null): ServerCardSummary[] {
+function isServerActive(status: ServerRuntimeSnapshot['status']): boolean {
+  return status === 'starting' || status === 'running' || status === 'stopping'
+}
+
+function createConfiguredServer(
+  storageSnapshot: StorageSnapshot | null,
+  runtimeSnapshot: ServerRuntimeSnapshot | null,
+  signedInUserName: string | null
+): ServerCardSummary[] {
   if (!storageSnapshot || storageSnapshot.localState.serverSetup.status !== 'ready') {
     return []
   }
 
   const { serverConfig } = storageSnapshot.localState
+  const serverIsActive = runtimeSnapshot ? isServerActive(runtimeSnapshot.status) : false
+  const syncLockedHost =
+    storageSnapshot.serverSync.status === ServerSyncStatus.LockedByOther
+      ? storageSnapshot.serverSync.lockedBy?.displayName
+      : null
 
   return [
     {
       id: 'configured-server',
       name: serverConfig.name,
-      status: 'stopped',
+      status: runtimeSnapshot?.status ?? 'stopped',
       type: formatServerType(serverConfig.serverType),
       minecraftVersion: serverConfig.minecraftVersion,
       latestSaveLabel: formatLatestSaveLabel(storageSnapshot.serverSync.latestSave),
       syncStatus: storageSnapshot.serverSync,
-      currentHost: null,
+      currentHost: serverIsActive ? (signedInUserName ?? 'You') : (syncLockedHost ?? null),
       players: {
-        online: 0,
-        max: 5
+        online: serverIsActive ? (runtimeSnapshot?.players.online ?? 0) : 0,
+        max: runtimeSnapshot?.players.max ?? 5
       }
     }
   ]
@@ -56,14 +73,53 @@ function ServersView({
   storageSnapshot,
   onCreateServer,
   onDeleteServer,
-  onOpenServer
+  onOpenServer,
+  onRefreshStorageSnapshot
 }: ServersViewProps): React.JSX.Element {
-  const servers = createConfiguredServer(storageSnapshot)
+  const [runtimeSnapshot, setRuntimeSnapshot] = useState<ServerRuntimeSnapshot | null>(null)
+  const servers = createConfiguredServer(
+    storageSnapshot,
+    runtimeSnapshot,
+    snapshot.signedInUser?.name ?? null
+  )
   const hasServers = servers.length > 0
   const [deleteErrorMessage, setDeleteErrorMessage] = useState<string | null>(null)
   const [copyStatus, setCopyStatus] = useState<CopyStatus>('idle')
   const [isDeletingServer, setIsDeletingServer] = useState(false)
   const [serverPendingDelete, setServerPendingDelete] = useState<ServerCardSummary | null>(null)
+
+  useEffect(() => {
+    let isMounted = true
+
+    window.chunkShare.serverRuntime
+      .getSnapshot()
+      .then((nextRuntimeSnapshot) => {
+        if (isMounted) {
+          setRuntimeSnapshot(nextRuntimeSnapshot)
+        }
+      })
+      .catch(() => undefined)
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
+
+  useEffect(() => {
+    return window.chunkShare.serverRuntime.onEvent((runtimeEvent) => {
+      setRuntimeSnapshot(runtimeEvent.snapshot)
+    })
+  }, [])
+
+  useEffect(() => {
+    void onRefreshStorageSnapshot().catch(() => undefined)
+
+    const refreshTimer = window.setInterval(() => {
+      void onRefreshStorageSnapshot().catch(() => undefined)
+    }, STORAGE_REFRESH_INTERVAL_MS)
+
+    return () => window.clearInterval(refreshTimer)
+  }, [onRefreshStorageSnapshot])
 
   useEffect(() => {
     if (copyStatus === 'idle') {

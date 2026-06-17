@@ -8,7 +8,7 @@ export function getServerSyncView(syncStatus: ServerSyncSnapshot): ServerSyncVie
   if (syncStatus.status === ServerSyncStatus.LockedByOther) {
     return {
       ...view,
-      label: `Hosted by ${syncStatus.lockedBy?.displayName ?? 'someone'}`
+      label: `Online with ${syncStatus.lockedBy?.displayName ?? 'someone'}`
     }
   }
 
