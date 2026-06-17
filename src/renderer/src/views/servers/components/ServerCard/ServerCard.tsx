@@ -2,6 +2,11 @@ import './ServerCard.css'
 
 import type { KeyboardEvent } from 'react'
 import type { ServerStatus } from '../../../../../../shared/dashboard'
+import {
+  ServerHostingStatus,
+  ServerLockStatus,
+  type ServerLock
+} from '../../../../../../shared/domain'
 import { ServerSyncStatus, type ServerSyncSnapshot } from '../../../../../../shared/server-sync'
 import MaterialIcon from '../../../../components/shared/MaterialIcon/MaterialIcon'
 import { getServerSyncView } from '../../../../utils/server-sync-ui'
@@ -24,14 +29,19 @@ export interface ServerCardSummary {
 interface ServerCardProps {
   animationDelayMs: number
   deleteDisabled?: boolean
+  deleteTitle?: string
   server: ServerCardSummary
   onDelete: () => void
   onOpen: () => void
 }
 
+type LockedServerSyncSnapshot = ServerSyncSnapshot & {
+  serverLock: Extract<ServerLock, { status: ServerLockStatus.Locked }>
+}
+
 function getStatusLabel(server: ServerCardSummary): string {
   if (server.status === 'stopped' && server.syncStatus.status === ServerSyncStatus.LockedByOther) {
-    return 'Online'
+    return getRemoteHostStatusLabel(server.syncStatus)
   }
 
   const statusLabels: Record<ServerStatus, string> = {
@@ -47,13 +57,55 @@ function getStatusLabel(server: ServerCardSummary): string {
   return statusLabels[server.status]
 }
 
+function getRemoteHostStatusLabel(syncStatus: ServerSyncSnapshot): string {
+  if (!isRemoteLocked(syncStatus)) {
+    return 'Online'
+  }
+
+  const statusLabels: Record<ServerHostingStatus, string> = {
+    [ServerHostingStatus.Starting]: 'Starting',
+    [ServerHostingStatus.Running]: 'Online',
+    [ServerHostingStatus.Stopping]: 'Stopping'
+  }
+
+  return statusLabels[syncStatus.serverLock.hostingStatus]
+}
+
+function isRemoteLocked(syncStatus: ServerSyncSnapshot): syncStatus is LockedServerSyncSnapshot {
+  return (
+    syncStatus.status === ServerSyncStatus.LockedByOther &&
+    syncStatus.serverLock.status === ServerLockStatus.Locked
+  )
+}
+
+function isRemoteHostRunning(syncStatus: ServerSyncSnapshot): boolean {
+  return (
+    isRemoteLocked(syncStatus) &&
+    syncStatus.serverLock.hostingStatus === ServerHostingStatus.Running
+  )
+}
+
+function isRemoteHostTransitioning(syncStatus: ServerSyncSnapshot): boolean {
+  return (
+    isRemoteLocked(syncStatus) &&
+    syncStatus.serverLock.hostingStatus !== ServerHostingStatus.Running
+  )
+}
+
 function getStatusPillClassName(server: ServerCardSummary): string {
-  const lockedClass =
-    server.status === 'stopped' && server.syncStatus.status === ServerSyncStatus.LockedByOther
-      ? ' server-status-pill-hosted'
-      : ''
+  const lockedClass = getRemoteLockStatusPillClassName(server)
 
   return `server-status-pill server-status-pill-${server.status}${lockedClass}`
+}
+
+function getRemoteLockStatusPillClassName(server: ServerCardSummary): string {
+  if (server.status !== 'stopped' || server.syncStatus.status !== ServerSyncStatus.LockedByOther) {
+    return ''
+  }
+
+  return isRemoteHostTransitioning(server.syncStatus)
+    ? ' server-status-pill-remote-transitioning'
+    : ' server-status-pill-hosted'
 }
 
 function isOpenKey(event: KeyboardEvent): boolean {
@@ -63,12 +115,13 @@ function isOpenKey(event: KeyboardEvent): boolean {
 function ServerCard({
   animationDelayMs,
   deleteDisabled = false,
+  deleteTitle,
   server,
   onDelete,
   onOpen
 }: ServerCardProps): React.JSX.Element {
   const syncView = getServerSyncView(server.syncStatus)
-  const serverIsJoinable = server.syncStatus.status === ServerSyncStatus.LockedByOther
+  const serverIsJoinable = isRemoteHostRunning(server.syncStatus)
   const openButtonLabel = serverIsJoinable ? 'Join' : 'Manage'
   const openButtonIcon = serverIsJoinable ? 'login' : 'settings'
 
@@ -140,7 +193,7 @@ function ServerCard({
           aria-label={`Delete ${server.name}`}
           className="server-delete-action"
           disabled={deleteDisabled}
-          title="Delete server and create a local backup"
+          title={deleteTitle ?? 'Delete server and create a local backup'}
           type="button"
           onClick={onDelete}
         >

@@ -1,4 +1,4 @@
-import { ServerLockStatus } from '../../shared/domain'
+import { ServerHostingStatus, ServerLockStatus } from '../../shared/domain'
 import type {
   JavaConfig,
   LatestSave,
@@ -64,6 +64,14 @@ function isServerConnectionAddress(value: unknown): value is ServerConnectionAdd
   return isString(value.label) && isString(value.address) && typeof value.isPrimary === 'boolean'
 }
 
+function isServerHostingStatus(value: unknown): value is ServerHostingStatus {
+  return (
+    value === ServerHostingStatus.Starting ||
+    value === ServerHostingStatus.Running ||
+    value === ServerHostingStatus.Stopping
+  )
+}
+
 export function isServerConfig(value: unknown): value is ServerConfig {
   if (!isRecord(value)) {
     return false
@@ -121,6 +129,7 @@ export function isServerLock(value: unknown): value is ServerLock {
     isPlayer(value.lockedBy) &&
     isString(value.sessionId) &&
     isNonNegativeInteger(value.saveVersion) &&
+    isServerHostingStatus(value.hostingStatus) &&
     isString(value.startedAt) &&
     isString(value.lastHeartbeat) &&
     Array.isArray(value.connectionAddresses) &&

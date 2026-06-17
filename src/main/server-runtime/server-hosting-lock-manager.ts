@@ -1,9 +1,10 @@
 import { randomUUID } from 'crypto'
 import {
+  ServerHostingStatus,
   ServerLockStatus,
   type Player,
   type ServerConnectionAddress,
-  type StorageSnapshot
+  type ServerStorageSnapshot
 } from '../../shared/domain'
 import { readServerLock, writeServerLock } from '../storage/local-mock-cloud-storage'
 import { saveActiveSessionId } from '../storage/local-state-store'
@@ -18,7 +19,7 @@ export function getActiveRuntimeSessionId(): string | null {
 }
 
 export async function createHostingLock(
-  storageSnapshot: StorageSnapshot,
+  storageSnapshot: ServerStorageSnapshot,
   connectionAddresses: ServerConnectionAddress[]
 ): Promise<string> {
   await assertHostingLockCanBeAcquired()
@@ -34,6 +35,7 @@ export async function createHostingLock(
       lockedBy: getHostingPlayer(storageSnapshot),
       sessionId,
       saveVersion,
+      hostingStatus: ServerHostingStatus.Starting,
       startedAt: now,
       lastHeartbeat: now,
       connectionAddresses
@@ -50,6 +52,43 @@ export async function createHostingLock(
   activeRuntimeSessionId = sessionId
 
   return sessionId
+}
+
+export async function markHostingLockRunning(sessionId: string): Promise<void> {
+  await updateHostingLockStatus(sessionId, ServerHostingStatus.Running, [
+    ServerHostingStatus.Starting
+  ])
+}
+
+export async function markHostingLockStopping(sessionId: string): Promise<void> {
+  await updateHostingLockStatus(sessionId, ServerHostingStatus.Stopping, [
+    ServerHostingStatus.Starting,
+    ServerHostingStatus.Running
+  ])
+}
+
+async function updateHostingLockStatus(
+  sessionId: string,
+  hostingStatus: ServerHostingStatus,
+  allowedCurrentStatuses: ServerHostingStatus[]
+): Promise<void> {
+  const serverLock = await readServerLock()
+
+  if (serverLock.status !== ServerLockStatus.Locked || serverLock.sessionId !== sessionId) {
+    throw new ServerRuntimeError('Cannot update hosting status because the hosting lock changed.')
+  }
+
+  if (!allowedCurrentStatuses.includes(serverLock.hostingStatus)) {
+    throw new ServerRuntimeError(
+      `Cannot update hosting status from ${serverLock.hostingStatus} to ${hostingStatus}.`
+    )
+  }
+
+  await writeServerLock({
+    ...serverLock,
+    hostingStatus,
+    lastHeartbeat: new Date().toISOString()
+  })
 }
 
 async function assertHostingLockCanBeAcquired(): Promise<void> {
@@ -103,7 +142,7 @@ export async function clearHostingLockAfterCleanStop(): Promise<void> {
   activeRuntimeSessionId = null
 }
 
-function getHostingPlayer(storageSnapshot: StorageSnapshot): Player {
+function getHostingPlayer(storageSnapshot: ServerStorageSnapshot): Player {
   if (storageSnapshot.localState.player) {
     return storageSnapshot.localState.player
   }

@@ -1,8 +1,8 @@
 import './ServersView.css'
 
 import { useEffect, useState } from 'react'
-import type { DashboardSnapshot } from '../../../../../shared/dashboard'
-import type { StorageSnapshot } from '../../../../../shared/domain'
+import type { ServerDisplayState } from '../../../../../shared/dashboard'
+import { ServerLockStatus } from '../../../../../shared/domain'
 import type { ServerRuntimeSnapshot } from '../../../../../shared/server-runtime'
 import { ServerSyncStatus } from '../../../../../shared/server-sync'
 import AppSidebar from '../../../components/shared/AppSidebar/AppSidebar'
@@ -16,71 +16,83 @@ import ServerCard, { type ServerCardSummary } from '../components/ServerCard/Ser
 interface ServersViewProps {
   onCreateServer: () => void
   onDeleteServer: () => Promise<void>
-  snapshot: DashboardSnapshot
-  storageSnapshot: StorageSnapshot | null
+  serverDisplayState: ServerDisplayState
   onOpenServer: () => void
-  onRefreshStorageSnapshot: () => Promise<void>
+  onRefreshServerDisplayState: () => Promise<void>
 }
 
 const SINGLE_SERVER_DISABLED_REASON = 'Only one server is supported in the MVP.'
 const STORAGE_REFRESH_INTERVAL_MS = 3_000
 type CopyStatus = 'idle' | 'copied' | 'failed'
 
-function formatServerType(serverType: string): string {
-  return `${serverType.charAt(0).toUpperCase()}${serverType.slice(1)}`
-}
-
 function isServerActive(status: ServerRuntimeSnapshot['status']): boolean {
   return status === 'starting' || status === 'running' || status === 'stopping'
 }
 
+function isServerLocked(serverDisplayState: ServerDisplayState): boolean {
+  return serverDisplayState.syncStatus.serverLock.status === ServerLockStatus.Locked
+}
+
+function getCardServerStatus(
+  serverDisplayState: ServerDisplayState,
+  runtimeSnapshot: ServerRuntimeSnapshot | null
+): ServerCardSummary['status'] {
+  if (runtimeSnapshot && isServerActive(runtimeSnapshot.status)) {
+    return runtimeSnapshot.status
+  }
+
+  return serverDisplayState.serverStatus === 'not-configured'
+    ? 'stopped'
+    : serverDisplayState.serverStatus
+}
+
 function createConfiguredServer(
-  storageSnapshot: StorageSnapshot | null,
+  serverDisplayState: ServerDisplayState,
   runtimeSnapshot: ServerRuntimeSnapshot | null,
   signedInUserName: string | null
 ): ServerCardSummary[] {
-  if (!storageSnapshot || storageSnapshot.localState.serverSetup.status !== 'ready') {
+  if (serverDisplayState.serverStatus === 'not-configured') {
     return []
   }
 
-  const { serverConfig } = storageSnapshot.localState
   const serverIsActive = runtimeSnapshot ? isServerActive(runtimeSnapshot.status) : false
   const syncLockedHost =
-    storageSnapshot.serverSync.status === ServerSyncStatus.LockedByOther
-      ? storageSnapshot.serverSync.lockedBy?.displayName
+    serverDisplayState.syncStatus.status === ServerSyncStatus.LockedByOther
+      ? serverDisplayState.syncStatus.lockedBy?.displayName
       : null
 
   return [
     {
       id: 'configured-server',
-      name: serverConfig.name,
-      status: runtimeSnapshot?.status ?? 'stopped',
-      type: formatServerType(serverConfig.serverType),
-      minecraftVersion: serverConfig.minecraftVersion,
-      latestSaveLabel: formatLatestSaveLabel(storageSnapshot.serverSync.latestSave),
-      syncStatus: storageSnapshot.serverSync,
-      currentHost: serverIsActive ? (signedInUserName ?? 'You') : (syncLockedHost ?? null),
+      name: serverDisplayState.serverName,
+      status: getCardServerStatus(serverDisplayState, runtimeSnapshot),
+      type: serverDisplayState.serverType,
+      minecraftVersion: serverDisplayState.minecraftVersion,
+      latestSaveLabel: formatLatestSaveLabel(serverDisplayState.syncStatus.latestSave),
+      syncStatus: serverDisplayState.syncStatus,
+      currentHost: serverIsActive
+        ? (signedInUserName ?? 'You')
+        : (syncLockedHost ?? serverDisplayState.currentHost),
       players: {
         online: serverIsActive ? (runtimeSnapshot?.players.online ?? 0) : 0,
-        max: runtimeSnapshot?.players.max ?? 5
+        max: runtimeSnapshot?.players.max ?? serverDisplayState.players.max
       }
     }
   ]
 }
 
 function ServersView({
-  snapshot,
-  storageSnapshot,
+  serverDisplayState,
   onCreateServer,
   onDeleteServer,
   onOpenServer,
-  onRefreshStorageSnapshot
+  onRefreshServerDisplayState
 }: ServersViewProps): React.JSX.Element {
   const [runtimeSnapshot, setRuntimeSnapshot] = useState<ServerRuntimeSnapshot | null>(null)
   const servers = createConfiguredServer(
-    storageSnapshot,
+    serverDisplayState,
     runtimeSnapshot,
-    snapshot.signedInUser?.name ?? null
+    serverDisplayState.signedInUser?.name ?? null
   )
   const hasServers = servers.length > 0
   const [deleteErrorMessage, setDeleteErrorMessage] = useState<string | null>(null)
@@ -112,14 +124,14 @@ function ServersView({
   }, [])
 
   useEffect(() => {
-    void onRefreshStorageSnapshot().catch(() => undefined)
+    void onRefreshServerDisplayState().catch(() => undefined)
 
     const refreshTimer = window.setInterval(() => {
-      void onRefreshStorageSnapshot().catch(() => undefined)
+      void onRefreshServerDisplayState().catch(() => undefined)
     }, STORAGE_REFRESH_INTERVAL_MS)
 
     return () => window.clearInterval(refreshTimer)
-  }, [onRefreshStorageSnapshot])
+  }, [onRefreshServerDisplayState])
 
   useEffect(() => {
     if (copyStatus === 'idle') {
@@ -164,6 +176,10 @@ function ServersView({
   const copyButtonLabel =
     copyStatus === 'copied' ? 'Copied' : copyStatus === 'failed' ? 'Copy Failed' : 'Copy Error'
   const copyButtonStateClass = copyStatus === 'idle' ? '' : ` is-${copyStatus}`
+  const deleteDisabled = isDeletingServer || isServerLocked(serverDisplayState)
+  const deleteDisabledReason = isServerLocked(serverDisplayState)
+    ? 'Stop the hosted server before deleting it.'
+    : undefined
 
   return (
     <div className="dashboard-screen servers-screen">
@@ -175,7 +191,7 @@ function ServersView({
 
       <div className="dashboard-main">
         <TopBar
-          user={snapshot.signedInUser}
+          user={serverDisplayState.signedInUser}
           breadcrumbs={[{ label: 'Servers' }]}
           createInstanceDisabled={hasServers}
           createInstanceTitle={hasServers ? SINGLE_SERVER_DISABLED_REASON : undefined}
@@ -212,7 +228,8 @@ function ServersView({
               {servers.map((server, index) => (
                 <ServerCard
                   animationDelayMs={index * 80}
-                  deleteDisabled={isDeletingServer}
+                  deleteDisabled={deleteDisabled}
+                  deleteTitle={deleteDisabledReason}
                   key={server.id}
                   server={server}
                   onDelete={() => setServerPendingDelete(server)}

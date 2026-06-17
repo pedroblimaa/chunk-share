@@ -18,6 +18,12 @@ export enum ServerLockStatus {
   Locked = 'locked'
 }
 
+export enum ServerHostingStatus {
+  Starting = 'starting',
+  Running = 'running',
+  Stopping = 'stopping'
+}
+
 export interface Player {
   id: string
   displayName: string
@@ -72,6 +78,7 @@ export type ServerLock =
       lockedBy: Player
       sessionId: string
       saveVersion: number
+      hostingStatus: ServerHostingStatus
       startedAt: string
       lastHeartbeat: string
       connectionAddresses: ServerConnectionAddress[]
@@ -87,7 +94,7 @@ export interface LocalState {
   dirty: boolean
 }
 
-export interface StorageSnapshot {
+export interface ServerStorageSnapshot {
   latestSave: LatestSave
   serverLock: ServerLock
   serverSync: ServerSyncSnapshot

@@ -1,7 +1,8 @@
 import './DashboardView.css'
 
-import { useEffect, useState } from 'react'
-import type { DashboardSnapshot } from '../../../../../shared/dashboard'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import type { ServerDisplayState } from '../../../../../shared/dashboard'
+import { ServerHostingStatus, ServerLockStatus } from '../../../../../shared/domain'
 import type {
   ServerConnectionAddress,
   ServerRuntimeSnapshot
@@ -9,6 +10,7 @@ import type {
 import { ServerSyncStatus } from '../../../../../shared/server-sync'
 import AppSidebar from '../../../components/shared/AppSidebar/AppSidebar'
 import MaterialIcon from '../../../components/shared/MaterialIcon/MaterialIcon'
+import { loadServerDisplayState } from '../../../utils/server-display-state'
 import { formatLatestSaveLabel, getServerSyncView } from '../../../utils/server-sync-ui'
 import ConsoleOutput from '../components/ConsoleOutput/ConsoleOutput'
 import DashboardStatCard from '../components/DashboardStatCard/DashboardStatCard'
@@ -17,7 +19,8 @@ import ServerStatePanel from '../components/ServerStatePanel/ServerStatePanel'
 import TopBar from '../components/TopBar/TopBar'
 
 interface DashboardPreviewProps {
-  snapshot: DashboardSnapshot
+  serverDisplayState: ServerDisplayState
+  onServerDisplayStateChange: (serverDisplayState: ServerDisplayState) => void
   onNavigateToServers: () => void
 }
 
@@ -43,18 +46,18 @@ function getPrimaryConnectionAddress(addresses: ServerConnectionAddress[]): stri
   return address || null
 }
 
-function isServerActive(status: DashboardSnapshot['serverStatus']): boolean {
+function isServerActive(status: ServerDisplayState['serverStatus']): boolean {
   return status === 'starting' || status === 'running' || status === 'stopping'
 }
 
-function getCurrentHost(snapshot: DashboardSnapshot, serverIsActive: boolean): string | null {
+function getCurrentHost(snapshot: ServerDisplayState, serverIsActive: boolean): string | null {
   return serverIsActive ? (snapshot.signedInUser?.name ?? 'You') : snapshot.currentHost
 }
 
 function applyRuntimeSnapshot(
-  snapshot: DashboardSnapshot,
+  snapshot: ServerDisplayState,
   runtimeSnapshot: ServerRuntimeSnapshot
-): DashboardSnapshot {
+): ServerDisplayState {
   const serverIsActive = isServerActive(runtimeSnapshot.status)
 
   const players = {
@@ -87,27 +90,48 @@ function applyRuntimeSnapshot(
 }
 
 function DashboardView({
-  snapshot,
+  serverDisplayState,
+  onServerDisplayStateChange,
   onNavigateToServers
 }: DashboardPreviewProps): React.JSX.Element {
-  const [dashboardSnapshot, setDashboardSnapshot] = useState(snapshot)
+  const serverDisplayStateRef = useRef(serverDisplayState)
   const [runtimeErrorMessage, setRuntimeErrorMessage] = useState<string | null>(null)
   const [errorCopyStatus, setErrorCopyStatus] = useState<CopyStatus>('idle')
   const [addressCopyStatus, setAddressCopyStatus] = useState<CopyStatus>('idle')
   const [isServerToggleAnimating, setIsServerToggleAnimating] = useState(false)
   const [connectionDetailsOpen, setConnectionDetailsOpen] = useState(false)
 
-  async function refreshDashboardSnapshot(
-    nextRuntimeSnapshot: ServerRuntimeSnapshot
-  ): Promise<void> {
-    try {
-      const nextDashboardSnapshot = await window.chunkShare.dashboard.getSnapshot()
-      setDashboardSnapshot(applyRuntimeSnapshot(nextDashboardSnapshot, nextRuntimeSnapshot))
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Unable to refresh dashboard.'
-      setRuntimeErrorMessage(message)
-    }
-  }
+  useEffect(() => {
+    serverDisplayStateRef.current = serverDisplayState
+  }, [serverDisplayState])
+
+  const updateServerDisplayState = useCallback(
+    (nextServerDisplayState: ServerDisplayState): void => {
+      serverDisplayStateRef.current = nextServerDisplayState
+      onServerDisplayStateChange(nextServerDisplayState)
+    },
+    [onServerDisplayStateChange]
+  )
+
+  const applyRuntimeSnapshotToDisplayState = useCallback(
+    (runtimeSnapshot: ServerRuntimeSnapshot): void => {
+      updateServerDisplayState(applyRuntimeSnapshot(serverDisplayStateRef.current, runtimeSnapshot))
+    },
+    [updateServerDisplayState]
+  )
+
+  const refreshServerDisplayState = useCallback(
+    async (nextRuntimeSnapshot: ServerRuntimeSnapshot): Promise<void> => {
+      try {
+        const nextServerDisplayState = await loadServerDisplayState()
+        updateServerDisplayState(applyRuntimeSnapshot(nextServerDisplayState, nextRuntimeSnapshot))
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'Unable to refresh dashboard.'
+        setRuntimeErrorMessage(message)
+      }
+    },
+    [updateServerDisplayState]
+  )
 
   useEffect(() => {
     let isMounted = true
@@ -119,9 +143,7 @@ function DashboardView({
           return
         }
 
-        setDashboardSnapshot((currentSnapshot) =>
-          applyRuntimeSnapshot(currentSnapshot, nextRuntimeSnapshot)
-        )
+        applyRuntimeSnapshotToDisplayState(nextRuntimeSnapshot)
       })
       .catch((error: unknown) => {
         if (!isMounted) {
@@ -135,26 +157,24 @@ function DashboardView({
     return () => {
       isMounted = false
     }
-  }, [])
+  }, [applyRuntimeSnapshotToDisplayState])
 
   useEffect(() => {
     return window.chunkShare.serverRuntime.onEvent((runtimeEvent) => {
       setRuntimeErrorMessage(runtimeEvent.snapshot.errorMessage)
-      setDashboardSnapshot((currentSnapshot) =>
-        applyRuntimeSnapshot(currentSnapshot, runtimeEvent.snapshot)
-      )
+      applyRuntimeSnapshotToDisplayState(runtimeEvent.snapshot)
 
       if (runtimeEvent.snapshot.status === 'stopped') {
-        void refreshDashboardSnapshot(runtimeEvent.snapshot)
+        void refreshServerDisplayState(runtimeEvent.snapshot)
       }
     })
-  }, [])
+  }, [applyRuntimeSnapshotToDisplayState, refreshServerDisplayState])
 
   useEffect(() => {
     const refreshTimer = window.setInterval(() => {
       window.chunkShare.serverRuntime
         .getSnapshot()
-        .then(refreshDashboardSnapshot)
+        .then(refreshServerDisplayState)
         .catch((error: unknown) => {
           const message = error instanceof Error ? error.message : 'Unable to refresh dashboard.'
           setRuntimeErrorMessage(message)
@@ -162,7 +182,7 @@ function DashboardView({
     }, DASHBOARD_REFRESH_INTERVAL_MS)
 
     return () => window.clearInterval(refreshTimer)
-  }, [])
+  }, [refreshServerDisplayState])
 
   useEffect(() => {
     if (!isServerToggleAnimating) {
@@ -210,9 +230,7 @@ function DashboardView({
         ? await window.chunkShare.serverRuntime.stop()
         : await window.chunkShare.serverRuntime.start()
 
-      setDashboardSnapshot((currentSnapshot) =>
-        applyRuntimeSnapshot(currentSnapshot, nextRuntimeSnapshot)
-      )
+      applyRuntimeSnapshotToDisplayState(nextRuntimeSnapshot)
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Unable to toggle server.'
       setRuntimeErrorMessage(message)
@@ -270,9 +288,12 @@ function DashboardView({
     void handleServerToggle()
   }
 
+  const dashboardSnapshot = serverDisplayState
   const syncView = getServerSyncView(dashboardSnapshot.syncStatus)
   const serverIsJoinable =
     dashboardSnapshot.syncStatus.status === ServerSyncStatus.LockedByOther &&
+    dashboardSnapshot.syncStatus.serverLock.status === ServerLockStatus.Locked &&
+    dashboardSnapshot.syncStatus.serverLock.hostingStatus === ServerHostingStatus.Running &&
     Boolean(dashboardSnapshot.connectionAddress)
   const syncBlocksStart =
     dashboardSnapshot.serverStatus !== 'running' && !dashboardSnapshot.syncStatus.isStartAllowed
@@ -358,9 +379,12 @@ function DashboardView({
             <ServerStatePanel
               lastActiveLabel={lastActiveLabel}
               snapshot={dashboardSnapshot}
-              toggleDisabled={toggleDisabled}
-              toggleButtonTooltip={toggleButtonTooltip}
-              onToggleServer={handleServerToggle}
+              toggleDisabled={headerToggleDisabled}
+              toggleButtonAriaLabel={serverIsJoinable ? 'Show connection details' : undefined}
+              toggleButtonTooltip={
+                serverIsJoinable ? 'Show connection details' : toggleButtonTooltip
+              }
+              onToggleServer={handleHeaderServerAction}
             />
 
             <div className="dashboard-side-stats">

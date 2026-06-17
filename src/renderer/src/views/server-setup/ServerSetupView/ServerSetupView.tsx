@@ -1,8 +1,7 @@
 import './ServerSetupView.css'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { DashboardSnapshot } from '../../../../../shared/dashboard'
-import type { StorageSnapshot } from '../../../../../shared/domain'
+import type { ServerDisplayState } from '../../../../../shared/dashboard'
 import {
   ServerSetupProgressStep,
   type SetupVanillaServerInput,
@@ -15,10 +14,10 @@ import SetupForm from '../components/SetupForm/SetupForm'
 import type { DeploymentStatus } from '../server-setup-model'
 
 interface ServerSetupViewProps {
-  snapshot: DashboardSnapshot
+  snapshot: ServerDisplayState
   onCancel: () => void
   onOpenDashboard: () => void
-  onSetupComplete: (storageSnapshot: StorageSnapshot) => void
+  onSetupComplete: () => Promise<void>
 }
 
 const SETUP_DISABLED_REASON = "You're already creating an instance."
@@ -114,7 +113,6 @@ function ServerSetupView({
 
     try {
       const storageSnapshot = await window.chunkShare.serverSetup.setupVanillaServer(input)
-      onSetupComplete(storageSnapshot)
 
       if (storageSnapshot.localState.serverSetup.status === 'error') {
         setDeploymentStatus('error')
@@ -124,6 +122,7 @@ function ServerSetupView({
         return
       }
 
+      await onSetupComplete()
       setDeploymentStatus('complete')
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Server setup failed.'

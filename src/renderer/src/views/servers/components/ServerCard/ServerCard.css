@@ -89,6 +89,14 @@
   background: var(--color-warning);
 }
 
+.server-status-pill-stopping span {
+  background: var(--color-warning);
+}
+
+.server-status-pill-remote-transitioning span {
+  background: var(--color-warning);
+}
+
 .server-status-pill-hosted span {
   background: var(--color-accent);
   box-shadow: 0 0 12px var(--color-accent);

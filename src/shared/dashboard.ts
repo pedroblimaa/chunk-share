@@ -37,7 +37,7 @@ export interface ConsoleLogLine {
   tone: 'default' | 'success' | 'warning' | 'error'
 }
 
-export interface DashboardSnapshot {
+export interface ServerDisplayState {
   signedInUser: MockUser | null
   serverName: string
   serverStatus: ServerStatus

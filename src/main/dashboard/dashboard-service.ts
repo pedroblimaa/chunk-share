@@ -1,7 +1,13 @@
-import type { DashboardSnapshot, MockUser } from '../../shared/dashboard'
-import { ServerLockStatus } from '../../shared/domain'
-import type { ServerConfig, StorageSnapshot } from '../../shared/domain'
+import type { MockUser, ServerDisplayState } from '../../shared/dashboard'
+import {
+  ServerHostingStatus,
+  ServerLockStatus,
+  type ServerConfig,
+  type ServerStatus,
+  type ServerStorageSnapshot
+} from '../../shared/domain'
 import type { ServerConnectionAddress } from '../../shared/server-runtime'
+import { ServerSyncStatus } from '../../shared/server-sync'
 import { getServerRuntimeSnapshot } from '../server-runtime/server-runtime-service'
 import { getServerSyncSnapshot } from '../server-sync/server-sync-service'
 import { getSignedInMockUser } from '../mock-dashboard'
@@ -11,7 +17,7 @@ function formatServerType(serverType: ServerConfig['serverType']): string {
 }
 
 function getCurrentHost(
-  storageSnapshot: StorageSnapshot,
+  storageSnapshot: ServerStorageSnapshot,
   signedInUser: MockUser | null,
   serverIsRunning: boolean
 ): string | null {
@@ -23,7 +29,7 @@ function getCurrentHost(
 }
 
 function getSnapshotConnectionAddresses(
-  storageSnapshot: StorageSnapshot,
+  storageSnapshot: ServerStorageSnapshot,
   runtimeAddresses: ServerConnectionAddress[],
   serverIsRunning: boolean
 ): ServerConnectionAddress[] {
@@ -40,18 +46,56 @@ function getPrimaryConnectionAddress(addresses: ServerConnectionAddress[]): stri
   return addresses.find((address) => address.isPrimary)?.address ?? addresses[0]?.address ?? null
 }
 
-function buildDashboardSnapshot(
-  storageSnapshot: StorageSnapshot,
+function runtimeStatusIsActive(status: ServerStatus): boolean {
+  return status === 'starting' || status === 'running' || status === 'stopping'
+}
+
+function getRemoteHostingStatus(storageSnapshot: ServerStorageSnapshot): ServerStatus | null {
+  if (
+    storageSnapshot.serverSync.status !== ServerSyncStatus.LockedByOther ||
+    storageSnapshot.serverLock.status !== ServerLockStatus.Locked
+  ) {
+    return null
+  }
+
+  const statusByHostingStatus: Record<ServerHostingStatus, ServerStatus> = {
+    [ServerHostingStatus.Starting]: 'starting',
+    [ServerHostingStatus.Running]: 'running',
+    [ServerHostingStatus.Stopping]: 'stopping'
+  }
+
+  return statusByHostingStatus[storageSnapshot.serverLock.hostingStatus]
+}
+
+function getDisplayServerStatus(
+  storageSnapshot: ServerStorageSnapshot,
+  runtimeStatus: ServerStatus,
+  serverConfigured: boolean
+): ServerStatus {
+  if (!serverConfigured) {
+    return 'not-configured'
+  }
+
+  if (runtimeStatusIsActive(runtimeStatus)) {
+    return runtimeStatus
+  }
+
+  return getRemoteHostingStatus(storageSnapshot) ?? runtimeStatus
+}
+
+function buildServerDisplayState(
+  storageSnapshot: ServerStorageSnapshot,
   signedInUser: MockUser | null
-): DashboardSnapshot {
+): ServerDisplayState {
   const runtimeSnapshot = getServerRuntimeSnapshot()
   const { localState, serverSync } = storageSnapshot
   const serverConfigured = localState.serverSetup.status === 'ready'
-  const serverStatus = serverConfigured ? runtimeSnapshot.status : 'not-configured'
-  const serverIsRunning =
-    runtimeSnapshot.status === 'starting' ||
-    runtimeSnapshot.status === 'running' ||
-    runtimeSnapshot.status === 'stopping'
+  const serverStatus = getDisplayServerStatus(
+    storageSnapshot,
+    runtimeSnapshot.status,
+    serverConfigured
+  )
+  const serverIsRunning = runtimeStatusIsActive(runtimeSnapshot.status)
   const connectionAddresses = getSnapshotConnectionAddresses(
     storageSnapshot,
     runtimeSnapshot.connectionAddresses,
@@ -83,6 +127,6 @@ function buildDashboardSnapshot(
   }
 }
 
-export async function getDashboardSnapshot(): Promise<DashboardSnapshot> {
-  return buildDashboardSnapshot(await getServerSyncSnapshot(), getSignedInMockUser())
+export async function getServerDisplayState(): Promise<ServerDisplayState> {
+  return buildServerDisplayState(await getServerSyncSnapshot(), getSignedInMockUser())
 }

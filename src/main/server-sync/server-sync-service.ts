@@ -5,7 +5,7 @@ import {
   type LatestSave,
   type LocalState,
   type ServerLock,
-  type StorageSnapshot
+  type ServerStorageSnapshot
 } from '../../shared/domain'
 import { ServerSyncStatus, type ServerSyncSnapshot } from '../../shared/server-sync'
 import { readLatestSave, readServerLock } from '../storage/local-mock-cloud-storage'
@@ -49,7 +49,7 @@ const SERVER_SYNC_RULES: ServerSyncRule[] = [
   localNewerRule
 ]
 
-export async function getServerSyncSnapshot(): Promise<StorageSnapshot> {
+export async function getServerSyncSnapshot(): Promise<ServerStorageSnapshot> {
   const [latestSave, serverLock, localState] = await Promise.all([
     readLatestSave(),
     readServerLock(),

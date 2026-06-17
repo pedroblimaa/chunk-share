@@ -1,29 +1,44 @@
 import { mkdir, rename, stat } from 'fs/promises'
 import { join } from 'path'
-import type { ServerConfig, StorageSnapshot } from '../../shared/domain'
+import {
+  ServerLockStatus,
+  type ServerConfig,
+  type ServerStorageSnapshot
+} from '../../shared/domain'
 import { getServerSyncSnapshot } from '../server-sync/server-sync-service'
 import { resetServerLock as resetLocalMockServerLock } from './local-mock-cloud-storage'
-import { readLocalState, resetConfiguredServer, saveServerConfig } from './local-state-store'
+import { resetConfiguredServer, saveServerConfig } from './local-state-store'
+import { StorageError } from './storage-error'
 import { localServerBackupsFolderPath, localServerFolderPath } from './storage-paths'
 
-export async function getStorageSnapshot(): Promise<StorageSnapshot> {
+export async function getStorageSnapshot(): Promise<ServerStorageSnapshot> {
   return getServerSyncSnapshot()
 }
 
-export async function updateServerConfig(serverConfig: ServerConfig): Promise<StorageSnapshot> {
+export async function updateServerConfig(
+  serverConfig: ServerConfig
+): Promise<ServerStorageSnapshot> {
   await saveServerConfig(serverConfig)
 
   return getStorageSnapshot()
 }
 
-export async function resetServerLock(): Promise<StorageSnapshot> {
+export async function resetServerLock(): Promise<ServerStorageSnapshot> {
   await resetLocalMockServerLock()
 
   return getStorageSnapshot()
 }
 
-export async function deleteConfiguredServer(): Promise<StorageSnapshot> {
-  const localState = await readLocalState()
+export async function deleteConfiguredServer(): Promise<ServerStorageSnapshot> {
+  const storageSnapshot = await getStorageSnapshot()
+  const { localState, serverLock } = storageSnapshot
+
+  if (serverLock.status === ServerLockStatus.Locked) {
+    throw new StorageError(
+      `Cannot delete this server while ${serverLock.lockedBy.displayName} is hosting it.`
+    )
+  }
+
   const serverFolderPath = localState.serverConfig.serverFolderPath ?? localServerFolderPath
 
   await backupServerFolder(serverFolderPath, localState.serverConfig.name)

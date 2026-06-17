@@ -1,7 +1,7 @@
 import extractZip from 'extract-zip'
 import { mkdir, rm, stat } from 'fs/promises'
 import { basename, dirname, join } from 'path'
-import type { StorageSnapshot } from '../../shared/domain'
+import type { ServerStorageSnapshot } from '../../shared/domain'
 import { renameWithRetry } from './file-system-utils'
 import { saveLocalSaveVersion } from './local-state-store'
 import { StorageError } from './storage-error'
@@ -11,7 +11,9 @@ import {
   mockCloudVersionsFolderPath
 } from './storage-paths'
 
-export async function restoreLatestServerSave(storageSnapshot: StorageSnapshot): Promise<void> {
+export async function restoreLatestServerSave(
+  storageSnapshot: ServerStorageSnapshot
+): Promise<void> {
   const { latestSave, localState } = storageSnapshot
 
   if (!latestSave) {

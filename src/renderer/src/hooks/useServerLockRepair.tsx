@@ -1,10 +1,10 @@
 import { useCallback, useState } from 'react'
-import type { DashboardSnapshot } from '../../../shared/dashboard'
-import type { StorageSnapshot } from '../../../shared/domain'
+import type { ServerDisplayState } from '../../../shared/dashboard'
 import ConfirmationDialog from '../components/shared/ConfirmationDialog/ConfirmationDialog'
+import { loadServerDisplayState } from '../utils/server-display-state'
 
 interface UseServerLockRepairInput {
-  onRepairComplete: (snapshot: DashboardSnapshot, storageSnapshot: StorageSnapshot) => void
+  onRepairComplete: (serverDisplayState: ServerDisplayState) => void
   onRepairError: (message: string) => void
   onRepairKept: (message: string) => void
 }
@@ -46,11 +46,11 @@ export function useServerLockRepair({
     setIsRepairingLock(true)
 
     try {
-      const nextStorageSnapshot = await window.chunkShare.storage.resetServerLock()
-      const nextSnapshot = await window.chunkShare.dashboard.getSnapshot()
+      await window.chunkShare.storage.resetServerLock()
+      const serverDisplayState = await loadServerDisplayState()
 
       setInvalidLockMessage(null)
-      onRepairComplete(nextSnapshot, nextStorageSnapshot)
+      onRepairComplete(serverDisplayState)
     } catch (error: unknown) {
       onRepairError(getErrorMessage(error, 'Unable to reset hosting lock.'))
     } finally {

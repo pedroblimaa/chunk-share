@@ -20,7 +20,9 @@ import { parseMinecraftOutput, type MinecraftOutputEvent } from './minecraft-out
 import {
   clearHostingLockAfterCleanStop,
   clearHostingLockAfterStartFailure,
-  createHostingLock
+  createHostingLock,
+  markHostingLockRunning,
+  markHostingLockStopping
 } from './server-hosting-lock-manager'
 import { startHeartbeat, stopHeartbeat } from './server-heartbeat-manager'
 import { startPlayerPolling, stopPlayerPolling } from './server-player-poller'
@@ -49,6 +51,9 @@ const MOCK_RESOURCES: ServerRuntimeResources = {
 class ServerRuntime {
   private serverProcess: ChildProcessWithoutNullStreams | null = null
   private stopTimeout: NodeJS.Timeout | null = null
+  private sessionId: string | null = null
+  private stdoutBuffer = ''
+  private stderrBuffer = ''
   private userRequestedStop = false
   private status: ServerRuntimeStatus = 'stopped'
   private errorMessage: string | null = null
@@ -107,10 +112,13 @@ class ServerRuntime {
 
     const connectionAddresses = getConnectionAddresses(localState.serverConfig.port)
     const sessionId = await createHostingLock(storageSnapshot, connectionAddresses)
+    this.sessionId = sessionId
 
     this.status = 'starting'
     this.errorMessage = null
     this.logs = []
+    this.stdoutBuffer = ''
+    this.stderrBuffer = ''
     this.connectionAddresses = connectionAddresses
     this.players = { online: 0, max: await readMaxPlayers(serverFolderPath) }
     this.resources = MOCK_RESOURCES
@@ -146,6 +154,7 @@ class ServerRuntime {
     stopPlayerPolling()
     stopHeartbeat()
     this.emitRuntimeEvent()
+    this.markHostingLockStopping()
 
     this.addLogLine('ChunkShare', 'Saving world before shutdown.')
     this.serverProcess.stdin.write('save-all flush\n')
@@ -172,15 +181,28 @@ class ServerRuntime {
     sessionId: string
   ): void {
     minecraftProcess.stdout.on('data', (chunk: Buffer) => {
-      this.handleServerOutput(chunk.toString(), 'Server thread/INFO', 'default', sessionId)
+      this.stdoutBuffer = this.handleServerOutputChunk({
+        chunk,
+        buffer: this.stdoutBuffer,
+        source: 'Server thread/INFO',
+        fallbackTone: 'default',
+        sessionId
+      })
     })
 
     minecraftProcess.stderr.on('data', (chunk: Buffer) => {
-      this.handleServerOutput(chunk.toString(), 'Server thread/ERROR', 'error', sessionId)
+      this.stderrBuffer = this.handleServerOutputChunk({
+        chunk,
+        buffer: this.stderrBuffer,
+        source: 'Server thread/ERROR',
+        fallbackTone: 'error',
+        sessionId
+      })
     })
 
     minecraftProcess.once('error', (error) => {
       this.serverProcess = null
+      this.sessionId = null
       this.userRequestedStop = false
       stopHeartbeat()
       void clearHostingLockAfterStartFailure()
@@ -196,15 +218,18 @@ class ServerRuntime {
     this.clearStopTimeout()
     stopPlayerPolling()
     stopHeartbeat()
+    this.flushServerOutputBuffers()
 
     if (this.status === 'error') {
       this.serverProcess = null
+      this.sessionId = null
       this.userRequestedStop = false
       this.emitRuntimeEvent()
       return
     }
 
     this.serverProcess = null
+    this.sessionId = null
     this.players = { ...this.players, online: 0 }
 
     if (this.userRequestedStop && exitCode === 0) {
@@ -228,6 +253,7 @@ class ServerRuntime {
     try {
       const publishResult = await publishServerSave()
       await clearHostingLockAfterCleanStop()
+      this.sessionId = null
       this.userRequestedStop = false
       this.status = 'stopped'
       this.errorMessage = null
@@ -265,6 +291,50 @@ class ServerRuntime {
     )
   }
 
+  private handleServerOutputChunk({
+    chunk,
+    buffer,
+    source,
+    fallbackTone,
+    sessionId
+  }: {
+    chunk: Buffer
+    buffer: string
+    source: string
+    fallbackTone: RuntimeLogTone
+    sessionId: string
+  }): string {
+    const nextOutput = `${buffer}${chunk.toString()}`
+    const lines = nextOutput.split(/\r?\n/)
+    const nextBuffer = lines.pop() ?? ''
+    const completeOutput = lines.join('\n')
+
+    if (completeOutput) {
+      this.handleServerOutput(completeOutput, source, fallbackTone, sessionId)
+    }
+
+    return nextBuffer
+  }
+
+  private flushServerOutputBuffers(): void {
+    if (!this.sessionId) {
+      this.stdoutBuffer = ''
+      this.stderrBuffer = ''
+      return
+    }
+
+    if (this.stdoutBuffer) {
+      this.handleServerOutput(this.stdoutBuffer, 'Server thread/INFO', 'default', this.sessionId)
+    }
+
+    if (this.stderrBuffer) {
+      this.handleServerOutput(this.stderrBuffer, 'Server thread/ERROR', 'error', this.sessionId)
+    }
+
+    this.stdoutBuffer = ''
+    this.stderrBuffer = ''
+  }
+
   private handleMinecraftOutputEvent(
     event: MinecraftOutputEvent,
     source: string,
@@ -294,17 +364,54 @@ class ServerRuntime {
 
   private markServerReady(sessionId: string): void {
     this.status = 'running'
+    void this.startHeartbeatAfterLockPromotion(sessionId)
     startPlayerPolling({
       getServerProcess: () => this.serverProcess,
       getStatus: () => this.status,
       onPlayersChanged: (nextPlayers) => this.updatePlayers(nextPlayers)
     })
+    this.emitRuntimeEvent()
+  }
+
+  private async startHeartbeatAfterLockPromotion(sessionId: string): Promise<void> {
+    if (this.status !== 'running') {
+      return
+    }
+
+    try {
+      await markHostingLockRunning(sessionId)
+    } catch (error: unknown) {
+      this.addLogLine(
+        'ChunkShare',
+        `Unable to mark hosting lock as running: ${getErrorMessage(error)}`,
+        'warning'
+      )
+      return
+    }
+
+    if (this.status !== 'running') {
+      return
+    }
+
     startHeartbeat({
       sessionId,
       getStatus: () => this.status,
       addLogLine: (logSource, message, logTone) => this.addLogLine(logSource, message, logTone)
     })
-    this.emitRuntimeEvent()
+  }
+
+  private markHostingLockStopping(): void {
+    if (!this.sessionId) {
+      return
+    }
+
+    void markHostingLockStopping(this.sessionId).catch((error: unknown) => {
+      this.addLogLine(
+        'ChunkShare',
+        `Unable to mark hosting lock as stopping: ${getErrorMessage(error)}`,
+        'warning'
+      )
+    })
   }
 
   private updatePlayers(nextPlayers: ServerRuntimePlayers): void {
@@ -419,6 +526,10 @@ function getConsoleTimestamp(): string {
     minute: '2-digit',
     second: '2-digit'
   }).format(new Date())
+}
+
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : 'Unknown error.'
 }
 
 function isMissingExecutableError(error: unknown): boolean {

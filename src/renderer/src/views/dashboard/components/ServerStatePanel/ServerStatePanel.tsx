@@ -1,18 +1,19 @@
 import './ServerStatePanel.css'
 
-import type { DashboardSnapshot } from '../../../../../../shared/dashboard'
+import type { ServerDisplayState } from '../../../../../../shared/dashboard'
 import MaterialIcon from '../../../../components/shared/MaterialIcon/MaterialIcon'
 import { getServerSyncView } from '../../../../utils/server-sync-ui'
 
 interface ServerStatePanelProps {
   lastActiveLabel: string
-  snapshot: DashboardSnapshot
+  snapshot: ServerDisplayState
   toggleDisabled?: boolean
+  toggleButtonAriaLabel?: string
   toggleButtonTooltip?: string
   onToggleServer: () => void
 }
 
-function formatState(status: DashboardSnapshot['serverStatus']): string {
+function formatState(status: ServerDisplayState['serverStatus']): string {
   if (status === 'not-configured') {
     return 'Not Configured'
   }
@@ -24,6 +25,7 @@ function ServerStatePanel({
   lastActiveLabel,
   snapshot,
   toggleDisabled = false,
+  toggleButtonAriaLabel,
   toggleButtonTooltip,
   onToggleServer
 }: ServerStatePanelProps): React.JSX.Element {
@@ -45,7 +47,10 @@ function ServerStatePanel({
           <button
             className="power-indicator"
             type="button"
-            aria-label={snapshot.serverStatus === 'running' ? 'Stop server' : 'Start server'}
+            aria-label={
+              toggleButtonAriaLabel ??
+              (snapshot.serverStatus === 'running' ? 'Stop server' : 'Start server')
+            }
             disabled={toggleDisabled}
             title={toggleButtonTooltip}
             onClick={onToggleServer}
