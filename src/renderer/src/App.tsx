@@ -2,16 +2,13 @@ import { useState } from 'react'
 import type { ServerDisplayState } from '../../shared/dashboard'
 import { useServerActions } from './hooks/useServerActions'
 import { useServerLockRepair } from './hooks/useServerLockRepair'
+import { getErrorMessage } from './utils/error-message'
 import AuthView from './views/auth/AuthView/AuthView'
 import DashboardView from './views/dashboard/DashboardView/DashboardView'
 import ServerSetupView from './views/server-setup/ServerSetupView/ServerSetupView'
 import ServersView from './views/servers/ServersView/ServersView'
 
 type AppView = 'servers' | 'server-detail' | 'server-setup'
-
-function getErrorMessage(error: unknown, fallbackMessage: string): string {
-  return error instanceof Error ? error.message : fallbackMessage
-}
 
 function App(): React.JSX.Element {
   const [serverDisplayState, setServerDisplayState] = useState<ServerDisplayState | null>(null)

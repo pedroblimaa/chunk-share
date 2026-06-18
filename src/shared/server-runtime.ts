@@ -1,4 +1,4 @@
-import type { ServerConnectionAddress } from './domain'
+import type { ServerConnectionAddress, ServerStatus } from './domain'
 
 export type { ServerConnectionAddress } from './domain'
 
@@ -9,6 +9,10 @@ export type ServerRuntimeStatus =
   | 'stopping'
   | 'crashed'
   | 'error'
+
+export function isServerActiveStatus(status: ServerRuntimeStatus | ServerStatus): boolean {
+  return status === 'starting' || status === 'running' || status === 'stopping'
+}
 
 export interface ServerRuntimeLogLine {
   id: string

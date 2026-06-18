@@ -7,13 +7,15 @@ import {
   type ServerLock,
   type ServerStorageSnapshot
 } from '../../shared/domain'
-import { ServerSyncStatus, type ServerSyncSnapshot } from '../../shared/server-sync'
+import {
+  STALE_LOCK_THRESHOLD_MS,
+  ServerSyncStatus,
+  type ServerSyncSnapshot
+} from '../../shared/server-sync'
 import { readLatestSave, readServerLock } from '../storage/local-mock-cloud-storage'
 import { readLocalState } from '../storage/local-state-store'
 import { mockCloudVersionsFolderPath } from '../storage/storage-paths'
 import { getActiveRuntimeSessionId } from '../server-runtime/server-hosting-lock-manager'
-
-const STALE_LOCK_THRESHOLD_MS = 2 * 60 * 1000
 
 interface ServerSyncContext {
   latestSave: LatestSave

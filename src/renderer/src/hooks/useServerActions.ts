@@ -1,5 +1,6 @@
 import { useCallback, useEffect } from 'react'
 import type { ServerDisplayState } from '../../../shared/dashboard'
+import { getErrorMessage } from '../utils/error-message'
 import { loadServerDisplayState } from '../utils/server-display-state'
 
 type AppView = 'servers' | 'server-detail' | 'server-setup'
@@ -16,10 +17,6 @@ interface ServerActions {
   deleteServer: () => Promise<void>
   openServerDashboard: () => Promise<void>
   refreshServerDisplayState: () => Promise<void>
-}
-
-function getErrorMessage(error: unknown, fallbackMessage: string): string {
-  return error instanceof Error ? error.message : fallbackMessage
 }
 
 export function useServerActions({

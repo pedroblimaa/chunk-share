@@ -8,6 +8,7 @@ import {
   type VanillaMinecraftVersion
 } from '../../../../../shared/server-setup'
 import AppSidebar from '../../../components/shared/AppSidebar/AppSidebar'
+import { getErrorMessage } from '../../../utils/error-message'
 import TopBar from '../../dashboard/components/TopBar/TopBar'
 import DeploymentProgress from '../components/DeploymentProgress/DeploymentProgress'
 import SetupForm from '../components/SetupForm/SetupForm'
@@ -46,8 +47,7 @@ function ServerSetupView({
       const vanillaVersions = await window.chunkShare.serverSetup.listVanillaVersions()
       setVersions(vanillaVersions)
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Unable to load Minecraft versions.'
-      setVersionsErrorMessage(message)
+      setVersionsErrorMessage(getErrorMessage(error, 'Unable to load Minecraft versions.'))
     } finally {
       setVersionsLoading(false)
     }
@@ -68,9 +68,7 @@ function ServerSetupView({
           return
         }
 
-        const message =
-          error instanceof Error ? error.message : 'Unable to load Minecraft versions.'
-        setVersionsErrorMessage(message)
+        setVersionsErrorMessage(getErrorMessage(error, 'Unable to load Minecraft versions.'))
       })
       .finally(() => {
         if (isMounted) {
@@ -125,9 +123,8 @@ function ServerSetupView({
       await onSetupComplete()
       setDeploymentStatus('complete')
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Server setup failed.'
       setDeploymentStatus('error')
-      setSetupErrorMessage(message)
+      setSetupErrorMessage(getErrorMessage(error, 'Server setup failed.'))
     }
   }
 

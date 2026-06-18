@@ -6,13 +6,13 @@ import {
   type ServerConnectionAddress,
   type ServerStorageSnapshot
 } from '../../shared/domain'
+import { STALE_LOCK_THRESHOLD_MS } from '../../shared/server-sync'
 import { readServerLock, writeServerLock } from '../storage/local-mock-cloud-storage'
 import { saveActiveSessionId } from '../storage/local-state-store'
 import { getSignedInMockUser } from '../mock-dashboard'
 import { ServerRuntimeError } from './server-runtime-error'
 
 let activeRuntimeSessionId: string | null = null
-const STALE_LOCK_THRESHOLD_MS = 2 * 60 * 1000
 
 export function getActiveRuntimeSessionId(): string | null {
   return activeRuntimeSessionId

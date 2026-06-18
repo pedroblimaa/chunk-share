@@ -3,12 +3,16 @@ import './ServersView.css'
 import { useEffect, useState } from 'react'
 import type { ServerDisplayState } from '../../../../../shared/dashboard'
 import { ServerLockStatus } from '../../../../../shared/domain'
-import type { ServerRuntimeSnapshot } from '../../../../../shared/server-runtime'
+import {
+  isServerActiveStatus,
+  type ServerRuntimeSnapshot
+} from '../../../../../shared/server-runtime'
 import { ServerSyncStatus } from '../../../../../shared/server-sync'
 import AppSidebar from '../../../components/shared/AppSidebar/AppSidebar'
 import Button from '../../../components/shared/Button/Button'
 import ConfirmationDialog from '../../../components/shared/ConfirmationDialog/ConfirmationDialog'
 import MaterialIcon from '../../../components/shared/MaterialIcon/MaterialIcon'
+import { getErrorMessage } from '../../../utils/error-message'
 import { formatLatestSaveLabel } from '../../../utils/server-sync-ui'
 import TopBar from '../../dashboard/components/TopBar/TopBar'
 import ServerCard, { type ServerCardSummary } from '../components/ServerCard/ServerCard'
@@ -25,10 +29,6 @@ const SINGLE_SERVER_DISABLED_REASON = 'Only one server is supported in the MVP.'
 const STORAGE_REFRESH_INTERVAL_MS = 3_000
 type CopyStatus = 'idle' | 'copied' | 'failed'
 
-function isServerActive(status: ServerRuntimeSnapshot['status']): boolean {
-  return status === 'starting' || status === 'running' || status === 'stopping'
-}
-
 function isServerLocked(serverDisplayState: ServerDisplayState): boolean {
   return serverDisplayState.syncStatus.serverLock.status === ServerLockStatus.Locked
 }
@@ -37,7 +37,7 @@ function getCardServerStatus(
   serverDisplayState: ServerDisplayState,
   runtimeSnapshot: ServerRuntimeSnapshot | null
 ): ServerCardSummary['status'] {
-  if (runtimeSnapshot && isServerActive(runtimeSnapshot.status)) {
+  if (runtimeSnapshot && isServerActiveStatus(runtimeSnapshot.status)) {
     return runtimeSnapshot.status
   }
 
@@ -55,7 +55,7 @@ function createConfiguredServer(
     return []
   }
 
-  const serverIsActive = runtimeSnapshot ? isServerActive(runtimeSnapshot.status) : false
+  const serverIsActive = runtimeSnapshot ? isServerActiveStatus(runtimeSnapshot.status) : false
   const syncLockedHost =
     serverDisplayState.syncStatus.status === ServerSyncStatus.LockedByOther
       ? serverDisplayState.syncStatus.lockedBy?.displayName
@@ -165,8 +165,7 @@ function ServersView({
     try {
       await onDeleteServer()
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Unable to delete server.'
-      setDeleteErrorMessage(message)
+      setDeleteErrorMessage(getErrorMessage(error, 'Unable to delete server.'))
     } finally {
       setIsDeletingServer(false)
       setServerPendingDelete(null)

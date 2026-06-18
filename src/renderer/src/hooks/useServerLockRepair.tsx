@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react'
 import type { ServerDisplayState } from '../../../shared/dashboard'
 import ConfirmationDialog from '../components/shared/ConfirmationDialog/ConfirmationDialog'
+import { getErrorMessage } from '../utils/error-message'
 import { loadServerDisplayState } from '../utils/server-display-state'
 
 interface UseServerLockRepairInput {
@@ -12,10 +13,6 @@ interface UseServerLockRepairInput {
 interface ServerLockRepair {
   dialog: React.JSX.Element | null
   handleStorageError: (error: unknown) => boolean
-}
-
-function getErrorMessage(error: unknown, fallbackMessage: string): string {
-  return error instanceof Error ? error.message : fallbackMessage
 }
 
 function isInvalidServerLockError(error: unknown): boolean {

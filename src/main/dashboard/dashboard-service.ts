@@ -6,7 +6,7 @@ import {
   type ServerStatus,
   type ServerStorageSnapshot
 } from '../../shared/domain'
-import type { ServerConnectionAddress } from '../../shared/server-runtime'
+import { isServerActiveStatus, type ServerConnectionAddress } from '../../shared/server-runtime'
 import { ServerSyncStatus } from '../../shared/server-sync'
 import { getServerRuntimeSnapshot } from '../server-runtime/server-runtime-service'
 import { getServerSyncSnapshot } from '../server-sync/server-sync-service'
@@ -46,10 +46,6 @@ function getPrimaryConnectionAddress(addresses: ServerConnectionAddress[]): stri
   return addresses.find((address) => address.isPrimary)?.address ?? addresses[0]?.address ?? null
 }
 
-function runtimeStatusIsActive(status: ServerStatus): boolean {
-  return status === 'starting' || status === 'running' || status === 'stopping'
-}
-
 function getRemoteHostingStatus(storageSnapshot: ServerStorageSnapshot): ServerStatus | null {
   if (
     storageSnapshot.serverSync.status !== ServerSyncStatus.LockedByOther ||
@@ -76,7 +72,7 @@ function getDisplayServerStatus(
     return 'not-configured'
   }
 
-  if (runtimeStatusIsActive(runtimeStatus)) {
+  if (isServerActiveStatus(runtimeStatus)) {
     return runtimeStatus
   }
 
@@ -95,7 +91,7 @@ function buildServerDisplayState(
     runtimeSnapshot.status,
     serverConfigured
   )
-  const serverIsRunning = runtimeStatusIsActive(runtimeSnapshot.status)
+  const serverIsRunning = isServerActiveStatus(runtimeSnapshot.status)
   const connectionAddresses = getSnapshotConnectionAddresses(
     storageSnapshot,
     runtimeSnapshot.connectionAddresses,

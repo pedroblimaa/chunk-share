@@ -3,14 +3,18 @@ import './DashboardView.css'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ServerDisplayState } from '../../../../../shared/dashboard'
 import { ServerHostingStatus, ServerLockStatus } from '../../../../../shared/domain'
-import type {
-  ServerConnectionAddress,
-  ServerRuntimeSnapshot
+import {
+  isServerActiveStatus,
+  type ServerRuntimeSnapshot
 } from '../../../../../shared/server-runtime'
 import { ServerSyncStatus } from '../../../../../shared/server-sync'
 import AppSidebar from '../../../components/shared/AppSidebar/AppSidebar'
 import MaterialIcon from '../../../components/shared/MaterialIcon/MaterialIcon'
-import { loadServerDisplayState } from '../../../utils/server-display-state'
+import { getErrorMessage } from '../../../utils/error-message'
+import {
+  applyRuntimeSnapshotToServerDisplayState,
+  loadServerDisplayState
+} from '../../../utils/server-display-state'
 import { formatLatestSaveLabel, getServerSyncView } from '../../../utils/server-sync-ui'
 import ConsoleOutput from '../components/ConsoleOutput/ConsoleOutput'
 import DashboardStatCard from '../components/DashboardStatCard/DashboardStatCard'
@@ -40,55 +44,6 @@ const COPY_STATUS_ICONS: Record<CopyStatus, string> = {
 
 const DASHBOARD_REFRESH_INTERVAL_MS = 3_000
 
-function getPrimaryConnectionAddress(addresses: ServerConnectionAddress[]): string | null {
-  const address = addresses.find((a) => a.isPrimary)?.address ?? addresses[0]?.address
-
-  return address || null
-}
-
-function isServerActive(status: ServerDisplayState['serverStatus']): boolean {
-  return status === 'starting' || status === 'running' || status === 'stopping'
-}
-
-function getCurrentHost(snapshot: ServerDisplayState, serverIsActive: boolean): string | null {
-  return serverIsActive ? (snapshot.signedInUser?.name ?? 'You') : snapshot.currentHost
-}
-
-function applyRuntimeSnapshot(
-  snapshot: ServerDisplayState,
-  runtimeSnapshot: ServerRuntimeSnapshot
-): ServerDisplayState {
-  const serverIsActive = isServerActive(runtimeSnapshot.status)
-
-  const players = {
-    online: serverIsActive ? runtimeSnapshot.players.online : 0,
-    max: runtimeSnapshot.players.max
-  }
-
-  const resources = {
-    ...runtimeSnapshot.resources,
-    cpuPercent: serverIsActive ? runtimeSnapshot.resources.cpuPercent : 0,
-    memoryUsedMb: serverIsActive ? runtimeSnapshot.resources.memoryUsedMb : 0
-  }
-  const connectionAddresses = serverIsActive
-    ? runtimeSnapshot.connectionAddresses
-    : snapshot.connectionAddresses
-
-  return {
-    ...snapshot,
-    serverStatus:
-      snapshot.serverStatus === 'not-configured' && runtimeSnapshot.status === 'stopped'
-        ? snapshot.serverStatus
-        : runtimeSnapshot.status,
-    currentHost: getCurrentHost(snapshot, serverIsActive),
-    connectionAddress: getPrimaryConnectionAddress(connectionAddresses),
-    connectionAddresses,
-    players,
-    resources,
-    consoleLogs: runtimeSnapshot.logs
-  }
-}
-
 function DashboardView({
   serverDisplayState,
   onServerDisplayStateChange,
@@ -115,7 +70,9 @@ function DashboardView({
 
   const applyRuntimeSnapshotToDisplayState = useCallback(
     (runtimeSnapshot: ServerRuntimeSnapshot): void => {
-      updateServerDisplayState(applyRuntimeSnapshot(serverDisplayStateRef.current, runtimeSnapshot))
+      updateServerDisplayState(
+        applyRuntimeSnapshotToServerDisplayState(serverDisplayStateRef.current, runtimeSnapshot)
+      )
     },
     [updateServerDisplayState]
   )
@@ -124,10 +81,11 @@ function DashboardView({
     async (nextRuntimeSnapshot: ServerRuntimeSnapshot): Promise<void> => {
       try {
         const nextServerDisplayState = await loadServerDisplayState()
-        updateServerDisplayState(applyRuntimeSnapshot(nextServerDisplayState, nextRuntimeSnapshot))
+        updateServerDisplayState(
+          applyRuntimeSnapshotToServerDisplayState(nextServerDisplayState, nextRuntimeSnapshot)
+        )
       } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : 'Unable to refresh dashboard.'
-        setRuntimeErrorMessage(message)
+        setRuntimeErrorMessage(getErrorMessage(error, 'Unable to refresh dashboard.'))
       }
     },
     [updateServerDisplayState]
@@ -150,8 +108,7 @@ function DashboardView({
           return
         }
 
-        const message = error instanceof Error ? error.message : 'Unable to load server runtime.'
-        setRuntimeErrorMessage(message)
+        setRuntimeErrorMessage(getErrorMessage(error, 'Unable to load server runtime.'))
       })
 
     return () => {
@@ -176,8 +133,7 @@ function DashboardView({
         .getSnapshot()
         .then(refreshServerDisplayState)
         .catch((error: unknown) => {
-          const message = error instanceof Error ? error.message : 'Unable to refresh dashboard.'
-          setRuntimeErrorMessage(message)
+          setRuntimeErrorMessage(getErrorMessage(error, 'Unable to refresh dashboard.'))
         })
     }, DASHBOARD_REFRESH_INTERVAL_MS)
 
@@ -232,8 +188,7 @@ function DashboardView({
 
       applyRuntimeSnapshotToDisplayState(nextRuntimeSnapshot)
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Unable to toggle server.'
-      setRuntimeErrorMessage(message)
+      setRuntimeErrorMessage(getErrorMessage(error, 'Unable to toggle server.'))
     }
   }
 
@@ -315,7 +270,7 @@ function DashboardView({
   const addressCopyButtonLabel = COPY_STATUS_LABELS[addressCopyStatus]
   const addressCopyButtonStateClass = addressCopyStatus === 'idle' ? '' : ` is-${addressCopyStatus}`
   const latestSaveLabel = formatLatestSaveLabel(dashboardSnapshot.syncStatus.latestSave)
-  const lastActiveLabel = isServerActive(dashboardSnapshot.serverStatus)
+  const lastActiveLabel = isServerActiveStatus(dashboardSnapshot.serverStatus)
     ? 'Active now'
     : latestSaveLabel
 
