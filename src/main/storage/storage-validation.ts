@@ -1,8 +1,10 @@
+import { ServerHostingStatus, ServerLockStatus } from '../../shared/domain'
 import type {
   JavaConfig,
   LatestSave,
   LocalState,
   Player,
+  ServerConnectionAddress,
   ServerConfig,
   ServerLock,
   ServerSetupState,
@@ -29,6 +31,10 @@ function isPositiveInteger(value: unknown): value is number {
   return Number.isSafeInteger(value) && Number(value) > 0
 }
 
+function isNonNegativeInteger(value: unknown): value is number {
+  return Number.isSafeInteger(value) && Number(value) >= 0
+}
+
 function isNullablePositiveInteger(value: unknown): value is number | null {
   return value === null || isPositiveInteger(value)
 }
@@ -47,6 +53,22 @@ function isPlayer(value: unknown): value is Player {
     isString(value.displayName) &&
     isString(value.email) &&
     isString(value.avatarInitials)
+  )
+}
+
+function isServerConnectionAddress(value: unknown): value is ServerConnectionAddress {
+  if (!isRecord(value)) {
+    return false
+  }
+
+  return isString(value.label) && isString(value.address) && typeof value.isPrimary === 'boolean'
+}
+
+function isServerHostingStatus(value: unknown): value is ServerHostingStatus {
+  return (
+    value === ServerHostingStatus.Starting ||
+    value === ServerHostingStatus.Running ||
+    value === ServerHostingStatus.Stopping
   )
 }
 
@@ -98,17 +120,20 @@ export function isServerLock(value: unknown): value is ServerLock {
     return false
   }
 
-  if (value.status === 'unlocked') {
+  if (value.status === ServerLockStatus.Unlocked) {
     return Object.keys(value).length === 1
   }
 
   return (
-    value.status === 'locked' &&
+    value.status === ServerLockStatus.Locked &&
     isPlayer(value.lockedBy) &&
     isString(value.sessionId) &&
-    isPositiveInteger(value.saveVersion) &&
+    isNonNegativeInteger(value.saveVersion) &&
+    isServerHostingStatus(value.hostingStatus) &&
     isString(value.startedAt) &&
-    isString(value.lastHeartbeat)
+    isString(value.lastHeartbeat) &&
+    Array.isArray(value.connectionAddresses) &&
+    value.connectionAddresses.every(isServerConnectionAddress)
   )
 }
 

@@ -1,3 +1,5 @@
+import type { ServerSyncSnapshot } from './server-sync'
+
 export type ServerStatus =
   | 'not-configured'
   | 'stopped'
@@ -11,11 +13,28 @@ export type ServerType = 'vanilla' | 'paper' | 'fabric' | 'forge'
 
 export type MinecraftVersion = string
 
+export enum ServerLockStatus {
+  Unlocked = 'unlocked',
+  Locked = 'locked'
+}
+
+export enum ServerHostingStatus {
+  Starting = 'starting',
+  Running = 'running',
+  Stopping = 'stopping'
+}
+
 export interface Player {
   id: string
   displayName: string
   email: string
   avatarInitials: string
+}
+
+export interface ServerConnectionAddress {
+  label: string
+  address: string
+  isPrimary: boolean
 }
 
 export interface ServerConfig {
@@ -52,15 +71,17 @@ export type LatestSave = {
 
 export type ServerLock =
   | {
-      status: 'unlocked'
+      status: ServerLockStatus.Unlocked
     }
   | {
-      status: 'locked'
+      status: ServerLockStatus.Locked
       lockedBy: Player
       sessionId: string
       saveVersion: number
+      hostingStatus: ServerHostingStatus
       startedAt: string
       lastHeartbeat: string
+      connectionAddresses: ServerConnectionAddress[]
     }
 
 export interface LocalState {
@@ -73,8 +94,9 @@ export interface LocalState {
   dirty: boolean
 }
 
-export interface StorageSnapshot {
+export interface ServerStorageSnapshot {
   latestSave: LatestSave
   serverLock: ServerLock
+  serverSync: ServerSyncSnapshot
   localState: LocalState
 }

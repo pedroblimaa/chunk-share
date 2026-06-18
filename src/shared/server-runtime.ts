@@ -1,3 +1,7 @@
+import type { ServerConnectionAddress, ServerStatus } from './domain'
+
+export type { ServerConnectionAddress } from './domain'
+
 export type ServerRuntimeStatus =
   | 'stopped'
   | 'starting'
@@ -6,18 +10,16 @@ export type ServerRuntimeStatus =
   | 'crashed'
   | 'error'
 
+export function isServerActiveStatus(status: ServerRuntimeStatus | ServerStatus): boolean {
+  return status === 'starting' || status === 'running' || status === 'stopping'
+}
+
 export interface ServerRuntimeLogLine {
   id: string
   timestamp: string
   source: string
   message: string
   tone: 'default' | 'success' | 'warning' | 'error'
-}
-
-export interface ServerConnectionAddress {
-  label: string
-  address: string
-  isPrimary: boolean
 }
 
 export interface ServerRuntimePlayers {

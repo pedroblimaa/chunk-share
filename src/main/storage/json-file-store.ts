@@ -1,12 +1,10 @@
 import { randomUUID } from 'crypto'
-import { mkdir, readFile, rename, rm, writeFile } from 'fs/promises'
+import { mkdir, readFile, rm, writeFile } from 'fs/promises'
 import { dirname } from 'path'
+import { renameWithRetry } from './file-system-utils'
 import { StorageError } from './storage-error'
 
 type Validator<T> = (value: unknown) => value is T
-
-const WRITE_RENAME_ATTEMPTS = 8
-const WRITE_RENAME_RETRY_DELAY_MS = 25
 
 export async function readJsonFile<T>(
   filePath: string,
@@ -60,29 +58,6 @@ export async function writeJsonFile<T>(
     await rm(tempFilePath, { force: true })
     throw error
   }
-}
-
-async function renameWithRetry(sourcePath: string, destinationPath: string): Promise<void> {
-  for (let attempt = 1; attempt <= WRITE_RENAME_ATTEMPTS; attempt += 1) {
-    try {
-      await rename(sourcePath, destinationPath)
-      return
-    } catch (error) {
-      if (!shouldRetryRename(error) || attempt === WRITE_RENAME_ATTEMPTS) {
-        throw error
-      }
-
-      await delay(WRITE_RENAME_RETRY_DELAY_MS * attempt)
-    }
-  }
-}
-
-function shouldRetryRename(error: unknown): boolean {
-  return isNodeError(error) && (error.code === 'EPERM' || error.code === 'EBUSY')
-}
-
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
 function isMissingFileError(error: unknown): boolean {

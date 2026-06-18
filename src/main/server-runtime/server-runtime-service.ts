@@ -1,7 +1,7 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'child_process'
-import { readFile, stat } from 'fs/promises'
-import { networkInterfaces } from 'os'
+import { readFile } from 'fs/promises'
 import { join } from 'path'
+import { ServerSyncStatus, type ServerSyncSnapshot } from '../../shared/server-sync'
 import type {
   ServerConnectionAddress,
   ServerRuntimeEvent,
@@ -11,18 +11,33 @@ import type {
   ServerRuntimeSnapshot,
   ServerRuntimeStatus
 } from '../../shared/server-runtime'
-import { publishInitialServerSave } from '../storage/server-save-publisher'
-import { readLocalState } from '../storage/local-state-store'
-import { managedServerFolderPath, managedServerJarFilePath } from '../storage/storage-paths'
+import { getServerSyncSnapshot } from '../server-sync/server-sync-service'
+import { getSyncStartBlockedMessage } from '../server-sync/server-sync-messages'
+import { publishServerSave } from '../storage/server-save-publisher'
+import { restoreLatestServerSave } from '../storage/server-save-restorer'
+import { localServerFolderPath, localServerJarFilePath } from '../storage/storage-paths'
+import { parseMinecraftOutput, type MinecraftOutputEvent } from './minecraft-output-parser'
+import {
+  clearHostingLockAfterCleanStop,
+  clearHostingLockAfterStartFailure,
+  createHostingLock,
+  markHostingLockRunning,
+  markHostingLockStopping
+} from './server-hosting-lock-manager'
+import { startHeartbeat, stopHeartbeat } from './server-heartbeat-manager'
+import { startPlayerPolling, stopPlayerPolling } from './server-player-poller'
+import { getConnectionAddresses } from './server-network-addresses'
+import {
+  assertFileExists,
+  assertFolderExists,
+  isMissingFileError
+} from './server-runtime-file-checks'
 import { ServerRuntimeError } from './server-runtime-error'
 
 type ServerRuntimeListener = (event: ServerRuntimeEvent) => void
 type RuntimeLogTone = ServerRuntimeLogLine['tone']
 
-const SERVER_READY_PATTERN = /Done \(.+\)! For help, type "help"/
-const PLAYER_LIST_PATTERN = /There are (\d+) of a max of (\d+) players online/
 const SERVER_STOP_TIMEOUT_MS = 15_000
-const PLAYER_POLL_INTERVAL_MS = 10_000
 const JAVA_COMMAND = 'java'
 const JAVA_ARGS = ['-Xmx4G', '-Xms2G', '-jar', 'server.jar', 'nogui']
 const DEFAULT_PLAYER_LIMIT = 20
@@ -33,208 +48,450 @@ const MOCK_RESOURCES: ServerRuntimeResources = {
   isMocked: true
 }
 
-let serverProcess: ChildProcessWithoutNullStreams | null = null
-let stopTimeout: NodeJS.Timeout | null = null
-let playerPollInterval: NodeJS.Timeout | null = null
-let userRequestedStop = false
-let status: ServerRuntimeStatus = 'stopped'
-let errorMessage: string | null = null
-let logs: ServerRuntimeLogLine[] = []
-let connectionAddresses: ServerConnectionAddress[] = []
-let players: ServerRuntimePlayers = { online: 0, max: DEFAULT_PLAYER_LIMIT }
-let resources: ServerRuntimeResources = MOCK_RESOURCES
-const listeners = new Set<ServerRuntimeListener>()
+class ServerRuntime {
+  private serverProcess: ChildProcessWithoutNullStreams | null = null
+  private stopTimeout: NodeJS.Timeout | null = null
+  private sessionId: string | null = null
+  private stdoutBuffer = ''
+  private stderrBuffer = ''
+  private userRequestedStop = false
+  private status: ServerRuntimeStatus = 'stopped'
+  private errorMessage: string | null = null
+  private logs: ServerRuntimeLogLine[] = []
+  private connectionAddresses: ServerConnectionAddress[] = []
+  private players: ServerRuntimePlayers = { online: 0, max: DEFAULT_PLAYER_LIMIT }
+  private resources: ServerRuntimeResources = MOCK_RESOURCES
+  private listeners = new Set<ServerRuntimeListener>()
 
-export function getServerRuntimeSnapshot(): ServerRuntimeSnapshot {
-  return {
-    status,
-    errorMessage,
-    connectionAddresses,
-    players,
-    resources,
-    logs
-  }
-}
-
-export function subscribeToServerRuntime(listener: ServerRuntimeListener): () => void {
-  listeners.add(listener)
-
-  return () => listeners.delete(listener)
-}
-
-export async function startMinecraftServer(): Promise<ServerRuntimeSnapshot> {
-  if (serverProcess) {
-    throw new ServerRuntimeError('Minecraft server is already running.')
+  getSnapshot(): ServerRuntimeSnapshot {
+    return {
+      status: this.status,
+      errorMessage: this.errorMessage,
+      connectionAddresses: this.connectionAddresses,
+      players: this.players,
+      resources: this.resources,
+      logs: this.logs
+    }
   }
 
-  const localState = await readLocalState()
+  subscribe(listener: ServerRuntimeListener): () => void {
+    this.listeners.add(listener)
 
-  if (localState.serverSetup.status !== 'ready') {
-    throw new ServerRuntimeError('Server setup must be completed before starting Minecraft.')
+    return () => this.listeners.delete(listener)
   }
 
-  const serverFolderPath = localState.serverConfig.serverFolderPath ?? managedServerFolderPath
-
-  await assertFolderExists(serverFolderPath)
-  await assertFileExists(managedServerJarFilePath)
-
-  status = 'starting'
-  errorMessage = null
-  logs = []
-  connectionAddresses = getConnectionAddresses(localState.serverConfig.port)
-  players = { online: 0, max: await readMaxPlayers(serverFolderPath) }
-  resources = MOCK_RESOURCES
-  emitRuntimeEvent()
-  addLogLine('ChunkShare', `Starting Minecraft server with ${JAVA_COMMAND} ${JAVA_ARGS.join(' ')}`)
-
-  serverProcess = spawn(JAVA_COMMAND, JAVA_ARGS, {
-    cwd: serverFolderPath,
-    windowsHide: true
-  })
-
-  attachServerProcessListeners(serverProcess)
-
-  return getServerRuntimeSnapshot()
-}
-
-function attachServerProcessListeners(minecraftProcess: ChildProcessWithoutNullStreams): void {
-  minecraftProcess.stdout.on('data', (chunk: Buffer) => {
-    handleServerOutput(chunk.toString(), 'Server thread/INFO', 'default')
-  })
-
-  minecraftProcess.stderr.on('data', (chunk: Buffer) => {
-    handleServerOutput(chunk.toString(), 'Server thread/ERROR', 'error')
-  })
-
-  minecraftProcess.once('error', (error) => {
-    serverProcess = null
-    userRequestedStop = false
-    finishWithError(getProcessStartErrorMessage(error))
-  })
-
-  minecraftProcess.once('close', (exitCode) => {
-    void handleServerProcessClose(exitCode)
-  })
-}
-
-async function handleServerProcessClose(exitCode: number | null): Promise<void> {
-  clearStopTimeout()
-  stopPlayerPolling()
-
-  if (status === 'error') {
-    serverProcess = null
-    userRequestedStop = false
-    emitRuntimeEvent()
-    return
-  }
-
-  serverProcess = null
-  players = { ...players, online: 0 }
-
-  if (userRequestedStop && exitCode === 0) {
-    await publishInitialSaveAfterCleanStop()
-    return
-  }
-
-  userRequestedStop = false
-  status = exitCode === 0 ? 'stopped' : 'crashed'
-  errorMessage =
-    status === 'stopped' ? null : `Minecraft server exited with code ${exitCode ?? 'unknown'}.`
-
-  emitRuntimeEvent()
-}
-
-async function publishInitialSaveAfterCleanStop(): Promise<void> {
-  addLogLine('ChunkShare', 'Publishing initial server save.')
-
-  try {
-    await publishInitialServerSave()
-    userRequestedStop = false
-    status = 'stopped'
-    errorMessage = null
-    addLogLine('ChunkShare', 'Initial server save published.', 'success')
-    emitRuntimeEvent()
-  } catch (error) {
-    userRequestedStop = false
-    finishWithError(getPublishErrorMessage(error))
-  }
-}
-
-export async function stopMinecraftServer(): Promise<ServerRuntimeSnapshot> {
-  if (!serverProcess) {
-    status = 'stopped'
-    errorMessage = null
-    players = { ...players, online: 0 }
-    emitRuntimeEvent()
-    return getServerRuntimeSnapshot()
-  }
-
-  status = 'stopping'
-  errorMessage = null
-  userRequestedStop = true
-  stopPlayerPolling()
-  emitRuntimeEvent()
-
-  addLogLine('ChunkShare', 'Saving world before shutdown.')
-  serverProcess.stdin.write('save-all flush\n')
-
-  addLogLine('ChunkShare', 'Sending graceful stop command to Minecraft server.')
-  serverProcess.stdin.write('stop\n')
-
-  clearStopTimeout()
-  stopTimeout = setTimeout(() => {
-    if (!serverProcess) {
-      return
+  async start(): Promise<ServerRuntimeSnapshot> {
+    if (this.serverProcess) {
+      throw new ServerRuntimeError('Minecraft server is already running.')
     }
 
-    userRequestedStop = false
-    finishWithError('Minecraft server did not stop within 15 seconds.')
-    serverProcess.kill()
-  }, SERVER_STOP_TIMEOUT_MS)
+    if (this.status === 'starting' || this.status === 'running' || this.status === 'stopping') {
+      throw new ServerRuntimeError('Minecraft server is already starting, running, or stopping.')
+    }
 
-  return getServerRuntimeSnapshot()
-}
+    let storageSnapshot = await getServerSyncSnapshot()
+    let { localState, serverSync } = storageSnapshot
 
-function handleServerOutput(output: string, source: string, fallbackTone: RuntimeLogTone): void {
-  output
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .forEach((line) => {
-      if (updatePlayersFromListResponse(line)) {
+    if (localState.serverSetup.status !== 'ready') {
+      throw new ServerRuntimeError('Server setup must be completed before starting Minecraft.')
+    }
+
+    if (serverSync.status === ServerSyncStatus.UpdateAvailable) {
+      await restoreLatestServerSave(storageSnapshot)
+      storageSnapshot = await getServerSyncSnapshot()
+      localState = storageSnapshot.localState
+      serverSync = storageSnapshot.serverSync
+    }
+
+    this.assertServerSyncAllowsStart(serverSync)
+
+    const serverFolderPath = localState.serverConfig.serverFolderPath ?? localServerFolderPath
+
+    await assertFolderExists(serverFolderPath)
+    await assertFileExists(localServerJarFilePath)
+
+    const connectionAddresses = getConnectionAddresses(localState.serverConfig.port)
+    const sessionId = await createHostingLock(storageSnapshot, connectionAddresses)
+    this.sessionId = sessionId
+
+    this.status = 'starting'
+    this.errorMessage = null
+    this.logs = []
+    this.stdoutBuffer = ''
+    this.stderrBuffer = ''
+    this.connectionAddresses = connectionAddresses
+    this.players = { online: 0, max: await readMaxPlayers(serverFolderPath) }
+    this.resources = MOCK_RESOURCES
+    this.emitRuntimeEvent()
+    this.addLogLine(
+      'ChunkShare',
+      `Starting Minecraft server with ${JAVA_COMMAND} ${JAVA_ARGS.join(' ')}`
+    )
+
+    this.serverProcess = spawn(JAVA_COMMAND, JAVA_ARGS, {
+      cwd: serverFolderPath,
+      windowsHide: true
+    })
+
+    this.attachServerProcessListeners(this.serverProcess, sessionId)
+
+    return this.getSnapshot()
+  }
+
+  async stop(): Promise<ServerRuntimeSnapshot> {
+    if (!this.serverProcess) {
+      this.status = 'stopped'
+      this.errorMessage = null
+      this.players = { ...this.players, online: 0 }
+      stopHeartbeat()
+      this.emitRuntimeEvent()
+      return this.getSnapshot()
+    }
+
+    this.status = 'stopping'
+    this.errorMessage = null
+    this.userRequestedStop = true
+    stopPlayerPolling()
+    stopHeartbeat()
+    this.emitRuntimeEvent()
+    this.markHostingLockStopping()
+
+    this.addLogLine('ChunkShare', 'Saving world before shutdown.')
+    this.serverProcess.stdin.write('save-all flush\n')
+
+    this.addLogLine('ChunkShare', 'Sending graceful stop command to Minecraft server.')
+    this.serverProcess.stdin.write('stop\n')
+
+    this.clearStopTimeout()
+    this.stopTimeout = setTimeout(() => {
+      if (!this.serverProcess) {
         return
       }
 
-      const tone = getLogTone(line, fallbackTone)
-      addLogLine(source, line, tone)
-      detectJavaClassVersionMismatch(line)
+      this.userRequestedStop = false
+      this.finishWithError('Minecraft server did not stop within 15 seconds.')
+      this.serverProcess.kill()
+    }, SERVER_STOP_TIMEOUT_MS)
 
-      if (status === 'starting' && SERVER_READY_PATTERN.test(line)) {
-        status = 'running'
-        startPlayerPolling()
-        emitRuntimeEvent()
-      }
-    })
-}
-
-function addLogLine(source: string, message: string, tone: RuntimeLogTone = 'default'): void {
-  const logLine: ServerRuntimeLogLine = {
-    id: `runtime-log-${Date.now()}-${logs.length}`,
-    timestamp: getConsoleTimestamp(),
-    source,
-    message,
-    tone
+    return this.getSnapshot()
   }
 
-  logs = [...logs, logLine]
-  emitRuntimeEvent(logLine)
+  private attachServerProcessListeners(
+    minecraftProcess: ChildProcessWithoutNullStreams,
+    sessionId: string
+  ): void {
+    minecraftProcess.stdout.on('data', (chunk: Buffer) => {
+      this.stdoutBuffer = this.handleServerOutputChunk({
+        chunk,
+        buffer: this.stdoutBuffer,
+        source: 'Server thread/INFO',
+        fallbackTone: 'default',
+        sessionId
+      })
+    })
+
+    minecraftProcess.stderr.on('data', (chunk: Buffer) => {
+      this.stderrBuffer = this.handleServerOutputChunk({
+        chunk,
+        buffer: this.stderrBuffer,
+        source: 'Server thread/ERROR',
+        fallbackTone: 'error',
+        sessionId
+      })
+    })
+
+    minecraftProcess.once('error', (error) => {
+      this.serverProcess = null
+      this.sessionId = null
+      this.userRequestedStop = false
+      stopHeartbeat()
+      void clearHostingLockAfterStartFailure()
+      this.finishWithError(getProcessStartErrorMessage(error))
+    })
+
+    minecraftProcess.once('close', (exitCode) => {
+      void this.handleServerProcessClose(exitCode)
+    })
+  }
+
+  private async handleServerProcessClose(exitCode: number | null): Promise<void> {
+    this.clearStopTimeout()
+    stopPlayerPolling()
+    stopHeartbeat()
+    this.flushServerOutputBuffers()
+
+    if (this.status === 'error') {
+      this.serverProcess = null
+      this.sessionId = null
+      this.userRequestedStop = false
+      this.emitRuntimeEvent()
+      return
+    }
+
+    this.serverProcess = null
+    this.sessionId = null
+    this.players = { ...this.players, online: 0 }
+
+    if (this.userRequestedStop && exitCode === 0) {
+      await this.publishSaveAfterCleanStop()
+      return
+    }
+
+    this.userRequestedStop = false
+    this.status = exitCode === 0 ? 'stopped' : 'crashed'
+    this.errorMessage =
+      this.status === 'stopped'
+        ? null
+        : `Minecraft server exited with code ${exitCode ?? 'unknown'}.`
+
+    this.emitRuntimeEvent()
+  }
+
+  private async publishSaveAfterCleanStop(): Promise<void> {
+    this.addLogLine('ChunkShare', 'Publishing server save.')
+
+    try {
+      const publishResult = await publishServerSave()
+      await clearHostingLockAfterCleanStop()
+      this.sessionId = null
+      this.userRequestedStop = false
+      this.status = 'stopped'
+      this.errorMessage = null
+      this.addLogLine(
+        'ChunkShare',
+        `Server save v${publishResult.latestSave.saveVersion} published.`,
+        'success'
+      )
+
+      if (publishResult.cleanupError) {
+        this.addLogLine(
+          'ChunkShare',
+          `Server save published, but old save cleanup failed: ${publishResult.cleanupError.message}`,
+          'warning'
+        )
+      }
+
+      this.addLogLine('ChunkShare', 'Server unlocked for the next host.', 'success')
+
+      this.emitRuntimeEvent()
+    } catch (error) {
+      this.userRequestedStop = false
+      this.finishWithError(getStopCompletionErrorMessage(error))
+    }
+  }
+
+  private handleServerOutput(
+    output: string,
+    source: string,
+    fallbackTone: RuntimeLogTone,
+    sessionId: string
+  ): void {
+    parseMinecraftOutput(output, fallbackTone).forEach((event) =>
+      this.handleMinecraftOutputEvent(event, source, sessionId)
+    )
+  }
+
+  private handleServerOutputChunk({
+    chunk,
+    buffer,
+    source,
+    fallbackTone,
+    sessionId
+  }: {
+    chunk: Buffer
+    buffer: string
+    source: string
+    fallbackTone: RuntimeLogTone
+    sessionId: string
+  }): string {
+    const nextOutput = `${buffer}${chunk.toString()}`
+    const lines = nextOutput.split(/\r?\n/)
+    const nextBuffer = lines.pop() ?? ''
+    const completeOutput = lines.join('\n')
+
+    if (completeOutput) {
+      this.handleServerOutput(completeOutput, source, fallbackTone, sessionId)
+    }
+
+    return nextBuffer
+  }
+
+  private flushServerOutputBuffers(): void {
+    if (!this.sessionId) {
+      this.stdoutBuffer = ''
+      this.stderrBuffer = ''
+      return
+    }
+
+    if (this.stdoutBuffer) {
+      this.handleServerOutput(this.stdoutBuffer, 'Server thread/INFO', 'default', this.sessionId)
+    }
+
+    if (this.stderrBuffer) {
+      this.handleServerOutput(this.stderrBuffer, 'Server thread/ERROR', 'error', this.sessionId)
+    }
+
+    this.stdoutBuffer = ''
+    this.stderrBuffer = ''
+  }
+
+  private handleMinecraftOutputEvent(
+    event: MinecraftOutputEvent,
+    source: string,
+    sessionId: string
+  ): void {
+    if (event.type === 'players') {
+      this.updatePlayers(event.players)
+      return
+    }
+
+    if (event.type === 'log') {
+      this.addLogLine(source, event.message, event.tone)
+      return
+    }
+
+    if (event.type === 'java-version-mismatch') {
+      this.finishWithError(
+        `This Minecraft server requires Java ${event.requiredJavaVersion}, but ChunkShare is using Java ${event.currentJavaVersion}. Install a newer Java version and restart ChunkShare.`
+      )
+      return
+    }
+
+    if (this.status === 'starting') {
+      this.markServerReady(sessionId)
+    }
+  }
+
+  private markServerReady(sessionId: string): void {
+    this.status = 'running'
+    void this.startHeartbeatAfterLockPromotion(sessionId)
+    startPlayerPolling({
+      getServerProcess: () => this.serverProcess,
+      getStatus: () => this.status,
+      onPlayersChanged: (nextPlayers) => this.updatePlayers(nextPlayers)
+    })
+    this.emitRuntimeEvent()
+  }
+
+  private async startHeartbeatAfterLockPromotion(sessionId: string): Promise<void> {
+    if (this.status !== 'running') {
+      return
+    }
+
+    try {
+      await markHostingLockRunning(sessionId)
+    } catch (error: unknown) {
+      this.addLogLine(
+        'ChunkShare',
+        `Unable to mark hosting lock as running: ${getErrorMessage(error)}`,
+        'warning'
+      )
+      return
+    }
+
+    if (this.status !== 'running') {
+      return
+    }
+
+    startHeartbeat({
+      sessionId,
+      getStatus: () => this.status,
+      addLogLine: (logSource, message, logTone) => this.addLogLine(logSource, message, logTone)
+    })
+  }
+
+  private markHostingLockStopping(): void {
+    if (!this.sessionId) {
+      return
+    }
+
+    void markHostingLockStopping(this.sessionId).catch((error: unknown) => {
+      this.addLogLine(
+        'ChunkShare',
+        `Unable to mark hosting lock as stopping: ${getErrorMessage(error)}`,
+        'warning'
+      )
+    })
+  }
+
+  private updatePlayers(nextPlayers: ServerRuntimePlayers): void {
+    this.players = nextPlayers
+    this.emitRuntimeEvent()
+  }
+
+  private addLogLine(source: string, message: string, tone: RuntimeLogTone = 'default'): void {
+    const logLine: ServerRuntimeLogLine = {
+      id: `runtime-log-${Date.now()}-${this.logs.length}`,
+      timestamp: getConsoleTimestamp(),
+      source,
+      message,
+      tone
+    }
+
+    this.logs = [...this.logs, logLine]
+    this.emitRuntimeEvent(logLine)
+  }
+
+  private finishWithError(message: string): void {
+    this.status = 'error'
+    this.errorMessage = message
+    stopPlayerPolling()
+    stopHeartbeat()
+    this.addLogLine('ChunkShare', message, 'error')
+  }
+
+  private assertServerSyncAllowsStart(serverSync: ServerSyncSnapshot): void {
+    if (serverSync.isStartAllowed) {
+      return
+    }
+
+    throw new ServerRuntimeError(getSyncStartBlockedMessage(serverSync))
+  }
+
+  private emitRuntimeEvent(logLine?: ServerRuntimeLogLine): void {
+    const event: ServerRuntimeEvent = {
+      snapshot: this.getSnapshot(),
+      logLine
+    }
+
+    this.listeners.forEach((listener) => listener(event))
+  }
+
+  private clearStopTimeout(): void {
+    if (!this.stopTimeout) {
+      return
+    }
+
+    clearTimeout(this.stopTimeout)
+    this.stopTimeout = null
+  }
 }
 
-function finishWithError(message: string): void {
-  status = 'error'
-  errorMessage = message
-  stopPlayerPolling()
-  addLogLine('ChunkShare', message, 'error')
+const serverRuntime = new ServerRuntime()
+
+export function getServerRuntimeSnapshot(): ServerRuntimeSnapshot {
+  return serverRuntime.getSnapshot()
+}
+
+export function subscribeToServerRuntime(listener: ServerRuntimeListener): () => void {
+  return serverRuntime.subscribe(listener)
+}
+
+export function startMinecraftServer(): Promise<ServerRuntimeSnapshot> {
+  return serverRuntime.start()
+}
+
+export function stopMinecraftServer(): Promise<ServerRuntimeSnapshot> {
+  return serverRuntime.stop()
+}
+
+async function readMaxPlayers(serverFolderPath: string): Promise<number> {
+  const properties = await readFile(join(serverFolderPath, 'server.properties'), 'utf8').catch(
+    () => ''
+  )
+  const match = properties.match(/^max-players=(\d+)$/m)
+
+  return match ? Number(match[1]) : DEFAULT_PLAYER_LIMIT
 }
 
 function getProcessStartErrorMessage(error: Error): string {
@@ -247,141 +504,20 @@ function getProcessStartErrorMessage(error: Error): string {
 
 function getPublishErrorMessage(error: unknown): string {
   if (error instanceof Error) {
-    return `Unable to publish initial server save: ${error.message}`
+    return `Unable to publish server save: ${error.message}`
   }
 
-  return 'Unable to publish initial server save.'
+  return 'Unable to publish server save.'
 }
 
-function emitRuntimeEvent(logLine?: ServerRuntimeLogLine): void {
-  const event: ServerRuntimeEvent = {
-    snapshot: getServerRuntimeSnapshot(),
-    logLine
+function getStopCompletionErrorMessage(error: unknown): string {
+  const message = error instanceof Error ? error.message : null
+
+  if (message?.startsWith('Cannot unlock server')) {
+    return `Server save published, but ChunkShare could not unlock the server: ${message}`
   }
 
-  listeners.forEach((listener) => listener(event))
-}
-
-function startPlayerPolling(): void {
-  pollPlayerList()
-
-  if (playerPollInterval) {
-    return
-  }
-
-  playerPollInterval = setInterval(pollPlayerList, PLAYER_POLL_INTERVAL_MS)
-}
-
-function stopPlayerPolling(): void {
-  if (!playerPollInterval) {
-    return
-  }
-
-  clearInterval(playerPollInterval)
-  playerPollInterval = null
-}
-
-function pollPlayerList(): void {
-  if (!serverProcess || status !== 'running' || !serverProcess.stdin.writable) {
-    return
-  }
-
-  serverProcess.stdin.write('list\n')
-}
-
-function updatePlayersFromListResponse(line: string): boolean {
-  const match = line.match(PLAYER_LIST_PATTERN)
-
-  if (!match) {
-    return false
-  }
-
-  players = {
-    online: Number(match[1]),
-    max: Number(match[2])
-  }
-
-  emitRuntimeEvent()
-
-  return true
-}
-
-async function readMaxPlayers(serverFolderPath: string): Promise<number> {
-  const properties = await readFile(join(serverFolderPath, 'server.properties'), 'utf8').catch(
-    () => ''
-  )
-  const match = properties.match(/^max-players=(\d+)$/m)
-
-  return match ? Number(match[1]) : DEFAULT_PLAYER_LIMIT
-}
-
-function getConnectionAddresses(port: number): ServerConnectionAddress[] {
-  const addresses = Object.entries(networkInterfaces()).flatMap(([interfaceName, entries]) =>
-    (entries ?? [])
-      .filter((entry) => entry.family === 'IPv4' && !entry.internal)
-      .map((entry) => ({
-        label: interfaceName,
-        address: `${entry.address}:${port}`
-      }))
-  )
-
-  if (addresses.length === 0) {
-    return [
-      {
-        label: 'Localhost',
-        address: `localhost:${port}`,
-        isPrimary: true
-      }
-    ]
-  }
-
-  return addresses.map((address, index) => ({
-    ...address,
-    isPrimary: index === 0
-  }))
-}
-
-function getLogTone(line: string, fallbackTone: RuntimeLogTone): RuntimeLogTone {
-  if (SERVER_READY_PATTERN.test(line)) {
-    return 'success'
-  }
-
-  if (/\b(warn|warning)\b/i.test(line)) {
-    return 'warning'
-  }
-
-  if (/\b(error|exception|failed)\b/i.test(line)) {
-    return 'error'
-  }
-
-  return fallbackTone
-}
-
-function detectJavaClassVersionMismatch(line: string): void {
-  if (status === 'error') {
-    return
-  }
-
-  const match = line.match(/class file version (\d+)\.0.+up to (\d+)\.0/)
-
-  if (!match) {
-    return
-  }
-
-  const requiredJavaVersion = getJavaVersionFromClassFileVersion(Number(match[1]))
-  const currentJavaVersion = getJavaVersionFromClassFileVersion(Number(match[2]))
-
-  finishWithError(
-    `This Minecraft server requires Java ${requiredJavaVersion}, but ChunkShare is using Java ${currentJavaVersion}. Install a newer Java version and restart ChunkShare.`
-  )
-}
-
-function getJavaVersionFromClassFileVersion(classFileVersion: number): number {
-  if (classFileVersion === 45) {
-    return 1
-  }
-
-  return classFileVersion - 44
+  return getPublishErrorMessage(error)
 }
 
 function getConsoleTimestamp(): string {
@@ -392,47 +528,10 @@ function getConsoleTimestamp(): string {
   }).format(new Date())
 }
 
-async function assertFolderExists(folderPath: string): Promise<void> {
-  const fileStats = await stat(folderPath).catch((error: unknown) => {
-    if (isMissingFileError(error)) {
-      throw new ServerRuntimeError(`Server folder does not exist: ${folderPath}`)
-    }
-
-    throw error
-  })
-
-  if (!fileStats.isDirectory()) {
-    throw new ServerRuntimeError(`Server folder is not a directory: ${folderPath}`)
-  }
-}
-
-async function assertFileExists(filePath: string): Promise<void> {
-  const fileStats = await stat(filePath).catch((error: unknown) => {
-    if (isMissingFileError(error)) {
-      throw new ServerRuntimeError(`server.jar was not found at ${filePath}`)
-    }
-
-    throw error
-  })
-
-  if (!fileStats.isFile()) {
-    throw new ServerRuntimeError(`server.jar path is not a file: ${filePath}`)
-  }
-}
-
-function clearStopTimeout(): void {
-  if (!stopTimeout) {
-    return
-  }
-
-  clearTimeout(stopTimeout)
-  stopTimeout = null
-}
-
-function isMissingFileError(error: unknown): boolean {
-  return error instanceof Error && 'code' in error && error.code === 'ENOENT'
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : 'Unknown error.'
 }
 
 function isMissingExecutableError(error: unknown): boolean {
-  return error instanceof Error && 'code' in error && error.code === 'ENOENT'
+  return isMissingFileError(error)
 }

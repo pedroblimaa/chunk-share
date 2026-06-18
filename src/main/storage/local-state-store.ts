@@ -67,6 +67,10 @@ export function saveLocalSaveVersion(localSaveVersion: number | null): Promise<L
   return saveLocalStateChanges({ localSaveVersion })
 }
 
+export function saveActiveSessionId(activeSessionId: string | null): Promise<LocalState> {
+  return saveLocalStateChanges({ activeSessionId })
+}
+
 export function resetConfiguredServer(): Promise<LocalState> {
   return saveLocalStateChanges({
     activeSessionId: null,

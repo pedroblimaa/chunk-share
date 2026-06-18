@@ -1,15 +1,19 @@
 import './ServerStatePanel.css'
 
-import type { DashboardSnapshot } from '../../../../../../shared/dashboard'
+import type { ServerDisplayState } from '../../../../../../shared/dashboard'
 import MaterialIcon from '../../../../components/shared/MaterialIcon/MaterialIcon'
+import { getServerSyncView } from '../../../../utils/server-sync-ui'
 
 interface ServerStatePanelProps {
-  snapshot: DashboardSnapshot
+  lastActiveLabel: string
+  snapshot: ServerDisplayState
   toggleDisabled?: boolean
+  toggleButtonAriaLabel?: string
+  toggleButtonTooltip?: string
   onToggleServer: () => void
 }
 
-function formatState(status: DashboardSnapshot['serverStatus']): string {
+function formatState(status: ServerDisplayState['serverStatus']): string {
   if (status === 'not-configured') {
     return 'Not Configured'
   }
@@ -18,10 +22,14 @@ function formatState(status: DashboardSnapshot['serverStatus']): string {
 }
 
 function ServerStatePanel({
+  lastActiveLabel,
   snapshot,
   toggleDisabled = false,
+  toggleButtonAriaLabel,
+  toggleButtonTooltip,
   onToggleServer
 }: ServerStatePanelProps): React.JSX.Element {
+  const syncView = getServerSyncView(snapshot.syncStatus)
   const memoryPercent =
     snapshot.resources.memoryTotalMb === 0
       ? 0
@@ -39,15 +47,23 @@ function ServerStatePanel({
           <button
             className="power-indicator"
             type="button"
-            aria-label={snapshot.serverStatus === 'running' ? 'Stop server' : 'Start server'}
+            aria-label={
+              toggleButtonAriaLabel ??
+              (snapshot.serverStatus === 'running' ? 'Stop server' : 'Start server')
+            }
             disabled={toggleDisabled}
+            title={toggleButtonTooltip}
             onClick={onToggleServer}
           >
             <MaterialIcon name="power_settings_new" />
           </button>
           <div>
             <h3>{formatState(snapshot.serverStatus)}</h3>
-            <p>Last active: {snapshot.lastActiveLabel}</p>
+            <p>Last active: {lastActiveLabel}</p>
+            <p className={`server-sync-status server-sync-status-${syncView.tone}`}>
+              <MaterialIcon name="sync" />
+              <span>{syncView.label}</span>
+            </p>
           </div>
         </div>
 

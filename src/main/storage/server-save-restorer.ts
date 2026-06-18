@@ -1,0 +1,104 @@
+import extractZip from 'extract-zip'
+import { mkdir, rm, stat } from 'fs/promises'
+import { basename, dirname, join } from 'path'
+import type { ServerStorageSnapshot } from '../../shared/domain'
+import { renameWithRetry } from './file-system-utils'
+import { saveLocalSaveVersion } from './local-state-store'
+import { StorageError } from './storage-error'
+import {
+  localServerBackupsFolderPath,
+  localServerFolderPath,
+  mockCloudVersionsFolderPath
+} from './storage-paths'
+
+export async function restoreLatestServerSave(
+  storageSnapshot: ServerStorageSnapshot
+): Promise<void> {
+  const { latestSave, localState } = storageSnapshot
+
+  if (!latestSave) {
+    throw new StorageError('Cannot restore server save because no shared save exists.')
+  }
+
+  if (localState.dirty) {
+    throw new StorageError(
+      'Cannot update from cloud while the local server has unpublished changes.'
+    )
+  }
+
+  const zipFilePath = join(mockCloudVersionsFolderPath, latestSave.fileName)
+  const tempExtractFolderPath = getTempExtractFolderPath(latestSave.saveVersion)
+  let backupFolderPath: string | null = null
+
+  await assertZipFileExists(zipFilePath)
+  await rm(tempExtractFolderPath, { recursive: true, force: true })
+  await mkdir(tempExtractFolderPath, { recursive: true })
+
+  try {
+    await extractZip(zipFilePath, { dir: tempExtractFolderPath })
+
+    if (await folderExists(localServerFolderPath)) {
+      backupFolderPath = await moveCurrentServerToBackup(latestSave.saveVersion)
+    }
+
+    await renameWithRetry(tempExtractFolderPath, localServerFolderPath)
+    await saveLocalSaveVersion(latestSave.saveVersion)
+  } catch (error) {
+    await rm(tempExtractFolderPath, { recursive: true, force: true })
+
+    if (backupFolderPath && !(await folderExists(localServerFolderPath))) {
+      await renameWithRetry(backupFolderPath, localServerFolderPath).catch(() => undefined)
+    }
+
+    throw error
+  }
+}
+
+async function moveCurrentServerToBackup(saveVersion: number): Promise<string> {
+  await mkdir(localServerBackupsFolderPath, { recursive: true })
+  const backupServerName = `${basename(localServerFolderPath)}-before-v${saveVersion.toString().padStart(3, '0')}-${Date.now()}`
+  const backupFolderPath = join(localServerBackupsFolderPath, backupServerName)
+
+  await renameWithRetry(localServerFolderPath, backupFolderPath)
+
+  return backupFolderPath
+}
+
+function getTempExtractFolderPath(saveVersion: number): string {
+  return join(
+    dirname(localServerFolderPath),
+    `${basename(localServerFolderPath)}.extract-v${saveVersion.toString().padStart(3, '0')}.${process.pid}.tmp`
+  )
+}
+
+async function assertZipFileExists(filePath: string): Promise<void> {
+  const fileStats = await stat(filePath).catch((error: unknown) => {
+    if (isMissingFileError(error)) {
+      throw new StorageError(`Cannot restore server save because ${filePath} was not found.`)
+    }
+
+    throw error
+  })
+
+  if (!fileStats.isFile()) {
+    throw new StorageError(`Cannot restore server save because ${filePath} is not a file.`)
+  }
+}
+
+async function folderExists(folderPath: string): Promise<boolean> {
+  try {
+    const fileStats = await stat(folderPath)
+
+    return fileStats.isDirectory()
+  } catch (error) {
+    if (isMissingFileError(error)) {
+      return false
+    }
+
+    throw error
+  }
+}
+
+function isMissingFileError(error: unknown): boolean {
+  return error instanceof Error && 'code' in error && error.code === 'ENOENT'
+}

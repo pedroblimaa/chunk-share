@@ -1,12 +1,14 @@
 import { ipcMain } from 'electron'
 import {
   STORAGE_DELETE_SERVER_CHANNEL,
+  STORAGE_RESET_SERVER_LOCK_CHANNEL,
   STORAGE_SAVE_SERVER_CONFIG_CHANNEL,
   STORAGE_SNAPSHOT_CHANNEL
 } from '../../shared/ipc-channels'
 import {
   deleteConfiguredServer,
   getStorageSnapshot,
+  resetServerLock,
   updateServerConfig
 } from '../storage/storage-service'
 import { StorageError } from '../storage/storage-error'
@@ -16,6 +18,8 @@ export function registerStorageIpcHandlers(): void {
   ipcMain.handle(STORAGE_SNAPSHOT_CHANNEL, () => getStorageSnapshot())
 
   ipcMain.handle(STORAGE_DELETE_SERVER_CHANNEL, () => deleteConfiguredServer())
+
+  ipcMain.handle(STORAGE_RESET_SERVER_LOCK_CHANNEL, () => resetServerLock())
 
   ipcMain.handle(STORAGE_SAVE_SERVER_CONFIG_CHANNEL, (_, serverConfig: unknown) => {
     if (!isServerConfig(serverConfig)) {

@@ -1,56 +1,102 @@
-import type { DashboardSnapshot, MockUser } from '../../shared/dashboard'
-import type { LatestSave, ServerConfig, StorageSnapshot } from '../../shared/domain'
+import type { MockUser, ServerDisplayState } from '../../shared/dashboard'
+import {
+  ServerHostingStatus,
+  ServerLockStatus,
+  type ServerConfig,
+  type ServerStatus,
+  type ServerStorageSnapshot
+} from '../../shared/domain'
+import { isServerActiveStatus, type ServerConnectionAddress } from '../../shared/server-runtime'
+import { ServerSyncStatus } from '../../shared/server-sync'
 import { getServerRuntimeSnapshot } from '../server-runtime/server-runtime-service'
-import { getStorageSnapshot } from '../storage/storage-service'
+import { getServerSyncSnapshot } from '../server-sync/server-sync-service'
 import { getSignedInMockUser } from '../mock-dashboard'
 
 function formatServerType(serverType: ServerConfig['serverType']): string {
   return `${serverType.charAt(0).toUpperCase()}${serverType.slice(1)}`
 }
 
-function formatLatestSaveLabel(latestSave: LatestSave): string {
-  if (!latestSave) {
-    return 'Not published yet'
+function getCurrentHost(
+  storageSnapshot: ServerStorageSnapshot,
+  signedInUser: MockUser | null,
+  serverIsRunning: boolean
+): string | null {
+  if (serverIsRunning) {
+    return signedInUser?.name ?? 'You'
   }
 
-  return formatRelativeTime(new Date(latestSave.uploadedAt))
+  return storageSnapshot.serverSync.lockedBy?.displayName ?? null
 }
 
-function formatRelativeTime(date: Date): string {
-  const elapsedMs = date.getTime() - Date.now()
-  const units: Array<[Intl.RelativeTimeFormatUnit, number]> = [
-    ['day', 86_400_000],
-    ['hour', 3_600_000],
-    ['minute', 60_000]
-  ]
-
-  for (const [unit, unitMs] of units) {
-    const value = Math.trunc(elapsedMs / unitMs)
-
-    if (Math.abs(value) >= 1) {
-      return new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' }).format(value, unit)
-    }
+function getSnapshotConnectionAddresses(
+  storageSnapshot: ServerStorageSnapshot,
+  runtimeAddresses: ServerConnectionAddress[],
+  serverIsRunning: boolean
+): ServerConnectionAddress[] {
+  if (serverIsRunning) {
+    return runtimeAddresses
   }
 
-  return 'Just now'
+  return storageSnapshot.serverLock.status === ServerLockStatus.Locked
+    ? storageSnapshot.serverLock.connectionAddresses
+    : []
 }
 
-function getCurrentHost(signedInUser: MockUser | null, serverIsRunning: boolean): string | null {
-  return serverIsRunning ? (signedInUser?.name ?? 'You') : null
+function getPrimaryConnectionAddress(addresses: ServerConnectionAddress[]): string | null {
+  return addresses.find((address) => address.isPrimary)?.address ?? addresses[0]?.address ?? null
 }
 
-function buildDashboardSnapshot(
-  storageSnapshot: StorageSnapshot,
+function getRemoteHostingStatus(storageSnapshot: ServerStorageSnapshot): ServerStatus | null {
+  if (
+    storageSnapshot.serverSync.status !== ServerSyncStatus.LockedByOther ||
+    storageSnapshot.serverLock.status !== ServerLockStatus.Locked
+  ) {
+    return null
+  }
+
+  const statusByHostingStatus: Record<ServerHostingStatus, ServerStatus> = {
+    [ServerHostingStatus.Starting]: 'starting',
+    [ServerHostingStatus.Running]: 'running',
+    [ServerHostingStatus.Stopping]: 'stopping'
+  }
+
+  return statusByHostingStatus[storageSnapshot.serverLock.hostingStatus]
+}
+
+function getDisplayServerStatus(
+  storageSnapshot: ServerStorageSnapshot,
+  runtimeStatus: ServerStatus,
+  serverConfigured: boolean
+): ServerStatus {
+  if (!serverConfigured) {
+    return 'not-configured'
+  }
+
+  if (isServerActiveStatus(runtimeStatus)) {
+    return runtimeStatus
+  }
+
+  return getRemoteHostingStatus(storageSnapshot) ?? runtimeStatus
+}
+
+function buildServerDisplayState(
+  storageSnapshot: ServerStorageSnapshot,
   signedInUser: MockUser | null
-): DashboardSnapshot {
+): ServerDisplayState {
   const runtimeSnapshot = getServerRuntimeSnapshot()
-  const { latestSave, localState } = storageSnapshot
+  const { localState, serverSync } = storageSnapshot
   const serverConfigured = localState.serverSetup.status === 'ready'
-  const serverStatus = serverConfigured ? runtimeSnapshot.status : 'not-configured'
-  const serverIsRunning =
-    runtimeSnapshot.status === 'starting' ||
-    runtimeSnapshot.status === 'running' ||
-    runtimeSnapshot.status === 'stopping'
+  const serverStatus = getDisplayServerStatus(
+    storageSnapshot,
+    runtimeSnapshot.status,
+    serverConfigured
+  )
+  const serverIsRunning = isServerActiveStatus(runtimeSnapshot.status)
+  const connectionAddresses = getSnapshotConnectionAddresses(
+    storageSnapshot,
+    runtimeSnapshot.connectionAddresses,
+    serverIsRunning
+  )
 
   return {
     signedInUser,
@@ -58,13 +104,10 @@ function buildDashboardSnapshot(
     serverStatus,
     serverType: formatServerType(localState.serverConfig.serverType),
     minecraftVersion: localState.serverConfig.minecraftVersion,
-    lastActiveLabel: serverIsRunning ? 'Active now' : formatLatestSaveLabel(latestSave),
-    currentHost: getCurrentHost(signedInUser, serverIsRunning),
-    latestSaveLabel: formatLatestSaveLabel(latestSave),
-    connectionAddress:
-      runtimeSnapshot.connectionAddresses.find((address) => address.isPrimary)?.address ??
-      runtimeSnapshot.connectionAddresses[0]?.address ??
-      null,
+    currentHost: getCurrentHost(storageSnapshot, signedInUser, serverIsRunning),
+    syncStatus: serverSync,
+    connectionAddress: getPrimaryConnectionAddress(connectionAddresses),
+    connectionAddresses,
     players: runtimeSnapshot.players,
     resources: runtimeSnapshot.resources,
     consoleLogs: runtimeSnapshot.logs,
@@ -80,6 +123,6 @@ function buildDashboardSnapshot(
   }
 }
 
-export async function getDashboardSnapshot(): Promise<DashboardSnapshot> {
-  return buildDashboardSnapshot(await getStorageSnapshot(), getSignedInMockUser())
+export async function getServerDisplayState(): Promise<ServerDisplayState> {
+  return buildServerDisplayState(await getServerSyncSnapshot(), getSignedInMockUser())
 }

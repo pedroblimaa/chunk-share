@@ -1,4 +1,6 @@
 import type { ServerStatus } from './domain'
+import type { ServerConnectionAddress } from './server-runtime'
+import type { ServerSyncSnapshot } from './server-sync'
 
 export type { ServerStatus } from './domain'
 
@@ -35,16 +37,16 @@ export interface ConsoleLogLine {
   tone: 'default' | 'success' | 'warning' | 'error'
 }
 
-export interface DashboardSnapshot {
+export interface ServerDisplayState {
   signedInUser: MockUser | null
   serverName: string
   serverStatus: ServerStatus
   serverType: string
   minecraftVersion: string
-  lastActiveLabel: string
   currentHost: string | null
-  latestSaveLabel: string
+  syncStatus: ServerSyncSnapshot
   connectionAddress: string | null
+  connectionAddresses: ServerConnectionAddress[]
   players: PlayerSummary
   resources: ServerResourceUsage
   consoleLogs: ConsoleLogLine[]

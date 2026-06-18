@@ -58,7 +58,8 @@
 }
 
 .server-status-pill,
-.server-version-pill {
+.server-version-pill,
+.server-sync-pill {
   align-items: center;
   background: var(--color-surface);
   border: 1px solid var(--color-border-emphasis);
@@ -88,12 +89,45 @@
   background: var(--color-warning);
 }
 
+.server-status-pill-stopping span {
+  background: var(--color-warning);
+}
+
+.server-status-pill-remote-transitioning span {
+  background: var(--color-warning);
+}
+
+.server-status-pill-hosted span {
+  background: var(--color-accent);
+  box-shadow: 0 0 12px var(--color-accent);
+}
+
 .server-version-pill {
   color: var(--color-text-muted);
 }
 
-.server-version-pill .material-symbols-outlined {
+.server-version-pill .material-symbols-outlined,
+.server-sync-pill .material-symbols-outlined {
   font-size: var(--font-size-body);
+}
+
+.server-sync-pill-success {
+  border-color: var(--color-border-accent-muted);
+  color: var(--color-accent);
+}
+
+.server-sync-pill-warning {
+  border-color: rgba(241, 184, 75, 0.46);
+  color: var(--color-warning);
+}
+
+.server-sync-pill-danger {
+  border-color: rgba(255, 111, 111, 0.42);
+  color: #ffb4b4;
+}
+
+.server-sync-pill-neutral {
+  color: var(--color-text-muted);
 }
 
 .server-card-body {

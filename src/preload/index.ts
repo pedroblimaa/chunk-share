@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { DashboardSnapshot } from '../shared/dashboard'
-import type { ServerConfig, StorageSnapshot } from '../shared/domain'
+import type { ServerDisplayState } from '../shared/dashboard'
+import type { ServerConfig, ServerStorageSnapshot } from '../shared/domain'
 import {
   AUTH_SIGN_IN_WITH_GOOGLE_CHANNEL,
   DASHBOARD_SNAPSHOT_CHANNEL,
@@ -12,6 +12,7 @@ import {
   SERVER_SETUP_PROGRESS_CHANNEL,
   SERVER_SETUP_SETUP_VANILLA_SERVER_CHANNEL,
   STORAGE_DELETE_SERVER_CHANNEL,
+  STORAGE_RESET_SERVER_LOCK_CHANNEL,
   STORAGE_SAVE_SERVER_CONFIG_CHANNEL,
   STORAGE_SNAPSHOT_CHANNEL
 } from '../shared/ipc-channels'
@@ -24,11 +25,11 @@ import type {
 
 const chunkShareApi = {
   auth: {
-    signInWithGoogle: (): Promise<DashboardSnapshot> =>
+    signInWithGoogle: (): Promise<ServerDisplayState> =>
       ipcRenderer.invoke(AUTH_SIGN_IN_WITH_GOOGLE_CHANNEL)
   },
   dashboard: {
-    getSnapshot: (): Promise<DashboardSnapshot> => ipcRenderer.invoke(DASHBOARD_SNAPSHOT_CHANNEL)
+    getSnapshot: (): Promise<ServerDisplayState> => ipcRenderer.invoke(DASHBOARD_SNAPSHOT_CHANNEL)
   },
   serverRuntime: {
     getSnapshot: (): Promise<ServerRuntimeSnapshot> =>
@@ -46,15 +47,18 @@ const chunkShareApi = {
     }
   },
   storage: {
-    getSnapshot: (): Promise<StorageSnapshot> => ipcRenderer.invoke(STORAGE_SNAPSHOT_CHANNEL),
-    deleteServer: (): Promise<StorageSnapshot> => ipcRenderer.invoke(STORAGE_DELETE_SERVER_CHANNEL),
-    saveServerConfig: (serverConfig: ServerConfig): Promise<StorageSnapshot> =>
+    getSnapshot: (): Promise<ServerStorageSnapshot> => ipcRenderer.invoke(STORAGE_SNAPSHOT_CHANNEL),
+    deleteServer: (): Promise<ServerStorageSnapshot> =>
+      ipcRenderer.invoke(STORAGE_DELETE_SERVER_CHANNEL),
+    resetServerLock: (): Promise<ServerStorageSnapshot> =>
+      ipcRenderer.invoke(STORAGE_RESET_SERVER_LOCK_CHANNEL),
+    saveServerConfig: (serverConfig: ServerConfig): Promise<ServerStorageSnapshot> =>
       ipcRenderer.invoke(STORAGE_SAVE_SERVER_CONFIG_CHANNEL, serverConfig)
   },
   serverSetup: {
     listVanillaVersions: (): Promise<VanillaMinecraftVersion[]> =>
       ipcRenderer.invoke(SERVER_SETUP_LIST_VANILLA_VERSIONS_CHANNEL),
-    setupVanillaServer: (input: SetupVanillaServerInput): Promise<StorageSnapshot> =>
+    setupVanillaServer: (input: SetupVanillaServerInput): Promise<ServerStorageSnapshot> =>
       ipcRenderer.invoke(SERVER_SETUP_SETUP_VANILLA_SERVER_CHANNEL, input),
     onProgress: (listener: (event: ServerSetupProgressEvent) => void): (() => void) => {
       const progressListener = (

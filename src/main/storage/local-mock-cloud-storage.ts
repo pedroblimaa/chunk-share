@@ -54,3 +54,7 @@ export function readServerLock(): Promise<ServerLock> {
 export function writeServerLock(serverLock: ServerLock): Promise<void> {
   return writeJsonFile(serverLockFilePath, serverLock, isServerLock)
 }
+
+export function resetServerLock(): Promise<void> {
+  return writeServerLock(DEFAULT_SERVER_LOCK)
+}
