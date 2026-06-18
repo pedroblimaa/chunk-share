@@ -152,7 +152,7 @@ async function localNewerRule({
     return null
   }
 
-  return createDecision(ServerSyncStatus.LocalNewer, false)
+  return createDecision(ServerSyncStatus.LocalNewer, true)
 }
 
 function createDecision(

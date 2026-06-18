@@ -1,6 +1,7 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'child_process'
 import { readFile } from 'fs/promises'
 import { join } from 'path'
+import type { ServerStorageSnapshot } from '../../shared/domain'
 import { ServerSyncStatus, type ServerSyncSnapshot } from '../../shared/server-sync'
 import type {
   ServerConnectionAddress,
@@ -22,7 +23,8 @@ import {
   clearHostingLockAfterStartFailure,
   createHostingLock,
   markHostingLockRunning,
-  markHostingLockStopping
+  markHostingLockStopping,
+  updateHostingLockSaveVersion
 } from './server-hosting-lock-manager'
 import { startHeartbeat, stopHeartbeat } from './server-heartbeat-manager'
 import { startPlayerPolling, stopPlayerPolling } from './server-player-poller'
@@ -96,9 +98,10 @@ class ServerRuntime {
       throw new ServerRuntimeError('Server setup must be completed before starting Minecraft.')
     }
 
-    if (serverSync.status === ServerSyncStatus.UpdateAvailable) {
-      await restoreLatestServerSave(storageSnapshot)
-      storageSnapshot = await getServerSyncSnapshot()
+    const restoredCloudSaveBeforeStart = serverSync.status === ServerSyncStatus.UpdateAvailable
+
+    if (restoredCloudSaveBeforeStart) {
+      storageSnapshot = await this.restoreCloudSaveBeforeStart(storageSnapshot)
       localState = storageSnapshot.localState
       serverSync = storageSnapshot.serverSync
     }
@@ -107,22 +110,32 @@ class ServerRuntime {
 
     const serverFolderPath = localState.serverConfig.serverFolderPath ?? localServerFolderPath
 
-    await assertFolderExists(serverFolderPath)
-    await assertFileExists(localServerJarFilePath)
+    await this.runStartPreparation(() => assertFolderExists(serverFolderPath))
+    await this.runStartPreparation(() => assertFileExists(localServerJarFilePath))
 
     const connectionAddresses = getConnectionAddresses(localState.serverConfig.port)
-    const sessionId = await createHostingLock(storageSnapshot, connectionAddresses)
+    const maxPlayers = await this.runStartPreparation(() => readMaxPlayers(serverFolderPath))
+    const sessionId = await this.runStartPreparation(() =>
+      createHostingLock(storageSnapshot, connectionAddresses)
+    )
     this.sessionId = sessionId
 
     this.status = 'starting'
     this.errorMessage = null
-    this.logs = []
+    this.logs = restoredCloudSaveBeforeStart ? this.logs : []
     this.stdoutBuffer = ''
     this.stderrBuffer = ''
     this.connectionAddresses = connectionAddresses
-    this.players = { online: 0, max: await readMaxPlayers(serverFolderPath) }
+    this.players = { online: 0, max: maxPlayers }
     this.resources = MOCK_RESOURCES
     this.emitRuntimeEvent()
+
+    if (serverSync.status === ServerSyncStatus.LocalNewer) {
+      storageSnapshot = await this.publishLocalNewerSaveBeforeStart(sessionId)
+      serverSync = storageSnapshot.serverSync
+      this.assertServerSyncAllowsStart(serverSync)
+    }
+
     this.addLogLine(
       'ChunkShare',
       `Starting Minecraft server with ${JAVA_COMMAND} ${JAVA_ARGS.join(' ')}`
@@ -136,6 +149,78 @@ class ServerRuntime {
     this.attachServerProcessListeners(this.serverProcess, sessionId)
 
     return this.getSnapshot()
+  }
+
+  private async restoreCloudSaveBeforeStart(
+    storageSnapshot: ServerStorageSnapshot
+  ): Promise<ServerStorageSnapshot> {
+    this.status = 'starting'
+    this.errorMessage = null
+    this.logs = []
+    this.stdoutBuffer = ''
+    this.stderrBuffer = ''
+    this.connectionAddresses = getConnectionAddresses(storageSnapshot.localState.serverConfig.port)
+    this.players = { online: 0, max: DEFAULT_PLAYER_LIMIT }
+    this.resources = MOCK_RESOURCES
+    this.emitRuntimeEvent()
+    this.addLogLine('ChunkShare', 'Updating local server from shared save before start.')
+
+    try {
+      await restoreLatestServerSave(storageSnapshot)
+      this.addLogLine('ChunkShare', 'Local server updated from shared save.', 'success')
+
+      return getServerSyncSnapshot()
+    } catch (error) {
+      const message = getPreStartRestoreErrorMessage(error)
+      this.finishWithError(message)
+      throw new ServerRuntimeError(message)
+    }
+  }
+
+  private async publishLocalNewerSaveBeforeStart(
+    sessionId: string
+  ): Promise<ServerStorageSnapshot> {
+    this.addLogLine('ChunkShare', 'Publishing newer local save before start.')
+
+    try {
+      const publishResult = await publishServerSave()
+      await updateHostingLockSaveVersion(sessionId, publishResult.latestSave.saveVersion)
+
+      this.addLogLine(
+        'ChunkShare',
+        `Server save v${publishResult.latestSave.saveVersion} published before start.`,
+        'success'
+      )
+
+      if (publishResult.cleanupError) {
+        this.addLogLine(
+          'ChunkShare',
+          `Server save published, but old save cleanup failed: ${publishResult.cleanupError.message}`,
+          'warning'
+        )
+      }
+
+      return getServerSyncSnapshot()
+    } catch (error) {
+      await clearHostingLockAfterStartFailure().catch(() => undefined)
+      this.sessionId = null
+
+      const message = getPreStartPublishErrorMessage(error)
+      this.finishWithError(message)
+      throw new ServerRuntimeError(message)
+    }
+  }
+
+  private async runStartPreparation<T>(operation: () => Promise<T>): Promise<T> {
+    try {
+      return await operation()
+    } catch (error) {
+      if (this.status === 'starting') {
+        this.finishWithError(getErrorMessage(error))
+      }
+
+      throw error
+    }
   }
 
   async stop(): Promise<ServerRuntimeSnapshot> {
@@ -440,12 +525,24 @@ class ServerRuntime {
     this.addLogLine('ChunkShare', message, 'error')
   }
 
-  private assertServerSyncAllowsStart(serverSync: ServerSyncSnapshot): void {
+  private assertServerSyncIsStartAllowed(serverSync: ServerSyncSnapshot): void {
     if (serverSync.isStartAllowed) {
       return
     }
 
     throw new ServerRuntimeError(getSyncStartBlockedMessage(serverSync))
+  }
+
+  private assertServerSyncAllowsStart(serverSync: ServerSyncSnapshot): void {
+    try {
+      this.assertServerSyncIsStartAllowed(serverSync)
+    } catch (error) {
+      if (this.status === 'starting') {
+        this.finishWithError(getErrorMessage(error))
+      }
+
+      throw error
+    }
   }
 
   private emitRuntimeEvent(logLine?: ServerRuntimeLogLine): void {
@@ -508,6 +605,22 @@ function getPublishErrorMessage(error: unknown): string {
   }
 
   return 'Unable to publish server save.'
+}
+
+function getPreStartPublishErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return `Unable to publish newer local save before start: ${error.message}`
+  }
+
+  return 'Unable to publish newer local save before start.'
+}
+
+function getPreStartRestoreErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return `Unable to update local server from shared save before start: ${error.message}`
+  }
+
+  return 'Unable to update local server from shared save before start.'
 }
 
 function getStopCompletionErrorMessage(error: unknown): string {

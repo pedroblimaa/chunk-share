@@ -215,6 +215,16 @@
   transform: translateY(-1px);
 }
 
+.server-toggle-button.is-tone-sync {
+  background: #2389d7;
+  color: var(--color-text-inverse);
+}
+
+.server-toggle-button.is-tone-sync:hover {
+  box-shadow: 0 0 18px rgba(35, 137, 215, 0.36);
+  transform: translateY(-1px);
+}
+
 .server-toggle-button.is-running {
   background: var(--color-danger);
 }

@@ -16,10 +16,10 @@ export interface ServerSyncView {
 
 export const SERVER_SYNC_VIEW_BY_STATUS = {
   [ServerSyncStatus.Ready]: {
-    label: 'Ready',
+    label: 'Synced',
     tone: ServerSyncTone.Success,
     actionLabel: 'Start server',
-    message: 'Local save matches the latest cloud save.'
+    message: 'Local save matches the shared save.'
   },
   [ServerSyncStatus.NoCloudSave]: {
     label: 'First publish pending',
@@ -28,10 +28,10 @@ export const SERVER_SYNC_VIEW_BY_STATUS = {
     message: 'No shared save has been published yet.'
   },
   [ServerSyncStatus.UpdateAvailable]: {
-    label: 'Update available',
+    label: 'Cloud ahead',
     tone: ServerSyncTone.Warning,
     actionLabel: 'Update and start',
-    message: 'A newer cloud save is available.'
+    message: 'Shared save is newer. ChunkShare will update this device before hosting.'
   },
   [ServerSyncStatus.LockedByOther]: {
     label: 'Online with someone',
@@ -52,10 +52,10 @@ export const SERVER_SYNC_VIEW_BY_STATUS = {
     message: 'The cloud save does not match this local server configuration.'
   },
   [ServerSyncStatus.LocalNewer]: {
-    label: 'Local save newer',
+    label: 'Local ahead',
     tone: ServerSyncTone.Warning,
-    actionLabel: 'Review local save',
-    message: 'The local save version is newer than the cloud metadata.'
+    actionLabel: 'Publish and start',
+    message: 'This device has a newer save. ChunkShare will publish it before hosting.'
   },
   [ServerSyncStatus.MissingCloudFile]: {
     label: 'Cloud file missing',

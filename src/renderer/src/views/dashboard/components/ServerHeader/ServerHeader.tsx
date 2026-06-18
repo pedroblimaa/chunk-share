@@ -15,6 +15,7 @@ interface ServerHeaderProps {
   toggleButtonTooltip?: string
   toggleButtonLabel?: string
   toggleButtonIcon?: string
+  toggleButtonTone?: 'default' | 'sync'
   copyConnectionDetailsLabel?: string
   copyConnectionDetailsStateClass?: string
   onCopyConnectionAddress: () => void
@@ -63,6 +64,7 @@ function ServerHeader({
   toggleButtonTooltip,
   toggleButtonLabel: toggleButtonLabelOverride,
   toggleButtonIcon: toggleButtonIconOverride,
+  toggleButtonTone = 'default',
   copyConnectionDetailsLabel = 'Copy Connection',
   copyConnectionDetailsStateClass = '',
   onCopyConnectionAddress,
@@ -139,7 +141,7 @@ function ServerHeader({
       <div className="server-actions">
         <button
           aria-label={toggleButtonLabel}
-          className={`server-toggle-button is-${serverIsRunning ? 'running' : 'stopped'}${
+          className={`server-toggle-button is-${serverIsRunning ? 'running' : 'stopped'} is-tone-${toggleButtonTone}${
             isAnimating ? ' is-animating' : ''
           }${serverIsBusy ? ' is-busy' : ''}`}
           disabled={toggleDisabled}

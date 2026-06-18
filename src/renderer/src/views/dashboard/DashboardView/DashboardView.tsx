@@ -15,7 +15,11 @@ import {
   applyRuntimeSnapshotToServerDisplayState,
   loadServerDisplayState
 } from '../../../utils/server-display-state'
-import { formatLatestSaveLabel, getServerSyncView } from '../../../utils/server-sync-ui'
+import {
+  formatLatestSaveLabel,
+  getServerSaveSyncBadge,
+  getServerSyncView
+} from '../../../utils/server-sync-ui'
 import ConsoleOutput from '../components/ConsoleOutput/ConsoleOutput'
 import DashboardStatCard from '../components/DashboardStatCard/DashboardStatCard'
 import ServerHeader from '../components/ServerHeader/ServerHeader'
@@ -29,6 +33,15 @@ interface DashboardPreviewProps {
 }
 
 type CopyStatus = 'idle' | 'copied' | 'failed'
+type HeaderToggleButtonTone = 'default' | 'sync'
+
+interface HeaderToggleButtonView {
+  label?: string
+  icon?: string
+  tone: HeaderToggleButtonTone
+  tooltip?: string
+  ariaLabel?: string
+}
 
 const COPY_STATUS_LABELS: Record<CopyStatus, string> = {
   copied: 'Copied',
@@ -43,6 +56,60 @@ const COPY_STATUS_ICONS: Record<CopyStatus, string> = {
 }
 
 const DASHBOARD_REFRESH_INTERVAL_MS = 3_000
+
+function getHeaderToggleButtonView({
+  dashboardSnapshot,
+  serverIsJoinable,
+  syncBlocksStart
+}: {
+  dashboardSnapshot: ServerDisplayState
+  serverIsJoinable: boolean
+  syncBlocksStart: boolean
+}): HeaderToggleButtonView {
+  const syncView = getServerSyncView(dashboardSnapshot.syncStatus)
+
+  if (serverIsJoinable) {
+    return {
+      label: 'Join Server',
+      icon: 'login',
+      tone: 'default',
+      tooltip: 'Show connection details',
+      ariaLabel: 'Show connection details'
+    }
+  }
+
+  if (syncBlocksStart) {
+    return {
+      tone: 'default',
+      tooltip: syncView.message
+    }
+  }
+
+  if (dashboardSnapshot.serverStatus !== 'stopped') {
+    return { tone: 'default' }
+  }
+
+  switch (dashboardSnapshot.syncStatus.status) {
+    case ServerSyncStatus.UpdateAvailable:
+      return {
+        label: syncView.actionLabel,
+        icon: 'download',
+        tone: 'sync',
+        tooltip: syncView.message,
+        ariaLabel: syncView.actionLabel
+      }
+    case ServerSyncStatus.LocalNewer:
+      return {
+        label: syncView.actionLabel,
+        icon: 'upload',
+        tone: 'sync',
+        tooltip: syncView.message,
+        ariaLabel: syncView.actionLabel
+      }
+    default:
+      return { tone: 'default' }
+  }
+}
 
 function DashboardView({
   serverDisplayState,
@@ -244,7 +311,6 @@ function DashboardView({
   }
 
   const dashboardSnapshot = serverDisplayState
-  const syncView = getServerSyncView(dashboardSnapshot.syncStatus)
   const serverIsJoinable =
     dashboardSnapshot.syncStatus.status === ServerSyncStatus.LockedByOther &&
     dashboardSnapshot.syncStatus.serverLock.status === ServerLockStatus.Locked &&
@@ -260,7 +326,11 @@ function DashboardView({
     syncBlocksStart
 
   const headerToggleDisabled = serverIsJoinable ? false : toggleDisabled
-  const toggleButtonTooltip = syncBlocksStart ? syncView.message : undefined
+  const headerToggleButtonView = getHeaderToggleButtonView({
+    dashboardSnapshot,
+    serverIsJoinable,
+    syncBlocksStart
+  })
   const connectionAddressDetails = dashboardSnapshot.connectionAddresses
     .map((connectionAddress) => `${connectionAddress.label}: ${connectionAddress.address}`)
     .join(', ')
@@ -270,6 +340,7 @@ function DashboardView({
   const addressCopyButtonLabel = COPY_STATUS_LABELS[addressCopyStatus]
   const addressCopyButtonStateClass = addressCopyStatus === 'idle' ? '' : ` is-${addressCopyStatus}`
   const latestSaveLabel = formatLatestSaveLabel(dashboardSnapshot.syncStatus.latestSave)
+  const latestSaveSyncBadge = getServerSaveSyncBadge(dashboardSnapshot.syncStatus)
   const lastActiveLabel = isServerActiveStatus(dashboardSnapshot.serverStatus)
     ? 'Active now'
     : latestSaveLabel
@@ -318,9 +389,10 @@ function DashboardView({
             connectionDetailsOpen={connectionDetailsOpen}
             isAnimating={isServerToggleAnimating}
             toggleDisabled={headerToggleDisabled}
-            toggleButtonTooltip={serverIsJoinable ? 'Show connection details' : toggleButtonTooltip}
-            toggleButtonLabel={serverIsJoinable ? 'Join Server' : undefined}
-            toggleButtonIcon={serverIsJoinable ? 'login' : undefined}
+            toggleButtonTooltip={headerToggleButtonView.tooltip}
+            toggleButtonLabel={headerToggleButtonView.label}
+            toggleButtonIcon={headerToggleButtonView.icon}
+            toggleButtonTone={headerToggleButtonView.tone}
             copyConnectionDetailsLabel={addressCopyButtonLabel}
             copyConnectionDetailsStateClass={addressCopyButtonStateClass}
             onCopyConnectionAddress={copyConnectionAddress}
@@ -335,15 +407,19 @@ function DashboardView({
               lastActiveLabel={lastActiveLabel}
               snapshot={dashboardSnapshot}
               toggleDisabled={headerToggleDisabled}
-              toggleButtonAriaLabel={serverIsJoinable ? 'Show connection details' : undefined}
-              toggleButtonTooltip={
-                serverIsJoinable ? 'Show connection details' : toggleButtonTooltip
-              }
+              toggleButtonAriaLabel={headerToggleButtonView.ariaLabel}
+              toggleButtonTooltip={headerToggleButtonView.tooltip}
               onToggleServer={handleHeaderServerAction}
             />
 
             <div className="dashboard-side-stats">
-              <DashboardStatCard icon="save" label="Latest Save" value={latestSaveLabel} />
+              <DashboardStatCard
+                badge={latestSaveSyncBadge.label}
+                badgeTone={latestSaveSyncBadge.tone}
+                icon="save"
+                label="Latest Save"
+                value={latestSaveLabel}
+              />
               <DashboardStatCard
                 icon="info"
                 label="World Version"

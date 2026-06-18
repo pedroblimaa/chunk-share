@@ -6,6 +6,13 @@ import {
   type ServerSyncView
 } from './server-sync-ui-constants'
 
+export type ServerSaveSyncBadgeTone = 'neutral' | 'success' | 'warning' | 'danger'
+
+export interface ServerSaveSyncBadge {
+  label: string
+  tone: ServerSaveSyncBadgeTone
+}
+
 export function getServerSyncView(syncStatus: ServerSyncSnapshot): ServerSyncView {
   const view = SERVER_SYNC_VIEW_BY_STATUS[syncStatus.status]
 
@@ -19,6 +26,7 @@ export function getServerSyncView(syncStatus: ServerSyncSnapshot): ServerSyncVie
     const remoteHostIsStopping = hostingStatus === ServerHostingStatus.Stopping
     const remoteHostIsTransitioning = remoteHostIsStarting || remoteHostIsStopping
     const transitionLabel = remoteHostIsStopping ? 'Stopping' : 'Starting'
+    const transitionMessage = getRemoteHostTransitionMessage(remoteHostIsStopping)
 
     return {
       ...view,
@@ -27,11 +35,7 @@ export function getServerSyncView(syncStatus: ServerSyncSnapshot): ServerSyncVie
         : `Online with ${hostName}`,
       tone: remoteHostIsTransitioning ? ServerSyncTone.Warning : view.tone,
       actionLabel: remoteHostIsTransitioning ? `${transitionLabel}...` : view.actionLabel,
-      message: remoteHostIsTransitioning
-        ? remoteHostIsStopping
-          ? 'The host is stopping the server and publishing the latest save.'
-          : 'The host is starting the server. Connection will be available soon.'
-        : view.message
+      message: remoteHostIsTransitioning ? transitionMessage : view.message
     }
   }
 
@@ -43,6 +47,46 @@ export function getServerSyncView(syncStatus: ServerSyncSnapshot): ServerSyncVie
   }
 
   return view
+}
+
+function getRemoteHostTransitionMessage(remoteHostIsStopping: boolean): string {
+  if (remoteHostIsStopping) {
+    return 'The host is stopping the server and publishing the latest save.'
+  }
+
+  return 'The host is starting the server. Connection will be available soon.'
+}
+
+export function getServerSaveSyncBadge(syncStatus: ServerSyncSnapshot): ServerSaveSyncBadge {
+  const { cloudSaveVersion, localSaveVersion, status } = syncStatus
+
+  if (status === ServerSyncStatus.MissingCloudFile) {
+    return { label: 'Missing file', tone: 'danger' }
+  }
+
+  if (status === ServerSyncStatus.Incompatible) {
+    return { label: 'Mismatch', tone: 'danger' }
+  }
+
+  if (!cloudSaveVersion) {
+    return { label: 'No cloud save', tone: 'neutral' }
+  }
+
+  if (!localSaveVersion || cloudSaveVersion > localSaveVersion) {
+    return {
+      label: SERVER_SYNC_VIEW_BY_STATUS[ServerSyncStatus.UpdateAvailable].label,
+      tone: 'warning'
+    }
+  }
+
+  if (localSaveVersion > cloudSaveVersion) {
+    return {
+      label: SERVER_SYNC_VIEW_BY_STATUS[ServerSyncStatus.LocalNewer].label,
+      tone: 'warning'
+    }
+  }
+
+  return { label: SERVER_SYNC_VIEW_BY_STATUS[ServerSyncStatus.Ready].label, tone: 'success' }
 }
 
 export function formatLatestSaveLabel(latestSave: LatestSave): string {

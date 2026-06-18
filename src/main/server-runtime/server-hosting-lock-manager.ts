@@ -67,6 +67,23 @@ export async function markHostingLockStopping(sessionId: string): Promise<void> 
   ])
 }
 
+export async function updateHostingLockSaveVersion(
+  sessionId: string,
+  saveVersion: number
+): Promise<void> {
+  const serverLock = await readServerLock()
+
+  if (serverLock.status !== ServerLockStatus.Locked || serverLock.sessionId !== sessionId) {
+    throw new ServerRuntimeError('Cannot update hosting save version because the lock changed.')
+  }
+
+  await writeServerLock({
+    ...serverLock,
+    saveVersion,
+    lastHeartbeat: new Date().toISOString()
+  })
+}
+
 async function updateHostingLockStatus(
   sessionId: string,
   hostingStatus: ServerHostingStatus,

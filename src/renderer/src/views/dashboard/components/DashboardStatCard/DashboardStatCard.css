@@ -43,6 +43,21 @@
   padding: 3px 7px;
 }
 
+.dashboard-stat-card-badge-success {
+  border-color: var(--color-border-accent-muted);
+  color: var(--color-accent);
+}
+
+.dashboard-stat-card-badge-warning {
+  border-color: rgba(241, 184, 75, 0.46);
+  color: var(--color-warning);
+}
+
+.dashboard-stat-card-badge-danger {
+  border-color: rgba(255, 111, 111, 0.42);
+  color: #ffb4b4;
+}
+
 .dashboard-stat-card strong {
   color: var(--color-text-primary);
   font-size: var(--font-size-action);
