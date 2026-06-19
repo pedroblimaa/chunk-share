@@ -1,4 +1,4 @@
-import type { LocalState, ServerConfig, ServerSetupState } from '../../shared/domain'
+import type { LocalState, Player, ServerConfig, ServerSetupState } from '../../shared/domain'
 import { readJsonFile, writeJsonFile } from './json-file-store'
 import {
   DEFAULT_LOCAL_STATE,
@@ -12,7 +12,7 @@ import { isLocalState, isServerConfig } from './storage-validation'
 type LocalStateChanges = Partial<
   Pick<
     LocalState,
-    'activeSessionId' | 'dirty' | 'localSaveVersion' | 'serverConfig' | 'serverSetup'
+    'activeSessionId' | 'dirty' | 'localSaveVersion' | 'player' | 'serverConfig' | 'serverSetup'
   >
 >
 
@@ -69,6 +69,14 @@ export function saveLocalSaveVersion(localSaveVersion: number | null): Promise<L
 
 export function saveActiveSessionId(activeSessionId: string | null): Promise<LocalState> {
   return saveLocalStateChanges({ activeSessionId })
+}
+
+export function savePlayer(player: Player): Promise<LocalState> {
+  return saveLocalStateChanges({ player })
+}
+
+export function clearPlayer(): Promise<LocalState> {
+  return saveLocalStateChanges({ player: null })
 }
 
 export function resetConfiguredServer(): Promise<LocalState> {
