@@ -1,0 +1,135 @@
+import { CodeChallengeMethod, OAuth2Client, type Credentials } from 'google-auth-library'
+import {
+  GOOGLE_AUTH_PROMPT,
+  GOOGLE_OAUTH_CLIENT_ID,
+  GOOGLE_OAUTH_SCOPES,
+  GOOGLE_USER_INFO_ENDPOINT
+} from './auth-constants'
+import { AuthError } from './auth-error'
+import type {
+  ExchangeAuthorizationCodeInput,
+  GoogleAuthTokens,
+  GoogleUserInfoResponse,
+  GoogleUserProfile
+} from './auth-model'
+
+export function createGoogleOAuthClient(redirectUri?: string): OAuth2Client {
+  return new OAuth2Client({
+    clientId: getGoogleOAuthClientId(),
+    redirectUri
+  })
+}
+
+export async function createGoogleAuthorizationUrl(input: {
+  redirectUri: string
+  state: string
+}): Promise<{ authorizationUrl: string; codeVerifier: string }> {
+  const oauthClient = createGoogleOAuthClient(input.redirectUri)
+  const { codeChallenge, codeVerifier } = await oauthClient.generateCodeVerifierAsync()
+  const authorizationUrl = oauthClient.generateAuthUrl({
+    access_type: 'offline',
+    code_challenge: codeChallenge,
+    code_challenge_method: CodeChallengeMethod.S256,
+    prompt: GOOGLE_AUTH_PROMPT,
+    scope: GOOGLE_OAUTH_SCOPES,
+    state: input.state
+  })
+
+  return {
+    authorizationUrl,
+    codeVerifier
+  }
+}
+
+export async function exchangeAuthorizationCode({
+  code,
+  codeVerifier,
+  redirectUri
+}: ExchangeAuthorizationCodeInput): Promise<GoogleAuthTokens> {
+  const oauthClient = createGoogleOAuthClient(redirectUri)
+  const { tokens } = await oauthClient.getToken({
+    code,
+    codeVerifier
+  })
+
+  if (!tokens.refresh_token) {
+    throw new AuthError('Google did not return a refresh token. Try signing in again.')
+  }
+
+  return createGoogleAuthTokens(tokens, tokens.refresh_token)
+}
+
+export async function refreshGoogleAuthTokens(tokens: GoogleAuthTokens): Promise<GoogleAuthTokens> {
+  if (!tokens.refreshToken) {
+    throw new AuthError('Google session cannot be refreshed. Sign in again.')
+  }
+
+  const oauthClient = createGoogleOAuthClient()
+  oauthClient.setCredentials(toGoogleCredentials(tokens))
+  const { credentials } = await oauthClient.refreshAccessToken()
+
+  return createGoogleAuthTokens(credentials, tokens.refreshToken)
+}
+
+export async function fetchGoogleUserProfile(tokens: GoogleAuthTokens): Promise<GoogleUserProfile> {
+  const oauthClient = createGoogleOAuthClient()
+  oauthClient.setCredentials(toGoogleCredentials(tokens))
+  const response = await oauthClient.fetch<GoogleUserInfoResponse>(GOOGLE_USER_INFO_ENDPOINT)
+
+  if (response.status < 200 || response.status >= 300) {
+    throw new AuthError('Unable to read Google profile. Sign in again.')
+  }
+
+  const userInfo = response.data
+
+  if (!userInfo.sub || !userInfo.email) {
+    throw new AuthError('Google profile is missing required account details.')
+  }
+
+  const displayName = userInfo.name ?? userInfo.email
+
+  return {
+    id: userInfo.sub,
+    displayName,
+    email: userInfo.email,
+    avatarUrl: userInfo.picture ?? null,
+    avatarInitials: getAvatarInitials(displayName)
+  }
+}
+
+function createGoogleAuthTokens(credentials: Credentials, refreshToken: string): GoogleAuthTokens {
+  if (!credentials.access_token || !credentials.expiry_date) {
+    throw new AuthError('Google did not return usable auth tokens.')
+  }
+
+  return {
+    accessToken: credentials.access_token,
+    refreshToken,
+    expiresAt: new Date(credentials.expiry_date).toISOString(),
+    idToken: credentials.id_token ?? null,
+    scope: credentials.scope ?? GOOGLE_OAUTH_SCOPES.join(' ')
+  }
+}
+
+function toGoogleCredentials(tokens: GoogleAuthTokens): Credentials {
+  return {
+    access_token: tokens.accessToken,
+    expiry_date: Date.parse(tokens.expiresAt),
+    id_token: tokens.idToken,
+    refresh_token: tokens.refreshToken,
+    scope: tokens.scope
+  }
+}
+
+function getAvatarInitials(displayName: string): string {
+  return displayName
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join('')
+}
+
+function getGoogleOAuthClientId(): string {
+  return GOOGLE_OAUTH_CLIENT_ID
+}

@@ -1,14 +1,9 @@
 import { app, safeStorage } from 'electron'
 import { mkdir, readFile, unlink, writeFile } from 'fs/promises'
 import { dirname, join } from 'path'
+import { GOOGLE_AUTH_TOKENS_FILE_NAME } from './auth-constants'
 import { AuthError } from './auth-error'
-import type { GoogleAuthTokens } from './auth-types'
-
-interface StoredGoogleAuthTokens {
-  encryptedTokens: string
-}
-
-const GOOGLE_AUTH_TOKENS_FILE_NAME = 'google-auth-tokens.json'
+import type { GoogleAuthTokens, StoredGoogleAuthTokens } from './auth-model'
 
 export async function readStoredGoogleAuthTokens(): Promise<GoogleAuthTokens | null> {
   const tokenFilePath = getGoogleAuthTokensFilePath()
