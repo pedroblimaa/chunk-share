@@ -3,7 +3,7 @@ import { mkdir, readFile, unlink, writeFile } from 'fs/promises'
 import { dirname, join } from 'path'
 import { GOOGLE_AUTH_TOKENS_FILE_NAME } from './auth-constants'
 import { AuthError } from './auth-error'
-import type { GoogleAuthTokens, StoredGoogleAuthTokens } from './auth-model'
+import { AuthErrorCode, type GoogleAuthTokens, type StoredGoogleAuthTokens } from './auth-model'
 
 export async function readStoredGoogleAuthTokens(): Promise<GoogleAuthTokens | null> {
   const tokenFilePath = getGoogleAuthTokensFilePath()
@@ -19,10 +19,17 @@ export async function readStoredGoogleAuthTokens(): Promise<GoogleAuthTokens | n
     return null
   }
 
-  const storedTokens = JSON.parse(fileContents) as StoredGoogleAuthTokens
-  const encryptedTokens = Buffer.from(storedTokens.encryptedTokens, 'base64')
+  try {
+    const storedTokens = JSON.parse(fileContents) as StoredGoogleAuthTokens
+    const encryptedTokens = Buffer.from(storedTokens.encryptedTokens, 'base64')
 
-  return JSON.parse(safeStorage.decryptString(encryptedTokens)) as GoogleAuthTokens
+    return JSON.parse(safeStorage.decryptString(encryptedTokens)) as GoogleAuthTokens
+  } catch {
+    throw new AuthError(
+      'Saved Google session could not be read. Sign in again.',
+      AuthErrorCode.InvalidStoredSession
+    )
+  }
 }
 
 export async function writeStoredGoogleAuthTokens(tokens: GoogleAuthTokens): Promise<void> {
@@ -52,7 +59,10 @@ function getGoogleAuthTokensFilePath(): string {
 
 function assertSafeStorageAvailable(): void {
   if (!safeStorage.isEncryptionAvailable()) {
-    throw new AuthError('Secure local token storage is not available on this device.')
+    throw new AuthError(
+      'Secure local token storage is not available on this device.',
+      AuthErrorCode.SecureStorageUnavailable
+    )
   }
 }
 

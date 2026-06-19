@@ -6,11 +6,12 @@ import {
   GOOGLE_USER_INFO_ENDPOINT
 } from './auth-constants'
 import { AuthError } from './auth-error'
-import type {
-  ExchangeAuthorizationCodeInput,
-  GoogleAuthTokens,
-  GoogleUserInfoResponse,
-  GoogleUserProfile
+import {
+  AuthErrorCode,
+  type ExchangeAuthorizationCodeInput,
+  type GoogleAuthTokens,
+  type GoogleUserInfoResponse,
+  type GoogleUserProfile
 } from './auth-model'
 
 export function createGoogleOAuthClient(redirectUri?: string): OAuth2Client {
@@ -24,20 +25,24 @@ export async function createGoogleAuthorizationUrl(input: {
   redirectUri: string
   state: string
 }): Promise<{ authorizationUrl: string; codeVerifier: string }> {
-  const oauthClient = createGoogleOAuthClient(input.redirectUri)
-  const { codeChallenge, codeVerifier } = await oauthClient.generateCodeVerifierAsync()
-  const authorizationUrl = oauthClient.generateAuthUrl({
-    access_type: 'offline',
-    code_challenge: codeChallenge,
-    code_challenge_method: CodeChallengeMethod.S256,
-    prompt: GOOGLE_AUTH_PROMPT,
-    scope: GOOGLE_OAUTH_SCOPES,
-    state: input.state
-  })
+  try {
+    const oauthClient = createGoogleOAuthClient(input.redirectUri)
+    const { codeChallenge, codeVerifier } = await oauthClient.generateCodeVerifierAsync()
+    const authorizationUrl = oauthClient.generateAuthUrl({
+      access_type: 'offline',
+      code_challenge: codeChallenge,
+      code_challenge_method: CodeChallengeMethod.S256,
+      prompt: GOOGLE_AUTH_PROMPT,
+      scope: GOOGLE_OAUTH_SCOPES,
+      state: input.state
+    })
 
-  return {
-    authorizationUrl,
-    codeVerifier
+    return {
+      authorizationUrl,
+      codeVerifier
+    }
+  } catch (error) {
+    throw createGoogleRequestError(error, 'Unable to prepare Google sign-in. Try again.')
   }
 }
 
@@ -47,13 +52,20 @@ export async function exchangeAuthorizationCode({
   redirectUri
 }: ExchangeAuthorizationCodeInput): Promise<GoogleAuthTokens> {
   const oauthClient = createGoogleOAuthClient(redirectUri)
-  const { tokens } = await oauthClient.getToken({
-    code,
-    codeVerifier
-  })
+  const { tokens } = await runGoogleRequest(
+    () =>
+      oauthClient.getToken({
+        code,
+        codeVerifier
+      }),
+    'Unable to finish Google sign-in. Try again.'
+  )
 
   if (!tokens.refresh_token) {
-    throw new AuthError('Google did not return a refresh token. Try signing in again.')
+    throw new AuthError(
+      'Google did not return a refresh token. Try signing in again.',
+      AuthErrorCode.MissingRefreshToken
+    )
   }
 
   return createGoogleAuthTokens(tokens, tokens.refresh_token)
@@ -61,12 +73,19 @@ export async function exchangeAuthorizationCode({
 
 export async function refreshGoogleAuthTokens(tokens: GoogleAuthTokens): Promise<GoogleAuthTokens> {
   if (!tokens.refreshToken) {
-    throw new AuthError('Google session cannot be refreshed. Sign in again.')
+    throw new AuthError(
+      'Google session cannot be refreshed. Sign in again.',
+      AuthErrorCode.MissingRefreshToken
+    )
   }
 
   const oauthClient = createGoogleOAuthClient()
   oauthClient.setCredentials(toGoogleCredentials(tokens))
-  const { credentials } = await oauthClient.refreshAccessToken()
+  const { credentials } = await runGoogleRequest(
+    () => oauthClient.refreshAccessToken(),
+    'Your Google session expired. Sign in again.',
+    AuthErrorCode.ExpiredSession
+  )
 
   return createGoogleAuthTokens(credentials, tokens.refreshToken)
 }
@@ -74,16 +93,25 @@ export async function refreshGoogleAuthTokens(tokens: GoogleAuthTokens): Promise
 export async function fetchGoogleUserProfile(tokens: GoogleAuthTokens): Promise<GoogleUserProfile> {
   const oauthClient = createGoogleOAuthClient()
   oauthClient.setCredentials(toGoogleCredentials(tokens))
-  const response = await oauthClient.fetch<GoogleUserInfoResponse>(GOOGLE_USER_INFO_ENDPOINT)
+  const response = await runGoogleRequest(
+    () => oauthClient.fetch<GoogleUserInfoResponse>(GOOGLE_USER_INFO_ENDPOINT),
+    'Unable to read Google profile. Sign in again.'
+  )
 
   if (response.status < 200 || response.status >= 300) {
-    throw new AuthError('Unable to read Google profile. Sign in again.')
+    throw new AuthError(
+      'Unable to read Google profile. Sign in again.',
+      AuthErrorCode.GoogleRequestFailed
+    )
   }
 
   const userInfo = response.data
 
   if (!userInfo.sub || !userInfo.email) {
-    throw new AuthError('Google profile is missing required account details.')
+    throw new AuthError(
+      'Google profile is missing required account details.',
+      AuthErrorCode.GoogleRequestFailed
+    )
   }
 
   const displayName = userInfo.name ?? userInfo.email
@@ -99,7 +127,10 @@ export async function fetchGoogleUserProfile(tokens: GoogleAuthTokens): Promise<
 
 function createGoogleAuthTokens(credentials: Credentials, refreshToken: string): GoogleAuthTokens {
   if (!credentials.access_token || !credentials.expiry_date) {
-    throw new AuthError('Google did not return usable auth tokens.')
+    throw new AuthError(
+      'Google did not return usable auth tokens.',
+      AuthErrorCode.GoogleRequestFailed
+    )
   }
 
   return {
@@ -132,4 +163,44 @@ function getAvatarInitials(displayName: string): string {
 
 function getGoogleOAuthClientId(): string {
   return GOOGLE_OAUTH_CLIENT_ID
+}
+
+async function runGoogleRequest<T>(
+  request: () => Promise<T>,
+  fallbackMessage: string,
+  errorCode: AuthErrorCode = AuthErrorCode.GoogleRequestFailed
+): Promise<T> {
+  try {
+    return await request()
+  } catch (error) {
+    throw createGoogleRequestError(error, fallbackMessage, errorCode)
+  }
+}
+
+function createGoogleRequestError(
+  error: unknown,
+  fallbackMessage: string,
+  errorCode: AuthErrorCode = AuthErrorCode.GoogleRequestFailed
+): AuthError {
+  if (error instanceof AuthError) {
+    return error
+  }
+
+  return new AuthError(getGoogleErrorMessage(error, fallbackMessage), errorCode)
+}
+
+function getGoogleErrorMessage(error: unknown, fallbackMessage: string): string {
+  if (!(error instanceof Error)) {
+    return fallbackMessage
+  }
+
+  if (/invalid_grant|invalid_token|unauthorized/i.test(error.message)) {
+    return 'Your Google session expired. Sign in again.'
+  }
+
+  if (/network|fetch|ENOTFOUND|ECONNRESET|ETIMEDOUT/i.test(error.message)) {
+    return 'Unable to reach Google. Check your internet connection and try again.'
+  }
+
+  return fallbackMessage
 }

@@ -6,13 +6,14 @@ import {
   GOOGLE_CALLBACK_TIMEOUT_MS
 } from './auth-constants'
 import { AuthError } from './auth-error'
-import type {
-  GoogleAuthorizationCodeResult,
-  GoogleAuthorizationServer,
-  GoogleAuthorizationServerInput,
-  GoogleCallbackFailureReason,
-  GoogleCallbackRequestHandlerInput,
-  GoogleCallbackResult
+import {
+  AuthErrorCode,
+  type GoogleAuthorizationCodeResult,
+  type GoogleAuthorizationServer,
+  type GoogleAuthorizationServerInput,
+  type GoogleCallbackFailureReason,
+  type GoogleCallbackRequestHandlerInput,
+  type GoogleCallbackResult
 } from './auth-model'
 
 export async function createGoogleAuthorizationServer({
@@ -79,7 +80,7 @@ function closeCallbackServer(callbackServer: Server): Promise<void> {
 
 function createCallbackTimeout(reject: (error: Error) => void): NodeJS.Timeout {
   return setTimeout(() => {
-    reject(new AuthError('Google sign-in timed out. Try signing in again.'))
+    reject(new AuthError('Google sign-in timed out. Try signing in again.', AuthErrorCode.TimedOut))
   }, GOOGLE_CALLBACK_TIMEOUT_MS)
 }
 
@@ -87,7 +88,10 @@ function getRedirectUri(callbackServer: Server): string {
   const address = callbackServer.address()
 
   if (!address || typeof address === 'string') {
-    throw new AuthError('Unable to start Google sign-in callback server.')
+    throw new AuthError(
+      'Unable to start Google sign-in callback server.',
+      AuthErrorCode.InvalidCallback
+    )
   }
 
   return `http://127.0.0.1:${address.port}${GOOGLE_CALLBACK_PATH}`
@@ -106,7 +110,7 @@ function handleGoogleCallbackRequest(input: GoogleCallbackRequestHandlerInput): 
 
   if (callbackResult.type === 'failure') {
     respondWithCallbackPage(input.response, callbackResult.pageTitle, callbackResult.pageMessage)
-    input.reject(new AuthError(callbackResult.errorMessage))
+    input.reject(new AuthError(callbackResult.errorMessage, callbackResult.errorCode))
     return
   }
 
@@ -167,12 +171,18 @@ function createFailureCallbackResult(
   googleError?: string
 ): GoogleCallbackResult {
   const failure = GOOGLE_CALLBACK_FAILURES[reason]
+  const errorCodeByReason: Record<GoogleCallbackFailureReason, AuthErrorCode> = {
+    cancelled: AuthErrorCode.Cancelled,
+    'invalid-state': AuthErrorCode.InvalidCallback,
+    'missing-code': AuthErrorCode.InvalidCallback
+  }
 
   return {
     type: 'failure',
     pageTitle: failure.pageTitle,
     pageMessage: failure.pageMessage,
-    errorMessage: googleError ? `${failure.errorMessage}: ${googleError}.` : failure.errorMessage
+    errorCode: errorCodeByReason[reason],
+    errorMessage: googleError ? `${failure.errorMessage} (${googleError})` : failure.errorMessage
   }
 }
 

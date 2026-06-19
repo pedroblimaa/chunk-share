@@ -1,6 +1,17 @@
 import type { IncomingMessage, Server, ServerResponse } from 'http'
 import type { Player } from '../../shared/domain'
 
+export enum AuthErrorCode {
+  Cancelled = 'cancelled',
+  ExpiredSession = 'expired-session',
+  GoogleRequestFailed = 'google-request-failed',
+  InvalidCallback = 'invalid-callback',
+  InvalidStoredSession = 'invalid-stored-session',
+  MissingRefreshToken = 'missing-refresh-token',
+  SecureStorageUnavailable = 'secure-storage-unavailable',
+  TimedOut = 'timed-out'
+}
+
 export interface GoogleAuthTokens {
   accessToken: string
   refreshToken: string | null
@@ -62,6 +73,7 @@ export type GoogleCallbackResult =
       type: 'failure'
       pageTitle: string
       pageMessage: string
+      errorCode: AuthErrorCode
       errorMessage: string
     }
   | {

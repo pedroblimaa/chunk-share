@@ -7,7 +7,12 @@ import {
   readStoredGoogleAuthTokens,
   writeStoredGoogleAuthTokens
 } from './auth-token-store'
-import type { AuthSession, GoogleAuthTokens, GoogleUserProfile } from './auth-model'
+import {
+  AuthErrorCode,
+  type AuthSession,
+  type GoogleAuthTokens,
+  type GoogleUserProfile
+} from './auth-model'
 import {
   createGoogleAuthorizationUrl,
   exchangeAuthorizationCode,
@@ -44,30 +49,39 @@ export async function signInWithGoogle(): Promise<AuthSession> {
 }
 
 export async function getCurrentAuthSession(): Promise<AuthSession | null> {
-  let tokens = await readStoredGoogleAuthTokens()
+  try {
+    let tokens = await readStoredGoogleAuthTokens()
 
-  if (!tokens) {
-    return null
-  }
-
-  if (shouldRefreshTokens(tokens)) {
-    tokens = await refreshGoogleAuthTokens(tokens)
-    await writeStoredGoogleAuthTokens(tokens)
-  }
-
-  const localState = await readLocalState()
-  if (localState.player) {
-    return {
-      player: localState.player,
-      tokens
+    if (!tokens) {
+      return null
     }
-  }
 
-  const profile = await fetchGoogleUserProfile(tokens)
-  return saveAuthSession(tokens, profile)
+    if (shouldRefreshTokens(tokens)) {
+      tokens = await refreshGoogleAuthTokens(tokens)
+      await writeStoredGoogleAuthTokens(tokens)
+    }
+
+    const localState = await readLocalState()
+    if (localState.player) {
+      return {
+        player: localState.player,
+        tokens
+      }
+    }
+
+    const profile = await fetchGoogleUserProfile(tokens)
+    return saveAuthSession(tokens, profile)
+  } catch (error) {
+    await clearAuthSession()
+    throw getSessionRestoreError(error)
+  }
 }
 
 export async function signOutFromGoogle(): Promise<void> {
+  await clearAuthSession()
+}
+
+async function clearAuthSession(): Promise<void> {
   await clearStoredGoogleAuthTokens()
   await clearPlayer()
 }
@@ -110,4 +124,26 @@ export function getAuthErrorMessage(error: unknown): string {
   }
 
   return 'Google sign-in failed.'
+}
+
+function getSessionRestoreError(error: unknown): AuthError {
+  if (!(error instanceof AuthError)) {
+    return new AuthError(
+      'Unable to restore Google session. Sign in again.',
+      AuthErrorCode.ExpiredSession
+    )
+  }
+
+  if (
+    error.code === AuthErrorCode.InvalidStoredSession ||
+    error.code === AuthErrorCode.ExpiredSession ||
+    error.code === AuthErrorCode.MissingRefreshToken
+  ) {
+    return new AuthError(
+      'Your Google session expired. Sign in again.',
+      AuthErrorCode.ExpiredSession
+    )
+  }
+
+  return error
 }

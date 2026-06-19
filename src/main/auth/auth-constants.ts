@@ -25,7 +25,7 @@ export const GOOGLE_CALLBACK_FAILURES: Record<
   cancelled: {
     pageTitle: 'Sign-in cancelled',
     pageMessage: 'You can close this window.',
-    errorMessage: 'Google sign-in failed.'
+    errorMessage: 'Google sign-in was cancelled. Try again when you are ready.'
   },
   'invalid-state': {
     pageTitle: 'Sign-in blocked',
