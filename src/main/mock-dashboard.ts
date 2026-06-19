@@ -1,19 +1,19 @@
-import type { MockUser } from '../shared/dashboard'
+import type { SignedInUser } from '../shared/dashboard'
 
-const mockGoogleUser: MockUser = {
+const mockGoogleUser: SignedInUser = {
   id: 'user-pedro',
   name: 'Pedro Lima',
   email: 'pedro@example.com',
   avatarInitials: 'PL'
 }
 
-let signedInUser: MockUser | null = null
+let signedInUser: SignedInUser | null = null
 
-export function getSignedInMockUser(): MockUser | null {
+export function getSignedInMockUser(): SignedInUser | null {
   return signedInUser
 }
 
-export function signInWithMockGoogleUser(): MockUser {
+export function signInWithMockGoogleUser(): SignedInUser {
   signedInUser = mockGoogleUser
 
   return signedInUser

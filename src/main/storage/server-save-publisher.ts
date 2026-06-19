@@ -2,8 +2,7 @@ import { createWriteStream } from 'fs'
 import { mkdir, readdir, rm, stat } from 'fs/promises'
 import { join } from 'path'
 import { ZipArchive } from 'archiver'
-import type { LatestSave, Player } from '../../shared/domain'
-import { getSignedInMockUser } from '../mock-dashboard'
+import type { LatestSave, LocalState, Player } from '../../shared/domain'
 import { renameWithRetry } from './file-system-utils'
 import { readLatestSave, writeLatestSave } from './local-mock-cloud-storage'
 import { readLocalState, saveLocalSaveVersion } from './local-state-store'
@@ -39,7 +38,7 @@ export async function publishServerSave(): Promise<PublishServerSaveResult> {
     saveVersion: nextSaveVersion,
     fileName,
     uploadedAt: new Date().toISOString(),
-    uploadedBy: getUploadedBy(),
+    uploadedBy: getUploadedBy(localState),
     minecraftVersion: localState.serverConfig.minecraftVersion,
     serverType: localState.serverConfig.serverType
   }
@@ -159,15 +158,12 @@ async function zipFolder(sourceFolderPath: string, destinationFilePath: string):
   }
 }
 
-function getUploadedBy(): Player {
-  const signedInUser = getSignedInMockUser()
-
-  return {
-    id: signedInUser?.id ?? 'local-user',
-    displayName: signedInUser?.name ?? 'Local host',
-    email: signedInUser?.email ?? 'local@example.com',
-    avatarInitials: signedInUser?.avatarInitials ?? 'LH'
+function getUploadedBy(localState: LocalState): Player {
+  if (!localState.player) {
+    throw new StorageError('Cannot publish save because no Google user is signed in.')
   }
+
+  return localState.player
 }
 
 function isMissingFileError(error: unknown): boolean {

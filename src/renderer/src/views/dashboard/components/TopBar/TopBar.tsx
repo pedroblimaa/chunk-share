@@ -1,6 +1,6 @@
 import './TopBar.css'
 
-import type { MockUser } from '../../../../../../shared/dashboard'
+import type { SignedInUser } from '../../../../../../shared/dashboard'
 import Button from '../../../../components/shared/Button/Button'
 import MaterialIcon from '../../../../components/shared/MaterialIcon/MaterialIcon'
 import Tooltip from '../../../../components/shared/Tooltip/Tooltip'
@@ -11,7 +11,7 @@ interface BreadcrumbItem {
 }
 
 interface TopBarProps {
-  user: MockUser | null
+  user: SignedInUser | null
   breadcrumbs: BreadcrumbItem[]
   createInstanceDisabled?: boolean
   createInstanceTitle?: string
