@@ -134,6 +134,7 @@ function getSignedInUserFromPlayer(player: Player | null): SignedInUser | null {
     id: player.id,
     name: player.displayName,
     email: player.email,
+    avatarUrl: player.avatarUrl ?? null,
     avatarInitials: player.avatarInitials
   }
 }

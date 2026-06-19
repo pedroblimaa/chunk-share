@@ -1,7 +1,7 @@
 import { AuthErrorCode, type GoogleCallbackFailureReason } from './auth-model'
 
-export const GOOGLE_OAUTH_CLIENT_ID =
-  '1080661261471-bccjets1uj3q7ldpiq7t1182rbl0j3kb.apps.googleusercontent.com'
+export const GOOGLE_OAUTH_CLIENT_ID_ENV_KEY = 'CHUNKSHARE_GOOGLE_CLIENT_ID'
+export const GOOGLE_OAUTH_CLIENT_SECRET_ENV_KEY = 'CHUNKSHARE_GOOGLE_CLIENT_SECRET'
 export const GOOGLE_OAUTH_SCOPES = ['openid', 'email', 'profile']
 export const GOOGLE_AUTH_PROMPT = 'consent'
 export const GOOGLE_USER_INFO_ENDPOINT = 'https://openidconnect.googleapis.com/v1/userinfo'

@@ -32,6 +32,11 @@ export interface AuthSession {
   tokens: GoogleAuthTokens
 }
 
+export interface GoogleOAuthConfig {
+  clientId: string
+  clientSecret: string
+}
+
 export interface ExchangeAuthorizationCodeInput {
   code: string
   codeVerifier: string
@@ -43,6 +48,18 @@ export interface GoogleUserInfoResponse {
   name?: string
   email?: string
   picture?: string
+}
+
+export interface GoogleRequestErrorBody {
+  error?: string
+  error_description?: string
+  error_uri?: string
+}
+
+export interface GoogleRequestError {
+  response: {
+    data?: GoogleRequestErrorBody | string
+  }
 }
 
 export interface StoredGoogleAuthTokens {

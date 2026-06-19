@@ -1,0 +1,30 @@
+.chunk-popover {
+  position: relative;
+}
+
+.chunk-popover-panel {
+  animation: chunk-popover-enter 140ms ease-out both;
+  position: absolute;
+  top: calc(100% + 8px);
+  z-index: 20;
+}
+
+.chunk-popover-panel.is-left {
+  left: 0;
+}
+
+.chunk-popover-panel.is-right {
+  right: 0;
+}
+
+@keyframes chunk-popover-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}

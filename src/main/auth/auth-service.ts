@@ -144,6 +144,7 @@ function toPlayer(profile: GoogleUserProfile): Player {
     id: profile.id,
     displayName: profile.displayName,
     email: profile.email,
+    avatarUrl: profile.avatarUrl,
     avatarInitials: profile.avatarInitials
   }
 }

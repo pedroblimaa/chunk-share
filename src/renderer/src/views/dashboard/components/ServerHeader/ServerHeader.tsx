@@ -1,8 +1,8 @@
 import './ServerHeader.css'
 
-import { useEffect, useRef } from 'react'
 import type { ServerStatus } from '../../../../../../shared/dashboard'
 import MaterialIcon from '../../../../components/shared/MaterialIcon/MaterialIcon'
+import Popover from '../../../../components/shared/Popover/Popover'
 
 interface ServerHeaderProps {
   name: string
@@ -73,29 +73,10 @@ function ServerHeader({
   onToggleConnectionDetails,
   onToggleServer
 }: ServerHeaderProps): React.JSX.Element {
-  const connectionMenuRef = useRef<HTMLDivElement | null>(null)
   const serverIsRunning = isServerRunning(status)
   const serverIsBusy = status === 'starting' || status === 'stopping'
   const toggleButtonLabel = toggleButtonLabelOverride ?? getToggleButtonLabel(status)
   const toggleButtonIcon = toggleButtonIconOverride ?? getToggleButtonIcon(status)
-
-  useEffect(() => {
-    if (!connectionDetailsOpen) {
-      return undefined
-    }
-
-    function closeConnectionDetailsOnOutsideClick(event: PointerEvent): void {
-      const target = event.target
-
-      if (target instanceof Node && !connectionMenuRef.current?.contains(target)) {
-        onCloseConnectionDetails?.()
-      }
-    }
-
-    document.addEventListener('pointerdown', closeConnectionDetailsOnOutsideClick)
-
-    return () => document.removeEventListener('pointerdown', closeConnectionDetailsOnOutsideClick)
-  }, [connectionDetailsOpen, onCloseConnectionDetails])
 
   return (
     <section className="server-header">
@@ -107,7 +88,27 @@ function ServerHeader({
             {formatStatus(status)}
           </span>
 
-          <div className="connection-menu" ref={connectionMenuRef}>
+          <Popover
+            ariaLabel="Connection addresses"
+            className="connection-menu"
+            contentClassName="connection-popover is-left"
+            isOpen={connectionDetailsOpen && Boolean(connectionAddressDetails)}
+            onClose={() => onCloseConnectionDetails?.()}
+            content={
+              <>
+                <p>{connectionAddressDetails}</p>
+                <button
+                  aria-label={copyConnectionDetailsLabel}
+                  className={`connection-popover-copy${copyConnectionDetailsStateClass}`}
+                  title={copyConnectionDetailsLabel}
+                  type="button"
+                  onClick={onCopyConnectionAddressDetails ?? onCopyConnectionAddress}
+                >
+                  <MaterialIcon name="content_copy" />
+                </button>
+              </>
+            }
+          >
             <button
               className="connection-menu-button"
               type="button"
@@ -120,21 +121,7 @@ function ServerHeader({
               <MaterialIcon name="lan" />
               <span>Connection</span>
             </button>
-            {connectionDetailsOpen && connectionAddressDetails && (
-              <div className="connection-popover" role="dialog" aria-label="Connection addresses">
-                <p>{connectionAddressDetails}</p>
-                <button
-                  aria-label={copyConnectionDetailsLabel}
-                  className={`connection-popover-copy${copyConnectionDetailsStateClass}`}
-                  title={copyConnectionDetailsLabel}
-                  type="button"
-                  onClick={onCopyConnectionAddressDetails ?? onCopyConnectionAddress}
-                >
-                  <MaterialIcon name="content_copy" />
-                </button>
-              </div>
-            )}
-          </div>
+          </Popover>
         </div>
       </div>
 

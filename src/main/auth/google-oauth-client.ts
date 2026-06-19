@@ -1,22 +1,31 @@
-import { CodeChallengeMethod, OAuth2Client, type Credentials } from 'google-auth-library'
+import {
+  CodeChallengeMethod,
+  OAuth2Client,
+  type Credentials
+} from 'google-auth-library'
 import {
   GOOGLE_AUTH_PROMPT,
-  GOOGLE_OAUTH_CLIENT_ID,
   GOOGLE_OAUTH_SCOPES,
   GOOGLE_USER_INFO_ENDPOINT
 } from './auth-constants'
+import { getGoogleOAuthConfig } from './auth-config'
 import { AuthError } from './auth-error'
 import {
   AuthErrorCode,
   type ExchangeAuthorizationCodeInput,
   type GoogleAuthTokens,
+  type GoogleRequestError,
+  type GoogleRequestErrorBody,
   type GoogleUserInfoResponse,
   type GoogleUserProfile
 } from './auth-model'
 
 export function createGoogleOAuthClient(redirectUri?: string): OAuth2Client {
+  const { clientId, clientSecret } = getGoogleOAuthConfig()
+
   return new OAuth2Client({
-    clientId: GOOGLE_OAUTH_CLIENT_ID,
+    clientId,
+    clientSecret,
     redirectUri
   })
 }
@@ -189,6 +198,11 @@ function createGoogleRequestError(
 }
 
 function getGoogleErrorMessage(error: unknown, fallbackMessage: string): string {
+  const googleErrorMessage = getGoogleResponseErrorMessage(error)
+  if (googleErrorMessage) {
+    return googleErrorMessage
+  }
+
   if (!(error instanceof Error)) {
     return fallbackMessage
   }
@@ -202,4 +216,42 @@ function getGoogleErrorMessage(error: unknown, fallbackMessage: string): string 
   }
 
   return fallbackMessage
+}
+
+function getGoogleResponseErrorMessage(error: unknown): string | null {
+  if (!isGoogleRequestError(error)) {
+    return null
+  }
+
+  const { data } = error.response
+
+  if (typeof data === 'string') {
+    return data
+  }
+
+  return getGoogleErrorBodyMessage(data)
+}
+
+function getGoogleErrorBodyMessage(errorBody: GoogleRequestErrorBody | undefined): string | null {
+  if (!errorBody?.error && !errorBody?.error_description) {
+    return null
+  }
+
+  const errorDetails = [errorBody.error, errorBody.error_description].filter(Boolean).join(': ')
+
+  if (/client_secret is missing/i.test(errorDetails)) {
+    return 'Google sign-in is missing the OAuth client secret. Check the desktop OAuth client configuration.'
+  }
+
+  return `Google sign-in failed: ${errorDetails}`
+}
+
+function isGoogleRequestError(error: unknown): error is GoogleRequestError {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'response' in error &&
+    typeof error.response === 'object' &&
+    error.response !== null
+  )
 }

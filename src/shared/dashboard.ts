@@ -8,6 +8,7 @@ export interface SignedInUser {
   id: string
   name: string
   email: string
+  avatarUrl: string | null
   avatarInitials: string
 }
 
