@@ -16,6 +16,7 @@ interface TopBarProps {
   createInstanceDisabled?: boolean
   createInstanceTitle?: string
   onCreateInstance?: () => void
+  onSignOut?: () => void
 }
 
 function TopBar({
@@ -23,7 +24,8 @@ function TopBar({
   breadcrumbs,
   createInstanceDisabled = false,
   createInstanceTitle,
-  onCreateInstance
+  onCreateInstance,
+  onSignOut
 }: TopBarProps): React.JSX.Element {
   return (
     <header className="dashboard-topbar">
@@ -65,12 +67,15 @@ function TopBar({
             Create Instance
           </Button>
         </Tooltip>
-        <div
+        <button
           className="user-avatar"
+          type="button"
           aria-label={user ? `Signed in as ${user.name}` : 'Signed in user'}
+          title={user ? `Sign out ${user.name}` : 'Sign out'}
+          onClick={onSignOut}
         >
           {user?.avatarInitials ?? 'CS'}
-        </div>
+        </button>
       </div>
     </header>
   )

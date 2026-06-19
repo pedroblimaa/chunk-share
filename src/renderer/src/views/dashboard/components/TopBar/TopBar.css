@@ -77,6 +77,11 @@
   width: 36px;
 }
 
+.user-avatar:hover {
+  background: var(--color-surface-raised);
+  border-color: var(--color-border-emphasis);
+}
+
 @media (max-width: 720px) {
   .dashboard-topbar {
     padding: 0 16px;

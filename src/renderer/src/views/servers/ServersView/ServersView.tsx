@@ -22,6 +22,7 @@ interface ServersViewProps {
   onDeleteServer: () => Promise<void>
   serverDisplayState: ServerDisplayState
   onOpenServer: () => void
+  onSignOut: () => void
   onRefreshServerDisplayState: () => Promise<void>
 }
 
@@ -86,6 +87,7 @@ function ServersView({
   onCreateServer,
   onDeleteServer,
   onOpenServer,
+  onSignOut,
   onRefreshServerDisplayState
 }: ServersViewProps): React.JSX.Element {
   const [runtimeSnapshot, setRuntimeSnapshot] = useState<ServerRuntimeSnapshot | null>(null)
@@ -195,6 +197,7 @@ function ServersView({
           createInstanceDisabled={hasServers}
           createInstanceTitle={hasServers ? SINGLE_SERVER_DISABLED_REASON : undefined}
           onCreateInstance={hasServers ? undefined : onCreateServer}
+          onSignOut={onSignOut}
         />
 
         <main className="dashboard-content servers-content">

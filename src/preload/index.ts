@@ -2,7 +2,9 @@ import { contextBridge, ipcRenderer } from 'electron'
 import type { ServerDisplayState } from '../shared/dashboard'
 import type { ServerConfig, ServerStorageSnapshot } from '../shared/domain'
 import {
+  AUTH_GET_SESSION_CHANNEL,
   AUTH_SIGN_IN_WITH_GOOGLE_CHANNEL,
+  AUTH_SIGN_OUT_CHANNEL,
   DASHBOARD_SNAPSHOT_CHANNEL,
   SERVER_RUNTIME_EVENTS_CHANNEL,
   SERVER_RUNTIME_SNAPSHOT_CHANNEL,
@@ -25,8 +27,10 @@ import type {
 
 const chunkShareApi = {
   auth: {
+    getSession: (): Promise<ServerDisplayState> => ipcRenderer.invoke(AUTH_GET_SESSION_CHANNEL),
     signInWithGoogle: (): Promise<ServerDisplayState> =>
-      ipcRenderer.invoke(AUTH_SIGN_IN_WITH_GOOGLE_CHANNEL)
+      ipcRenderer.invoke(AUTH_SIGN_IN_WITH_GOOGLE_CHANNEL),
+    signOut: (): Promise<ServerDisplayState> => ipcRenderer.invoke(AUTH_SIGN_OUT_CHANNEL)
   },
   dashboard: {
     getSnapshot: (): Promise<ServerDisplayState> => ipcRenderer.invoke(DASHBOARD_SNAPSHOT_CHANNEL)

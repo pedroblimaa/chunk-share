@@ -29,6 +29,8 @@ Keep renderer work UI-only. Filesystem, Java validation, Minecraft server proces
 
 Use TypeScript for application code and React `.tsx` files for renderer components. Follow the existing component pattern: `PascalCase` component folders and files such as `ServerHeader/ServerHeader.tsx`, paired with local `.css` when needed. Use `kebab-case` for non-component utility files, especially IPC and storage modules such as `storage-service.ts`.
 
+Keep interfaces, types, and constants out of implementation files by default. Put them in a nearby `*.model.ts` file, or an existing shared model/constants file when the values are used across modules. Prefer generic domain names for model files, such as `auth.model.ts`, instead of hook- or implementation-specific names such as `useAuthSession.model.ts`.
+
 Formatting is controlled by `.editorconfig` and Prettier: 2-space indentation, LF line endings, single quotes, no semicolons, 100-column print width, and no trailing commas. Run `pnpm lint` and `pnpm format` before handoff.
 
 ## Testing Guidelines
