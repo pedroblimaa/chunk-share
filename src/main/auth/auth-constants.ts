@@ -1,4 +1,4 @@
-import type { GoogleCallbackFailureReason } from './auth-model'
+import { AuthErrorCode, type GoogleCallbackFailureReason } from './auth-model'
 
 export const GOOGLE_OAUTH_CLIENT_ID =
   '1080661261471-bccjets1uj3q7ldpiq7t1182rbl0j3kb.apps.googleusercontent.com'
@@ -37,4 +37,10 @@ export const GOOGLE_CALLBACK_FAILURES: Record<
     pageMessage: 'No authorization code was returned.',
     errorMessage: 'Google did not return an authorization code.'
   }
+}
+
+export const GOOGLE_CALLBACK_ERROR_CODES: Record<GoogleCallbackFailureReason, AuthErrorCode> = {
+  cancelled: AuthErrorCode.Cancelled,
+  'invalid-state': AuthErrorCode.InvalidCallback,
+  'missing-code': AuthErrorCode.InvalidCallback
 }

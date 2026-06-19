@@ -1,5 +1,6 @@
 import { createServer, type Server, type ServerResponse } from 'http'
 import {
+  GOOGLE_CALLBACK_ERROR_CODES,
   GOOGLE_CALLBACK_FAILURES,
   GOOGLE_CALLBACK_PATH,
   GOOGLE_CALLBACK_SUCCESS_PAGE,
@@ -11,7 +12,6 @@ import {
   type GoogleAuthorizationCodeResult,
   type GoogleAuthorizationServer,
   type GoogleAuthorizationServerInput,
-  type GoogleCallbackFailureReason,
   type GoogleCallbackRequestHandlerInput,
   type GoogleCallbackResult
 } from './auth-model'
@@ -136,6 +136,7 @@ function respondWithCallbackPage(
   pageTitle: string,
   pageMessage: string
 ): void {
+  response.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' })
   response.end(createCallbackPage(pageTitle, pageMessage))
 }
 
@@ -167,21 +168,16 @@ function parseGoogleCallback(requestUrl: URL, expectedState: string): GoogleCall
 }
 
 function createFailureCallbackResult(
-  reason: GoogleCallbackFailureReason,
+  reason: keyof typeof GOOGLE_CALLBACK_FAILURES,
   googleError?: string
 ): GoogleCallbackResult {
   const failure = GOOGLE_CALLBACK_FAILURES[reason]
-  const errorCodeByReason: Record<GoogleCallbackFailureReason, AuthErrorCode> = {
-    cancelled: AuthErrorCode.Cancelled,
-    'invalid-state': AuthErrorCode.InvalidCallback,
-    'missing-code': AuthErrorCode.InvalidCallback
-  }
 
   return {
     type: 'failure',
     pageTitle: failure.pageTitle,
     pageMessage: failure.pageMessage,
-    errorCode: errorCodeByReason[reason],
+    errorCode: GOOGLE_CALLBACK_ERROR_CODES[reason],
     errorMessage: googleError ? `${failure.errorMessage} (${googleError})` : failure.errorMessage
   }
 }

@@ -72,7 +72,10 @@ export async function getCurrentAuthSession(): Promise<AuthSession | null> {
     const profile = await fetchGoogleUserProfile(tokens)
     return saveAuthSession(tokens, profile)
   } catch (error) {
-    await clearAuthSession()
+    if (shouldClearSessionAfterRestoreError(error)) {
+      await clearAuthSession()
+    }
+
     throw getSessionRestoreError(error)
   }
 }
@@ -105,27 +108,6 @@ function shouldRefreshTokens(tokens: GoogleAuthTokens): boolean {
   return Date.parse(tokens.expiresAt) - TOKEN_REFRESH_WINDOW_MS <= Date.now()
 }
 
-function toPlayer(profile: GoogleUserProfile): Player {
-  return {
-    id: profile.id,
-    displayName: profile.displayName,
-    email: profile.email,
-    avatarInitials: profile.avatarInitials
-  }
-}
-
-export function getAuthErrorMessage(error: unknown): string {
-  if (error instanceof AuthError) {
-    return error.message
-  }
-
-  if (error instanceof Error) {
-    return `Google sign-in failed: ${error.message}`
-  }
-
-  return 'Google sign-in failed.'
-}
-
 function getSessionRestoreError(error: unknown): AuthError {
   if (!(error instanceof AuthError)) {
     return new AuthError(
@@ -146,4 +128,22 @@ function getSessionRestoreError(error: unknown): AuthError {
   }
 
   return error
+}
+
+function shouldClearSessionAfterRestoreError(error: unknown): boolean {
+  return (
+    error instanceof AuthError &&
+    (error.code === AuthErrorCode.InvalidStoredSession ||
+      error.code === AuthErrorCode.ExpiredSession ||
+      error.code === AuthErrorCode.MissingRefreshToken)
+  )
+}
+
+function toPlayer(profile: GoogleUserProfile): Player {
+  return {
+    id: profile.id,
+    displayName: profile.displayName,
+    email: profile.email,
+    avatarInitials: profile.avatarInitials
+  }
 }

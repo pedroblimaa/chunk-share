@@ -16,7 +16,6 @@ export interface GoogleAuthTokens {
   accessToken: string
   refreshToken: string | null
   expiresAt: string
-  idToken: string | null
   scope: string
 }
 

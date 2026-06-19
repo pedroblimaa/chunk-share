@@ -43,6 +43,39 @@ Recent commits use short imperative subjects, for example `Removed unused assets
 
 Pull requests should include a brief description, the commands run for verification, and screenshots or screen recordings for renderer UI changes. Link related issues when available. Call out changes to IPC channels, preload APIs, or persisted storage shape because those affect multiple layers.
 
+## Code Review Guidelines
+
+When reviewing code changes (such as active branch diffs or Pull Requests), evaluate against these specific checkpoints based on repository rules:
+
+### A. Core Architectural & Code Quality Checkpoints
+
+1. **Process & Interface Boundaries**: Verify that main-process logic (filesystem, networking, security, OAuth) is strictly isolated from the renderer. Check that the preload bridge exposes only minimal, typed methods and does not leak Electron/Node APIs.
+2. **KISS & YAGNI (Keep It Simple & Avoid Over-engineering)**:
+   - Identify overly clever, complex, or hard-to-read code. Ask if it can be simplified.
+   - Watch out for speculative abstraction or placeholder functions added for future features that are not yet needed (YAGNI).
+3. **DRY (Don't Repeat Yourself) & Design Patterns**:
+   - Spot duplicate logical paths (e.g., repeated server state checks, file path resolution) and determine if abstraction is appropriate.
+   - Look for opportunities to apply clear, clean design patterns (such as service separation, domain model isolation, input adapters, or event handlers) to simplify state management.
+4. **Code Smells & Readability**:
+   - Check for large, bloated components, long functions, or files containing multiple mixed concerns.
+   - Look for cryptic variable or function names, deeply nested conditional blocks, or side-effects hidden within getters/helpers.
+5. **Security & Vulnerabilities**:
+   - Ensure local user data or credentials (like tokens) are encrypted using Electron's `safeStorage`.
+   - Check that all inputs at system boundaries (e.g., IPC handles, config file parses, server address formats) are strictly validated.
+   - Identify potential network vulnerabilities, resource/handle leaks (e.g., unclosed callback servers, timers, or stream sockets), or hardcoded credentials.
+
+### B. Structure & Pattern Checklist
+
+1. **Project Layout**: Ensure new files are in correct directories (`src/main` for main-process, `src/main/ipc` for IPC handlers, `src/main/storage` for persistence, `src/preload` for preload, `src/shared` for shared types/constants, and `src/renderer/src` for React views).
+2. **Naming and File Conventions**:
+   - Component directories and files must be `PascalCase` with matching local `.css` styles if needed.
+   - Utility, helper, and service files must be `kebab-case`.
+   - Local models and interfaces must be placed in a nearby `*.model.ts` file using generic domain names (e.g. `auth.model.ts` instead of `useAuthSession.model.ts`).
+3. **Formatting & Static Analysis**:
+   - Ensure files have LF line endings, 2-space indentation, single quotes, no semicolons, 100-character print width, and no trailing commas. Validate this by running Prettier (`pnpm format`).
+   - Run `pnpm typecheck` and `pnpm lint` to verify that the changes build cleanly and remain error/warning-free.
+4. **Reporting Findings**: Present findings clearly, categorized by severity (High, Medium, Low), and provide concrete code recommendations or diffs with links to the target files. Focus strictly on actionable items, issues, potential security bugs, readability flaws, or improvements. Do **not** list checkpoints that passed successfully (e.g., stating "PASS" and explaining why) or explain why code sections are correct when no changes are needed.
+
 ## Security & Configuration Tips
 
 Keep renderer access to main-process features behind typed preload APIs and shared IPC channel constants. Do not expose broad Electron or Node globals to the renderer. Avoid committing generated output from `out`, packaged artifacts, or local storage data.

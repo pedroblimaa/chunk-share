@@ -16,7 +16,7 @@ import {
 
 export function createGoogleOAuthClient(redirectUri?: string): OAuth2Client {
   return new OAuth2Client({
-    clientId: getGoogleOAuthClientId(),
+    clientId: GOOGLE_OAUTH_CLIENT_ID,
     redirectUri
   })
 }
@@ -79,8 +79,7 @@ export async function refreshGoogleAuthTokens(tokens: GoogleAuthTokens): Promise
     )
   }
 
-  const oauthClient = createGoogleOAuthClient()
-  oauthClient.setCredentials(toGoogleCredentials(tokens))
+  const oauthClient = createAuthenticatedOAuthClient(tokens)
   const { credentials } = await runGoogleRequest(
     () => oauthClient.refreshAccessToken(),
     'Your Google session expired. Sign in again.',
@@ -91,8 +90,7 @@ export async function refreshGoogleAuthTokens(tokens: GoogleAuthTokens): Promise
 }
 
 export async function fetchGoogleUserProfile(tokens: GoogleAuthTokens): Promise<GoogleUserProfile> {
-  const oauthClient = createGoogleOAuthClient()
-  oauthClient.setCredentials(toGoogleCredentials(tokens))
+  const oauthClient = createAuthenticatedOAuthClient(tokens)
   const response = await runGoogleRequest(
     () => oauthClient.fetch<GoogleUserInfoResponse>(GOOGLE_USER_INFO_ENDPOINT),
     'Unable to read Google profile. Sign in again.'
@@ -137,16 +135,21 @@ function createGoogleAuthTokens(credentials: Credentials, refreshToken: string):
     accessToken: credentials.access_token,
     refreshToken,
     expiresAt: new Date(credentials.expiry_date).toISOString(),
-    idToken: credentials.id_token ?? null,
     scope: credentials.scope ?? GOOGLE_OAUTH_SCOPES.join(' ')
   }
+}
+
+function createAuthenticatedOAuthClient(tokens: GoogleAuthTokens): OAuth2Client {
+  const oauthClient = createGoogleOAuthClient()
+  oauthClient.setCredentials(toGoogleCredentials(tokens))
+
+  return oauthClient
 }
 
 function toGoogleCredentials(tokens: GoogleAuthTokens): Credentials {
   return {
     access_token: tokens.accessToken,
     expiry_date: Date.parse(tokens.expiresAt),
-    id_token: tokens.idToken,
     refresh_token: tokens.refreshToken,
     scope: tokens.scope
   }
@@ -159,10 +162,6 @@ function getAvatarInitials(displayName: string): string {
     .slice(0, 2)
     .map((part) => part[0]?.toUpperCase())
     .join('')
-}
-
-function getGoogleOAuthClientId(): string {
-  return GOOGLE_OAUTH_CLIENT_ID
 }
 
 async function runGoogleRequest<T>(
