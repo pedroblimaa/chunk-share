@@ -8,6 +8,7 @@ import AuthView from './views/auth/AuthView/AuthView'
 import DashboardView from './views/dashboard/DashboardView/DashboardView'
 import ServerSetupView from './views/server-setup/ServerSetupView/ServerSetupView'
 import ServersView from './views/servers/ServersView/ServersView'
+import SettingsView from './views/settings/SettingsView/SettingsView'
 
 function App(): React.JSX.Element {
   const [serverDisplayState, setServerDisplayState] = useState<ServerDisplayState | null>(null)
@@ -16,6 +17,10 @@ function App(): React.JSX.Element {
 
   const showServersView = useCallback((): void => {
     setAppView('servers')
+  }, [])
+
+  const openSettings = useCallback((): void => {
+    setAppView('settings')
   }, [])
 
   const onRepairComplete = (nextServerDisplayState: ServerDisplayState): void => {
@@ -66,6 +71,7 @@ function App(): React.JSX.Element {
             serverDisplayState={serverDisplayState}
             onServerDisplayStateChange={setServerDisplayState}
             onNavigateToServers={() => setAppView('servers')}
+            onOpenSettings={openSettings}
             onSignOut={signOut}
           />
         )
@@ -76,8 +82,20 @@ function App(): React.JSX.Element {
             snapshot={serverDisplayState}
             onCancel={() => setAppView('servers')}
             onOpenDashboard={openServerDashboard}
+            onOpenSettings={openSettings}
             onSignOut={signOut}
             onSetupComplete={completeServerSetup}
+          />
+        )
+
+      case 'settings':
+        return (
+          <SettingsView
+            serverDisplayState={serverDisplayState}
+            onCreateServer={() => setAppView('server-setup')}
+            onNavigateToServers={() => setAppView('servers')}
+            onOpenSettings={openSettings}
+            onSignOut={signOut}
           />
         )
 
@@ -88,6 +106,7 @@ function App(): React.JSX.Element {
             onCreateServer={() => setAppView('server-setup')}
             onDeleteServer={deleteServer}
             onOpenServer={openServerDashboard}
+            onOpenSettings={openSettings}
             onSignOut={signOut}
             onRefreshServerDisplayState={refreshServerDisplayState}
           />

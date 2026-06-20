@@ -1,6 +1,6 @@
 import type { ServerDisplayState } from '../../../shared/dashboard'
 
-export type AppView = 'servers' | 'server-detail' | 'server-setup'
+export type AppView = 'servers' | 'server-detail' | 'server-setup' | 'settings'
 
 export interface UseServerActionsInput {
   canAutoRefresh: boolean
