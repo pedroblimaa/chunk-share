@@ -1,6 +1,6 @@
 import { shell } from 'electron'
 import type { Player } from '../../shared/domain'
-import { clearPlayer, readLocalState, savePlayer } from '../storage/local-state-store'
+import { clearPlayer, readLocalState, savePlayer } from '../storage/persistence/local-state-store'
 import { AuthError } from './auth-error'
 import {
   clearStoredGoogleAuthTokens,

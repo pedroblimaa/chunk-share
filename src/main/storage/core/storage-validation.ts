@@ -1,4 +1,4 @@
-import { ServerHostingStatus, ServerLockStatus } from '../../shared/domain'
+import { ServerHostingStatus, ServerLockStatus } from '../../../shared/domain'
 import type {
   JavaConfig,
   LatestSave,
@@ -9,7 +9,7 @@ import type {
   ServerLock,
   ServerSetupState,
   ServerType
-} from '../../shared/domain'
+} from '../../../shared/domain'
 
 type StorageRecord = Record<string, unknown>
 

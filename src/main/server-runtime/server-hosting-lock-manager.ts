@@ -7,8 +7,8 @@ import {
   type ServerStorageSnapshot
 } from '../../shared/domain'
 import { STALE_LOCK_THRESHOLD_MS } from '../../shared/server-sync'
-import { readServerLock, writeServerLock } from '../storage/local-mock-cloud-storage'
-import { saveActiveSessionId } from '../storage/local-state-store'
+import { readServerLock, writeServerLock } from '../storage/persistence/local-mock-cloud-storage'
+import { saveActiveSessionId } from '../storage/persistence/local-state-store'
 import { ServerRuntimeError } from './server-runtime-error'
 
 let activeRuntimeSessionId: string | null = null

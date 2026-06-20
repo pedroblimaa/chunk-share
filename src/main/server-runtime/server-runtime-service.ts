@@ -14,9 +14,9 @@ import type {
 } from '../../shared/server-runtime'
 import { getServerSyncSnapshot } from '../server-sync/server-sync-service'
 import { getSyncStartBlockedMessage } from '../server-sync/server-sync-messages'
-import { publishServerSave } from '../storage/server-save-publisher'
-import { restoreLatestServerSave } from '../storage/server-save-restorer'
-import { localServerFolderPath, localServerJarFilePath } from '../storage/storage-paths'
+import { publishServerSave } from '../storage/server-save/server-save-publisher'
+import { restoreLatestServerSave } from '../storage/server-save/server-save-restorer'
+import { localServerFolderPath, localServerJarFilePath } from '../storage/core/storage-paths'
 import { parseMinecraftOutput, type MinecraftOutputEvent } from './minecraft-output-parser'
 import {
   clearHostingLockAfterCleanStop,

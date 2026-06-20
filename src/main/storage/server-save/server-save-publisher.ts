@@ -2,12 +2,12 @@ import { createWriteStream } from 'fs'
 import { mkdir, readdir, rm, stat } from 'fs/promises'
 import { join } from 'path'
 import { ZipArchive } from 'archiver'
-import type { LatestSave, LocalState, Player } from '../../shared/domain'
-import { renameWithRetry } from './file-system-utils'
-import { readLatestSave, writeLatestSave } from './local-mock-cloud-storage'
-import { readLocalState, saveLocalSaveVersion } from './local-state-store'
-import { StorageError } from './storage-error'
-import { localServerFolderPath, mockCloudVersionsFolderPath } from './storage-paths'
+import type { LatestSave, LocalState, Player } from '../../../shared/domain'
+import { renameWithRetry } from '../core/file-system-utils'
+import { readLatestSave, writeLatestSave } from '../persistence/local-mock-cloud-storage'
+import { readLocalState, saveLocalSaveVersion } from '../persistence/local-state-store'
+import { StorageError } from '../core/storage-error'
+import { localServerFolderPath, mockCloudVersionsFolderPath } from '../core/storage-paths'
 
 const MAX_RETAINED_SAVE_VERSIONS = 3
 const SERVER_SAVE_FILE_PATTERN = /^server-v(\d+)\.zip$/

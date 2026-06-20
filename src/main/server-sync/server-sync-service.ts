@@ -12,9 +12,9 @@ import {
   ServerSyncStatus,
   type ServerSyncSnapshot
 } from '../../shared/server-sync'
-import { readLatestSave, readServerLock } from '../storage/local-mock-cloud-storage'
-import { readLocalState } from '../storage/local-state-store'
-import { mockCloudVersionsFolderPath } from '../storage/storage-paths'
+import { readLatestSave, readServerLock } from '../storage/persistence/local-mock-cloud-storage'
+import { readLocalState } from '../storage/persistence/local-state-store'
+import { mockCloudVersionsFolderPath } from '../storage/core/storage-paths'
 import { getActiveRuntimeSessionId } from '../server-runtime/server-hosting-lock-manager'
 
 interface ServerSyncContext {

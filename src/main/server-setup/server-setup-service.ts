@@ -10,13 +10,18 @@ import {
   type ServerSetupProgressEvent,
   type SetupVanillaServerInput
 } from '../../shared/server-setup'
-import { saveServerSetupResult, saveServerSetupState } from '../storage/local-state-store'
+import {
+  saveServerSetupResult,
+  saveServerSetupState
+} from '../storage/persistence/local-state-store'
 import {
   localServerEulaFilePath,
   localServerFolderPath,
   localServerJarFilePath,
   localServerPropertiesFilePath
-} from '../storage/storage-paths'
+} from '../storage/core/storage-paths'
+import { resetServerLock, resetServerSaves } from '../storage/persistence/local-mock-cloud-storage'
+import { backupServerFolder } from '../storage/server-save/server-folder-backup'
 import { ServerSetupError } from './server-setup-error'
 import { resolveVanillaServerDownload } from './vanilla-version-resolver'
 
@@ -52,6 +57,9 @@ async function prepareVanillaServer(
   onProgress?: ServerSetupProgressListener
 ): Promise<ServerConfig> {
   onProgress?.({ step: Step.CreatingFolder })
+  await backupServerFolder(localServerFolderPath, input.name)
+  await resetServerSaves()
+  await resetServerLock()
   await mkdir(localServerFolderPath, { recursive: true })
 
   onProgress?.({ step: Step.ResolvingVersion })

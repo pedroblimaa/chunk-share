@@ -10,9 +10,9 @@ import {
   getStorageSnapshot,
   resetServerLock,
   updateServerConfig
-} from '../storage/storage-service'
-import { StorageError } from '../storage/storage-error'
-import { isServerConfig } from '../storage/storage-validation'
+} from '../storage/core/storage-service'
+import { StorageError } from '../storage/core/storage-error'
+import { isServerConfig } from '../storage/core/storage-validation'
 
 export function registerStorageIpcHandlers(): void {
   ipcMain.handle(STORAGE_SNAPSHOT_CHANNEL, () => getStorageSnapshot())

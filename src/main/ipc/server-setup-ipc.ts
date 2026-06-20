@@ -7,8 +7,8 @@ import {
 } from '../../shared/ipc-channels'
 import { setupVanillaServer } from '../server-setup/server-setup-service'
 import { listVanillaReleaseVersions } from '../server-setup/vanilla-version-resolver'
-import { StorageError } from '../storage/storage-error'
-import { getStorageSnapshot } from '../storage/storage-service'
+import { StorageError } from '../storage/core/storage-error'
+import { getStorageSnapshot } from '../storage/core/storage-service'
 
 export function registerServerSetupIpcHandlers(): void {
   ipcMain.handle(SERVER_SETUP_LIST_VANILLA_VERSIONS_CHANNEL, () => listVanillaReleaseVersions())

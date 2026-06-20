@@ -1,13 +1,13 @@
-import type { LocalState, Player, ServerConfig, ServerSetupState } from '../../shared/domain'
+import type { LocalState, Player, ServerConfig, ServerSetupState } from '../../../shared/domain'
 import { readJsonFile, writeJsonFile } from './json-file-store'
 import {
   DEFAULT_LOCAL_STATE,
   DEFAULT_SERVER_CONFIG,
   DEFAULT_SERVER_SETUP_STATE
-} from './storage-defaults'
-import { StorageError } from './storage-error'
-import { localStateFilePath } from './storage-paths'
-import { isLocalState, isServerConfig } from './storage-validation'
+} from '../core/storage-defaults'
+import { StorageError } from '../core/storage-error'
+import { localStateFilePath } from '../core/storage-paths'
+import { isLocalState, isServerConfig } from '../core/storage-validation'
 
 type LocalStateChanges = Partial<
   Pick<
@@ -60,7 +60,13 @@ export async function saveServerSetupResult(
     throw new StorageError('Invalid server config payload.')
   }
 
-  return saveLocalStateChanges({ serverConfig, serverSetup })
+  return saveLocalStateChanges({
+    activeSessionId: null,
+    dirty: false,
+    localSaveVersion: null,
+    serverConfig,
+    serverSetup
+  })
 }
 
 export function saveLocalSaveVersion(localSaveVersion: number | null): Promise<LocalState> {

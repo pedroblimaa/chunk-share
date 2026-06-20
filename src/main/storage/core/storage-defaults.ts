@@ -1,4 +1,4 @@
-import { ServerLockStatus } from '../../shared/domain'
+import { ServerLockStatus } from '../../../shared/domain'
 import type {
   JavaConfig,
   LatestSave,
@@ -6,7 +6,7 @@ import type {
   ServerConfig,
   ServerLock,
   ServerSetupState
-} from '../../shared/domain'
+} from '../../../shared/domain'
 
 export const DEFAULT_SERVER_CONFIG: ServerConfig = {
   name: 'Vanilla Survival',

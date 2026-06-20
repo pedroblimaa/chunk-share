@@ -1,15 +1,15 @@
 import extractZip from 'extract-zip'
 import { mkdir, rm, stat } from 'fs/promises'
 import { basename, dirname, join } from 'path'
-import type { ServerStorageSnapshot } from '../../shared/domain'
-import { renameWithRetry } from './file-system-utils'
-import { saveLocalSaveVersion } from './local-state-store'
-import { StorageError } from './storage-error'
+import type { ServerStorageSnapshot } from '../../../shared/domain'
+import { renameWithRetry } from '../core/file-system-utils'
+import { saveLocalSaveVersion } from '../persistence/local-state-store'
+import { StorageError } from '../core/storage-error'
 import {
   localServerBackupsFolderPath,
   localServerFolderPath,
   mockCloudVersionsFolderPath
-} from './storage-paths'
+} from '../core/storage-paths'
 
 export async function restoreLatestServerSave(
   storageSnapshot: ServerStorageSnapshot

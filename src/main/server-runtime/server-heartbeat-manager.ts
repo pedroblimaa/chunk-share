@@ -1,6 +1,6 @@
 import { ServerLockStatus } from '../../shared/domain'
 import type { ServerRuntimeLogLine, ServerRuntimeStatus } from '../../shared/server-runtime'
-import { readServerLock, writeServerLock } from '../storage/local-mock-cloud-storage'
+import { readServerLock, writeServerLock } from '../storage/persistence/local-mock-cloud-storage'
 
 type RuntimeLogTone = ServerRuntimeLogLine['tone']
 
