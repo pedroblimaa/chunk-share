@@ -1,4 +1,7 @@
 import { createServer, type Server, type ServerResponse } from 'http'
+import checkIconSvg from './callback-page/oauth-callback-check.svg?raw'
+import errorIconSvg from './callback-page/oauth-callback-error.svg?raw'
+import callbackPageHtmlTemplate from './callback-page/oauth-callback-page.html?raw'
 import {
   GOOGLE_CALLBACK_ERROR_CODES,
   GOOGLE_CALLBACK_FAILURES,
@@ -183,5 +186,30 @@ function createFailureCallbackResult(
 }
 
 function createCallbackPage(title: string, message: string): string {
-  return `<!doctype html><html><head><title>${title}</title></head><body><h1>${title}</h1><p>${message}</p></body></html>`
+  const isSuccess = title === GOOGLE_CALLBACK_SUCCESS_PAGE.pageTitle
+  const replacements: Record<string, string> = {
+    HINT: isSuccess
+      ? 'ChunkShare is finishing sign-in in the app.'
+      : 'You can try signing in again from ChunkShare.',
+    ICON_SVG: isSuccess ? checkIconSvg : errorIconSvg,
+    MESSAGE: escapeHtml(message),
+    META_ICON_SVG: checkIconSvg,
+    META_TEXT: isSuccess ? 'Google account verified' : 'Sign-in was not completed',
+    STATE_CLASS: isSuccess ? 'is-success' : 'is-error',
+    TITLE: escapeHtml(title)
+  }
+
+  return Object.entries(replacements).reduce(
+    (page, [token, value]) => page.replaceAll(`{{${token}}}`, value),
+    callbackPageHtmlTemplate
+  )
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;')
 }
