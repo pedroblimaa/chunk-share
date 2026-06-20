@@ -8,6 +8,7 @@ import {
   type ServerLock
 } from '../../../../../../shared/domain'
 import { ServerSyncStatus, type ServerSyncSnapshot } from '../../../../../../shared/server-sync'
+import Button from '../../../../components/shared/Button/Button'
 import MaterialIcon from '../../../../components/shared/MaterialIcon/MaterialIcon'
 import { getServerSyncView } from '../../../../utils/server-sync-ui'
 
@@ -185,20 +186,25 @@ function ServerCard({
       </div>
 
       <div className="server-card-footer">
-        <button className="server-manage-action" type="button" onClick={onOpen}>
-          <MaterialIcon name={openButtonIcon} />
+        <Button
+          className="server-manage-action"
+          icon={openButtonIcon}
+          size="default"
+          variant="secondary"
+          onClick={onOpen}
+        >
           {openButtonLabel}
-        </button>
-        <button
+        </Button>
+        <Button
           aria-label={`Delete ${server.name}`}
           className="server-delete-action"
           disabled={deleteDisabled}
+          icon="delete"
+          size="square"
           title={deleteTitle ?? 'Delete server and create a local backup'}
-          type="button"
+          variant="icon"
           onClick={onDelete}
-        >
-          <MaterialIcon name="delete" />
-        </button>
+        />
       </div>
     </article>
   )

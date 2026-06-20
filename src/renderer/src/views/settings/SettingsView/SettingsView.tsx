@@ -1,6 +1,9 @@
 import './SettingsView.css'
 
 import AppSidebar from '../../../components/shared/AppSidebar/AppSidebar'
+import Badge from '../../../components/shared/Badge/Badge'
+import Button from '../../../components/shared/Button/Button'
+import Card from '../../../components/shared/Card/Card'
 import MaterialIcon from '../../../components/shared/MaterialIcon/MaterialIcon'
 import TopBar from '../../dashboard/components/TopBar/TopBar'
 import type { SettingsViewProps } from './SettingsView.model'
@@ -41,7 +44,7 @@ function SettingsView({
 
         <main className="dashboard-content settings-content">
           <section className="settings-grid" aria-label="Settings">
-            <article className="settings-card settings-account-card">
+            <Card as="article" className="settings-account-card">
               <div className="settings-card-heading">
                 <MaterialIcon name="account_circle" />
                 <h2>Google Account</h2>
@@ -68,19 +71,23 @@ function SettingsView({
               <div className="settings-status-row">
                 <span>Authentication</span>
                 <div className="settings-account-actions">
-                  <strong className="settings-status-pill is-connected">
-                    <MaterialIcon name="check_circle" filled />
+                  <Badge tone="active" icon="check_circle" iconFilled>
                     Connected
-                  </strong>
-                  <button className="settings-sign-out-button" type="button" onClick={onSignOut}>
-                    <MaterialIcon name="logout" />
+                  </Badge>
+                  <Button
+                    className="settings-sign-out-button"
+                    icon="logout"
+                    size="compact"
+                    variant="ghost"
+                    onClick={onSignOut}
+                  >
                     Sign out
-                  </button>
+                  </Button>
                 </div>
               </div>
-            </article>
+            </Card>
 
-            <article className="settings-card settings-storage-card">
+            <Card as="article" className="settings-storage-card">
               <div className="settings-card-heading">
                 <MaterialIcon name="folder" />
                 <h2>Storage Mode</h2>
@@ -91,19 +98,16 @@ function SettingsView({
                   <strong>Local Storage</strong>
                   <span>Local Only</span>
                 </div>
-                <span className="settings-status-pill is-connected">
-                  <span className="settings-status-dot" aria-hidden="true" />
-                  Active
-                </span>
+                <Badge dot>Active</Badge>
               </div>
 
               <p className="settings-card-copy">
                 Server saves, locks, and versions are currently stored on this device for MVP
                 development.
               </p>
-            </article>
+            </Card>
 
-            <article className="settings-card settings-cloud-card">
+            <Card as="article" className="settings-cloud-card">
               <div className="settings-card-heading">
                 <MaterialIcon name="cloud" />
                 <h2>Cloud Storage</h2>
@@ -114,13 +118,15 @@ function SettingsView({
                   <strong>Google Drive</strong>
                   <span>Shared folder sync</span>
                 </div>
-                <span className="settings-status-pill is-pending">Not configured</span>
+                <Badge className="settings-pending-badge" tone="disabled">
+                  Not configured
+                </Badge>
               </div>
 
               <p className="settings-card-copy">
                 Google Drive setup will be added here so friends can use one shared cloud folder.
               </p>
-            </article>
+            </Card>
           </section>
         </main>
       </div>

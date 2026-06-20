@@ -1,0 +1,70 @@
+.chunk-badge {
+  align-items: center;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 999px;
+  color: var(--color-text-muted);
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-medium);
+  gap: 6px;
+  line-height: 1;
+  padding: 7px 11px;
+  text-transform: uppercase;
+}
+
+.chunk-badge-small {
+  font-size: 11px;
+  padding: 4px 7px;
+}
+
+.chunk-badge-active,
+.chunk-badge-success {
+  border-color: var(--color-border-accent-muted);
+  color: var(--color-accent);
+}
+
+.chunk-badge-warning {
+  border-color: rgba(241, 184, 75, 0.46);
+  color: var(--color-warning);
+}
+
+.chunk-badge-danger {
+  border-color: rgba(255, 111, 111, 0.42);
+  color: #ffb4b4;
+}
+
+.chunk-badge-disabled {
+  background: var(--color-surface-raised);
+  color: var(--color-text-muted);
+}
+
+.chunk-badge-info {
+  border-color: var(--color-border-emphasis);
+  color: var(--color-text-secondary);
+}
+
+.chunk-badge-dot {
+  background: var(--color-accent);
+  border-radius: 999px;
+  box-shadow: 0 0 0 3px var(--color-accent-glow);
+  height: 8px;
+  width: 8px;
+}
+
+.chunk-badge-disabled .chunk-badge-dot {
+  background: var(--color-text-muted);
+  box-shadow: none;
+}
+
+.chunk-badge-warning .chunk-badge-dot {
+  background: var(--color-warning);
+}
+
+.chunk-badge-danger .chunk-badge-dot {
+  background: #ffb4b4;
+}
+
+.chunk-badge-icon {
+  font-size: var(--font-size-icon-sm);
+}

@@ -19,6 +19,7 @@
 .connection-pill,
 .server-state-summary p,
 .resource-meter strong,
+.chunk-badge,
 .compact-stat-card p,
 .console-line {
   font-family: var(--font-family-mono);

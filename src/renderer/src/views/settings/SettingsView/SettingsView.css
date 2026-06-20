@@ -12,24 +12,19 @@
   grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.8fr);
 }
 
-.settings-card {
-  background: var(--color-surface-panel);
-  border: 1px solid var(--color-border-panel);
-  border-radius: 10px;
-  min-height: 180px;
-  padding: 20px;
-}
-
 .settings-account-card {
   grid-area: account;
+  min-height: 180px;
 }
 
 .settings-storage-card {
   grid-area: storage;
+  min-height: 180px;
 }
 
 .settings-cloud-card {
   grid-area: cloud;
+  min-height: 180px;
 }
 
 .settings-card-heading {
@@ -117,82 +112,11 @@
   gap: 10px;
 }
 
-.settings-status-pill {
-  align-items: center;
-  border: 1px solid var(--color-border-subtle);
-  border-radius: 999px;
-  color: var(--color-text-muted);
-  display: inline-flex;
-  flex: 0 0 auto;
-  font-size: 11px;
-  font-weight: var(--font-weight-medium);
-  gap: 5px;
-  line-height: 1;
-  padding: 7px 10px;
-  text-transform: uppercase;
-}
-
-.settings-status-pill.is-pending {
-  background: var(--color-surface-raised);
-  font-size: 11px;
-  max-width: 116px;
-  padding: 8px 10px;
+.settings-pending-badge {
+  max-width: 118px;
+  padding: 8px 12px;
   text-align: center;
   white-space: normal;
-}
-
-.settings-status-pill .material-symbols-outlined {
-  font-size: var(--font-size-icon-sm);
-}
-
-.settings-status-pill.is-connected {
-  border-color: var(--color-border-accent-muted);
-  color: var(--color-accent);
-}
-
-.settings-storage-panel .settings-status-pill.is-connected {
-  color: var(--color-text-secondary);
-}
-
-.settings-status-dot {
-  background: var(--color-accent);
-  border-radius: 999px;
-  box-shadow: 0 0 0 3px var(--color-accent-glow);
-  height: 8px;
-  width: 8px;
-}
-
-.settings-sign-out-button {
-  align-items: center;
-  background: transparent;
-  border: 1px solid var(--color-border-subtle);
-  border-radius: 999px;
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  display: inline-flex;
-  font: inherit;
-  font-size: var(--font-size-caption);
-  font-weight: var(--font-weight-medium);
-  gap: 6px;
-  line-height: 1;
-  padding: 7px 10px;
-  text-transform: uppercase;
-  transition:
-    background-color 140ms ease,
-    border-color 140ms ease,
-    color 140ms ease;
-}
-
-.settings-sign-out-button:hover,
-.settings-sign-out-button:focus-visible {
-  background: var(--color-surface-hover);
-  border-color: var(--color-border-emphasis);
-  color: var(--color-text-primary);
-  outline: 0;
-}
-
-.settings-sign-out-button .material-symbols-outlined {
-  font-size: var(--font-size-icon-sm);
 }
 
 .settings-storage-panel {

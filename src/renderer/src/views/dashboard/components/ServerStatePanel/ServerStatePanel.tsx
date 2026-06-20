@@ -1,6 +1,7 @@
 import './ServerStatePanel.css'
 
 import type { ServerDisplayState } from '../../../../../../shared/dashboard'
+import Badge from '../../../../components/shared/Badge/Badge'
 import MaterialIcon from '../../../../components/shared/MaterialIcon/MaterialIcon'
 import { getServerSyncView } from '../../../../utils/server-sync-ui'
 
@@ -71,7 +72,7 @@ function ServerStatePanel({
           <div className="resource-meter">
             <p>
               CPU Usage
-              {snapshot.resources.isMocked && <span className="resource-meter-badge">Mocked</span>}
+              {snapshot.resources.isMocked && <Badge size="small">Mocked</Badge>}
             </p>
             <strong>{snapshot.resources.cpuPercent.toFixed(1)}%</strong>
             <span className="meter-track">
@@ -82,7 +83,7 @@ function ServerStatePanel({
           <div className="resource-meter">
             <p>
               Memory
-              {snapshot.resources.isMocked && <span className="resource-meter-badge">Mocked</span>}
+              {snapshot.resources.isMocked && <Badge size="small">Mocked</Badge>}
             </p>
             <strong>
               {snapshot.resources.memoryUsedMb} / {snapshot.resources.memoryTotalMb} MB

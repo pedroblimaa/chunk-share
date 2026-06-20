@@ -216,26 +216,6 @@
   padding-top: 16px;
 }
 
-.server-manage-action,
-.server-delete-action {
-  align-items: center;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border-emphasis);
-  border-radius: 4px;
-  color: var(--color-text-primary);
-  cursor: pointer;
-  display: inline-flex;
-  font-size: var(--font-size-small);
-  font-weight: var(--font-weight-bold);
-  gap: 8px;
-  min-height: 38px;
-  padding: 0 18px;
-  transition:
-    background-color 160ms ease,
-    border-color 160ms ease,
-    color 160ms ease;
-}
-
 .server-card:hover .server-manage-action,
 .server-card:focus-within .server-manage-action {
   background: var(--color-accent);
@@ -244,8 +224,6 @@
 }
 
 .server-delete-action {
-  justify-content: center;
-  padding: 0;
   width: 42px;
 }
 
@@ -255,11 +233,6 @@
   border-color: rgba(255, 111, 111, 0.56);
   color: #ff9c9c;
   outline: 0;
-}
-
-.server-delete-action:disabled {
-  cursor: not-allowed;
-  opacity: 0.5;
 }
 
 @media (max-width: 720px) {

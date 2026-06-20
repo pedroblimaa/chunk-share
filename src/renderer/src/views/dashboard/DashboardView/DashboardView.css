@@ -127,13 +127,7 @@
 }
 
 .compact-stat-card {
-  background: var(--color-surface-panel);
-  border: 1px solid var(--color-border-panel);
-  border-radius: 10px;
-  padding: 14px;
-  transition:
-    border-color 180ms ease,
-    transform 180ms ease;
+  min-height: 84px;
 }
 
 .dashboard-screen-running .compact-stat-card {

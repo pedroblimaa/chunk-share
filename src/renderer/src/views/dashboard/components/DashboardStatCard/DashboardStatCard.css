@@ -1,12 +1,5 @@
 .dashboard-stat-card {
-  background: var(--color-surface-panel);
-  border: 1px solid var(--color-border-panel);
-  border-radius: 10px;
   min-height: 104px;
-  padding: 16px;
-  transition:
-    border-color 180ms ease,
-    transform 180ms ease;
 }
 
 .dashboard-screen-running .dashboard-stat-card {
@@ -30,32 +23,6 @@
   flex: 1;
   font-size: var(--font-size-small);
   min-width: 0;
-}
-
-.dashboard-stat-card-badge {
-  border: 1px solid var(--color-border-subtle);
-  border-radius: 999px;
-  color: var(--color-text-muted);
-  flex: 0 0 auto;
-  font-size: var(--font-size-caption);
-  font-weight: var(--font-weight-medium);
-  line-height: 1;
-  padding: 3px 7px;
-}
-
-.dashboard-stat-card-badge-success {
-  border-color: var(--color-border-accent-muted);
-  color: var(--color-accent);
-}
-
-.dashboard-stat-card-badge-warning {
-  border-color: rgba(241, 184, 75, 0.46);
-  color: var(--color-warning);
-}
-
-.dashboard-stat-card-badge-danger {
-  border-color: rgba(255, 111, 111, 0.42);
-  color: #ffb4b4;
 }
 
 .dashboard-stat-card strong {

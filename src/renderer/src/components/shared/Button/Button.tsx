@@ -1,17 +1,7 @@
 import './Button.css'
 
-import type { ButtonHTMLAttributes } from 'react'
 import MaterialIcon from '../MaterialIcon/MaterialIcon'
-
-type ButtonVariant = 'primary' | 'secondary'
-type ButtonSize = 'default' | 'large'
-
-interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  fullWidth?: boolean
-  icon?: string
-  size?: ButtonSize
-  variant?: ButtonVariant
-}
+import type { ButtonProps } from './Button.model'
 
 function Button({
   children,
@@ -36,7 +26,7 @@ function Button({
   return (
     <button className={classes} type={type} {...buttonProps}>
       {icon && <MaterialIcon name={icon} />}
-      <span className="chunk-button-label">{children}</span>
+      {children && <span className="chunk-button-label">{children}</span>}
     </button>
   )
 }

@@ -1,4 +1,5 @@
 import Button from '../../../../components/shared/Button/Button'
+import Card from '../../../../components/shared/Card/Card'
 import MaterialIcon from '../../../../components/shared/MaterialIcon/MaterialIcon'
 import { ServerSetupProgressStep } from '../../../../../../shared/server-setup'
 import {
@@ -80,7 +81,7 @@ function DeploymentProgress({
   const progressPercent = getProgressPercent(deploymentStatus, activeStep)
 
   return (
-    <section className={`setup-progress-card setup-progress-card-${deploymentStatus}`}>
+    <Card className={`setup-progress-card setup-progress-card-${deploymentStatus}`} padding="large">
       <div className="setup-progress-heading">
         <h3>Deployment Progress</h3>
         <span>{progressPercent}%</span>
@@ -121,7 +122,7 @@ function DeploymentProgress({
           </Button>
         </div>
       )}
-    </section>
+    </Card>
   )
 }
 

@@ -9,6 +9,7 @@ import {
 } from '../../../../../shared/server-runtime'
 import { ServerSyncStatus } from '../../../../../shared/server-sync'
 import AppSidebar from '../../../components/shared/AppSidebar/AppSidebar'
+import Card from '../../../components/shared/Card/Card'
 import MaterialIcon from '../../../components/shared/MaterialIcon/MaterialIcon'
 import { getErrorMessage } from '../../../utils/error-message'
 import {
@@ -438,17 +439,17 @@ function DashboardView({
                 value={dashboardSnapshot.minecraftVersion}
               />
               <div className="compact-stat-grid">
-                <section className="compact-stat-card">
+                <Card className="compact-stat-card" padding="compact">
                   <p>Current Host</p>
                   <strong>{dashboardSnapshot.currentHost ?? 'None'}</strong>
-                </section>
-                <section className="compact-stat-card">
+                </Card>
+                <Card className="compact-stat-card" padding="compact">
                   <p>Players</p>
                   <strong>
                     {dashboardSnapshot.players.online}{' '}
                     <span>/ {dashboardSnapshot.players.max}</span>
                   </strong>
-                </section>
+                </Card>
               </div>
             </div>
           </div>

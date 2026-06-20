@@ -1,0 +1,45 @@
+.chunk-card {
+  background: var(--color-surface-panel);
+  border: 1px solid var(--color-border-panel);
+  border-radius: 10px;
+  color: var(--color-text-primary);
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease;
+}
+
+.chunk-card-panel {
+  background: var(--color-surface-raised);
+}
+
+.chunk-card-active {
+  border-color: var(--color-border-accent-muted);
+}
+
+.chunk-card-danger {
+  border-color: rgba(255, 111, 111, 0.34);
+}
+
+.chunk-card-dashed {
+  border-style: dashed;
+}
+
+.chunk-card-padding-compact {
+  padding: 14px;
+}
+
+.chunk-card-padding-default {
+  padding: 16px;
+}
+
+.chunk-card-padding-large {
+  padding: 28px;
+}
+
+.chunk-card-interactive:hover,
+.chunk-card-interactive:focus-within {
+  border-color: var(--color-border-accent);
+  box-shadow: 0 16px 34px var(--color-shadow-soft);
+  transform: translateY(-2px);
+}

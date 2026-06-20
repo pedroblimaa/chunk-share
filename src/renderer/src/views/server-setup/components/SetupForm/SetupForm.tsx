@@ -4,6 +4,7 @@ import type {
   VanillaMinecraftVersion
 } from '../../../../../../shared/server-setup'
 import Button from '../../../../components/shared/Button/Button'
+import Card from '../../../../components/shared/Card/Card'
 
 interface SetupFormProps {
   disabled: boolean
@@ -133,7 +134,7 @@ function SetupForm({
   }
 
   return (
-    <form className="setup-form-card" onSubmit={handleSubmit}>
+    <Card as="form" className="setup-form-card" padding="large" onSubmit={handleSubmit}>
       <section className="setup-form-section">
         <h3>Basic Info</h3>
         <div className="setup-form-grid">
@@ -225,7 +226,7 @@ function SetupForm({
           Create Server
         </Button>
       </div>
-    </form>
+    </Card>
   )
 }
 

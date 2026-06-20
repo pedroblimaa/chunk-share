@@ -18,11 +18,7 @@
 
 .setup-form-card,
 .setup-progress-card {
-  background: var(--color-surface-panel);
-  border: 1px solid var(--color-border-panel);
-  border-radius: 8px;
   box-shadow: 0 16px 34px var(--color-shadow-soft);
-  padding: 28px;
 }
 
 .setup-form-card {
