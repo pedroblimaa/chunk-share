@@ -52,6 +52,7 @@ function isPlayer(value: unknown): value is Player {
     isString(value.id) &&
     isString(value.displayName) &&
     isString(value.email) &&
+    (value.avatarUrl === undefined || isNullableString(value.avatarUrl)) &&
     isString(value.avatarInitials)
   )
 }

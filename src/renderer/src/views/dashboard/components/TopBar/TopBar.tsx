@@ -1,8 +1,10 @@
 import './TopBar.css'
 
-import type { MockUser } from '../../../../../../shared/dashboard'
+import { useState } from 'react'
+import type { SignedInUser } from '../../../../../../shared/dashboard'
 import Button from '../../../../components/shared/Button/Button'
 import MaterialIcon from '../../../../components/shared/MaterialIcon/MaterialIcon'
+import Popover from '../../../../components/shared/Popover/Popover'
 import Tooltip from '../../../../components/shared/Tooltip/Tooltip'
 
 interface BreadcrumbItem {
@@ -11,11 +13,12 @@ interface BreadcrumbItem {
 }
 
 interface TopBarProps {
-  user: MockUser | null
+  user: SignedInUser | null
   breadcrumbs: BreadcrumbItem[]
   createInstanceDisabled?: boolean
   createInstanceTitle?: string
   onCreateInstance?: () => void
+  onSignOut?: () => void
 }
 
 function TopBar({
@@ -23,8 +26,20 @@ function TopBar({
   breadcrumbs,
   createInstanceDisabled = false,
   createInstanceTitle,
-  onCreateInstance
+  onCreateInstance,
+  onSignOut
 }: TopBarProps): React.JSX.Element {
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false)
+
+  function toggleAccountMenu(): void {
+    setAccountMenuOpen((isOpen) => !isOpen)
+  }
+
+  function signOut(): void {
+    setAccountMenuOpen(false)
+    onSignOut?.()
+  }
+
   return (
     <header className="dashboard-topbar">
       <div className="dashboard-breadcrumbs" aria-label="Breadcrumb">
@@ -65,12 +80,47 @@ function TopBar({
             Create Instance
           </Button>
         </Tooltip>
-        <div
-          className="user-avatar"
-          aria-label={user ? `Signed in as ${user.name}` : 'Signed in user'}
+        <Popover
+          ariaLabel="Account menu"
+          className="account-menu"
+          contentClassName="account-popover is-right"
+          contentRole="menu"
+          isOpen={accountMenuOpen}
+          onClose={() => setAccountMenuOpen(false)}
+          content={
+            <>
+              <div className="account-popover-user">
+                <span>{user?.name ?? 'ChunkShare user'}</span>
+                {user?.email && <small>{user.email}</small>}
+              </div>
+              <button
+                className="account-popover-action"
+                type="button"
+                role="menuitem"
+                onClick={signOut}
+              >
+                <MaterialIcon name="logout" />
+                <span>Sign out</span>
+              </button>
+            </>
+          }
         >
-          {user?.avatarInitials ?? 'CS'}
-        </div>
+          <button
+            className={`user-avatar${user?.avatarUrl ? ' has-image' : ''}`}
+            type="button"
+            aria-expanded={accountMenuOpen}
+            aria-haspopup="menu"
+            aria-label={user ? `Account menu for ${user.name}` : 'Account menu'}
+            title={user ? `Account menu for ${user.name}` : 'Account menu'}
+            onClick={toggleAccountMenu}
+          >
+            {user?.avatarUrl ? (
+              <img src={user.avatarUrl} alt="" aria-hidden="true" />
+            ) : (
+              (user?.avatarInitials ?? 'CS')
+            )}
+          </button>
+        </Popover>
       </div>
     </header>
   )

@@ -1,7 +1,8 @@
-import type { MockUser, ServerDisplayState } from '../../shared/dashboard'
+import type { SignedInUser, ServerDisplayState } from '../../shared/dashboard'
 import {
   ServerHostingStatus,
   ServerLockStatus,
+  type Player,
   type ServerConfig,
   type ServerStatus,
   type ServerStorageSnapshot
@@ -10,7 +11,6 @@ import { isServerActiveStatus, type ServerConnectionAddress } from '../../shared
 import { ServerSyncStatus } from '../../shared/server-sync'
 import { getServerRuntimeSnapshot } from '../server-runtime/server-runtime-service'
 import { getServerSyncSnapshot } from '../server-sync/server-sync-service'
-import { getSignedInMockUser } from '../mock-dashboard'
 
 function formatServerType(serverType: ServerConfig['serverType']): string {
   return `${serverType.charAt(0).toUpperCase()}${serverType.slice(1)}`
@@ -18,7 +18,7 @@ function formatServerType(serverType: ServerConfig['serverType']): string {
 
 function getCurrentHost(
   storageSnapshot: ServerStorageSnapshot,
-  signedInUser: MockUser | null,
+  signedInUser: SignedInUser | null,
   serverIsRunning: boolean
 ): string | null {
   if (serverIsRunning) {
@@ -79,12 +79,10 @@ function getDisplayServerStatus(
   return getRemoteHostingStatus(storageSnapshot) ?? runtimeStatus
 }
 
-function buildServerDisplayState(
-  storageSnapshot: ServerStorageSnapshot,
-  signedInUser: MockUser | null
-): ServerDisplayState {
+function buildServerDisplayState(storageSnapshot: ServerStorageSnapshot): ServerDisplayState {
   const runtimeSnapshot = getServerRuntimeSnapshot()
   const { localState, serverSync } = storageSnapshot
+  const signedInUser = getSignedInUserFromPlayer(localState.player)
   const serverConfigured = localState.serverSetup.status === 'ready'
   const serverStatus = getDisplayServerStatus(
     storageSnapshot,
@@ -124,5 +122,19 @@ function buildServerDisplayState(
 }
 
 export async function getServerDisplayState(): Promise<ServerDisplayState> {
-  return buildServerDisplayState(await getServerSyncSnapshot(), getSignedInMockUser())
+  return buildServerDisplayState(await getServerSyncSnapshot())
+}
+
+function getSignedInUserFromPlayer(player: Player | null): SignedInUser | null {
+  if (!player) {
+    return null
+  }
+
+  return {
+    id: player.id,
+    name: player.displayName,
+    email: player.email,
+    avatarUrl: player.avatarUrl ?? null,
+    avatarInitials: player.avatarInitials
+  }
 }

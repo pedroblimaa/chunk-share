@@ -9,7 +9,6 @@ import {
 import { STALE_LOCK_THRESHOLD_MS } from '../../shared/server-sync'
 import { readServerLock, writeServerLock } from '../storage/local-mock-cloud-storage'
 import { saveActiveSessionId } from '../storage/local-state-store'
-import { getSignedInMockUser } from '../mock-dashboard'
 import { ServerRuntimeError } from './server-runtime-error'
 
 let activeRuntimeSessionId: string | null = null
@@ -164,22 +163,7 @@ function getHostingPlayer(storageSnapshot: ServerStorageSnapshot): Player {
     return storageSnapshot.localState.player
   }
 
-  const signedInUser = getSignedInMockUser()
-  if (signedInUser) {
-    return {
-      id: signedInUser.id,
-      displayName: signedInUser.name,
-      email: signedInUser.email,
-      avatarInitials: signedInUser.avatarInitials
-    }
-  }
-
-  return {
-    id: 'local-host',
-    displayName: 'Local Host',
-    email: 'local@chunkshare.local',
-    avatarInitials: 'LH'
-  }
+  throw new ServerRuntimeError('Cannot start server because no Google user is signed in.')
 }
 
 function isStaleLock(lastHeartbeat: string): boolean {

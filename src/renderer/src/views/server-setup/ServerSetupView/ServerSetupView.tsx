@@ -18,6 +18,7 @@ interface ServerSetupViewProps {
   snapshot: ServerDisplayState
   onCancel: () => void
   onOpenDashboard: () => void
+  onSignOut: () => void
   onSetupComplete: () => Promise<void>
 }
 
@@ -27,6 +28,7 @@ function ServerSetupView({
   snapshot,
   onCancel,
   onOpenDashboard,
+  onSignOut,
   onSetupComplete
 }: ServerSetupViewProps): React.JSX.Element {
   const [deploymentStatus, setDeploymentStatus] = useState<DeploymentStatus>('idle')
@@ -138,6 +140,7 @@ function ServerSetupView({
           breadcrumbs={[{ label: 'Servers', onClick: onCancel }, { label: 'Create Instance' }]}
           createInstanceDisabled
           createInstanceTitle={SETUP_DISABLED_REASON}
+          onSignOut={onSignOut}
         />
 
         <main className="dashboard-content setup-content">

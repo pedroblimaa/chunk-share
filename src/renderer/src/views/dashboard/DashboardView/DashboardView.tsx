@@ -30,6 +30,7 @@ interface DashboardPreviewProps {
   serverDisplayState: ServerDisplayState
   onServerDisplayStateChange: (serverDisplayState: ServerDisplayState) => void
   onNavigateToServers: () => void
+  onSignOut: () => void
 }
 
 type CopyStatus = 'idle' | 'copied' | 'failed'
@@ -114,7 +115,8 @@ function getHeaderToggleButtonView({
 function DashboardView({
   serverDisplayState,
   onServerDisplayStateChange,
-  onNavigateToServers
+  onNavigateToServers,
+  onSignOut
 }: DashboardPreviewProps): React.JSX.Element {
   const serverDisplayStateRef = useRef(serverDisplayState)
   const [runtimeErrorMessage, setRuntimeErrorMessage] = useState<string | null>(null)
@@ -362,6 +364,7 @@ function DashboardView({
           ]}
           createInstanceDisabled
           createInstanceTitle="Only one server is supported in the MVP."
+          onSignOut={onSignOut}
         />
 
         <main className="dashboard-content">

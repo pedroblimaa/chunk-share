@@ -3,6 +3,9 @@ dist
 out
 .DS_Store
 .eslintcache
+.env
+.env.local
+.env.*.local
 *.log*
 .mock-cloud/
 .mock-cloud-test/

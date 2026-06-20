@@ -1,25 +1,10 @@
 import { useCallback, useEffect } from 'react'
-import type { ServerDisplayState } from '../../../shared/dashboard'
 import { getErrorMessage } from '../utils/error-message'
 import { loadServerDisplayState } from '../utils/server-display-state'
-
-type AppView = 'servers' | 'server-detail' | 'server-setup'
-
-interface UseServerActionsInput {
-  handleStorageError: (error: unknown) => boolean
-  setAppView: (appView: AppView) => void
-  setErrorMessage: (message: string | null) => void
-  setServerDisplayState: (serverDisplayState: ServerDisplayState) => void
-}
-
-interface ServerActions {
-  completeServerSetup: () => Promise<void>
-  deleteServer: () => Promise<void>
-  openServerDashboard: () => Promise<void>
-  refreshServerDisplayState: () => Promise<void>
-}
+import type { ServerActions, UseServerActionsInput } from './server.model'
 
 export function useServerActions({
+  canAutoRefresh,
   handleStorageError,
   setAppView,
   setErrorMessage,
@@ -31,6 +16,10 @@ export function useServerActions({
   }, [setServerDisplayState])
 
   useEffect(() => {
+    if (!canAutoRefresh) {
+      return
+    }
+
     refreshServerDisplayState().catch((error: unknown) => {
       if (handleStorageError(error)) {
         return
@@ -38,7 +27,7 @@ export function useServerActions({
 
       setErrorMessage(getErrorMessage(error, 'Unable to load dashboard data.'))
     })
-  }, [handleStorageError, refreshServerDisplayState, setErrorMessage])
+  }, [canAutoRefresh, handleStorageError, refreshServerDisplayState, setErrorMessage])
 
   const openServerDashboard = useCallback(async (): Promise<void> => {
     setErrorMessage(null)

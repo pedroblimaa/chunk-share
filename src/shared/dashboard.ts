@@ -4,10 +4,11 @@ import type { ServerSyncSnapshot } from './server-sync'
 
 export type { ServerStatus } from './domain'
 
-export interface MockUser {
+export interface SignedInUser {
   id: string
   name: string
   email: string
+  avatarUrl: string | null
   avatarInitials: string
 }
 
@@ -38,7 +39,7 @@ export interface ConsoleLogLine {
 }
 
 export interface ServerDisplayState {
-  signedInUser: MockUser | null
+  signedInUser: SignedInUser | null
   serverName: string
   serverStatus: ServerStatus
   serverType: string
