@@ -18,6 +18,7 @@ interface ServerSetupViewProps {
   snapshot: ServerDisplayState
   onCancel: () => void
   onOpenDashboard: () => void
+  onOpenSettings: () => void
   onSignOut: () => void
   onSetupComplete: () => Promise<void>
 }
@@ -28,6 +29,7 @@ function ServerSetupView({
   snapshot,
   onCancel,
   onOpenDashboard,
+  onOpenSettings,
   onSignOut,
   onSetupComplete
 }: ServerSetupViewProps): React.JSX.Element {
@@ -132,7 +134,13 @@ function ServerSetupView({
 
   return (
     <div className="dashboard-screen setup-screen">
-      <AppSidebar addServerDisabled addServerTitle={SETUP_DISABLED_REASON} />
+      <AppSidebar
+        activeItem="servers"
+        addServerDisabled
+        addServerTitle={SETUP_DISABLED_REASON}
+        onOpenServers={onCancel}
+        onOpenSettings={onOpenSettings}
+      />
 
       <div className="dashboard-main">
         <TopBar
@@ -140,6 +148,7 @@ function ServerSetupView({
           breadcrumbs={[{ label: 'Servers', onClick: onCancel }, { label: 'Create Instance' }]}
           createInstanceDisabled
           createInstanceTitle={SETUP_DISABLED_REASON}
+          onOpenSettings={onOpenSettings}
           onSignOut={onSignOut}
         />
 

@@ -18,6 +18,7 @@ interface TopBarProps {
   createInstanceDisabled?: boolean
   createInstanceTitle?: string
   onCreateInstance?: () => void
+  onOpenSettings?: () => void
   onSignOut?: () => void
 }
 
@@ -27,6 +28,7 @@ function TopBar({
   createInstanceDisabled = false,
   createInstanceTitle,
   onCreateInstance,
+  onOpenSettings,
   onSignOut
 }: TopBarProps): React.JSX.Element {
   const [accountMenuOpen, setAccountMenuOpen] = useState(false)
@@ -67,7 +69,12 @@ function TopBar({
         <button className="icon-button" type="button" aria-label="Notifications">
           <MaterialIcon name="notifications" />
         </button>
-        <button className="icon-button" type="button" aria-label="Settings">
+        <button
+          className="icon-button"
+          type="button"
+          aria-label="Settings"
+          onClick={onOpenSettings}
+        >
           <MaterialIcon name="settings" />
         </button>
         <Tooltip content={createInstanceDisabled ? createInstanceTitle : undefined}>

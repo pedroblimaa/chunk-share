@@ -22,6 +22,7 @@ interface ServersViewProps {
   onDeleteServer: () => Promise<void>
   serverDisplayState: ServerDisplayState
   onOpenServer: () => void
+  onOpenSettings: () => void
   onSignOut: () => void
   onRefreshServerDisplayState: () => Promise<void>
 }
@@ -87,6 +88,7 @@ function ServersView({
   onCreateServer,
   onDeleteServer,
   onOpenServer,
+  onOpenSettings,
   onSignOut,
   onRefreshServerDisplayState
 }: ServersViewProps): React.JSX.Element {
@@ -185,9 +187,12 @@ function ServersView({
   return (
     <div className="dashboard-screen servers-screen">
       <AppSidebar
+        activeItem="servers"
         addServerDisabled={hasServers}
         addServerTitle={hasServers ? SINGLE_SERVER_DISABLED_REASON : undefined}
         onAddServer={hasServers ? undefined : onCreateServer}
+        onOpenServers={onRefreshServerDisplayState}
+        onOpenSettings={onOpenSettings}
       />
 
       <div className="dashboard-main">
@@ -197,6 +202,7 @@ function ServersView({
           createInstanceDisabled={hasServers}
           createInstanceTitle={hasServers ? SINGLE_SERVER_DISABLED_REASON : undefined}
           onCreateInstance={hasServers ? undefined : onCreateServer}
+          onOpenSettings={onOpenSettings}
           onSignOut={onSignOut}
         />
 

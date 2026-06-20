@@ -30,6 +30,7 @@ interface DashboardPreviewProps {
   serverDisplayState: ServerDisplayState
   onServerDisplayStateChange: (serverDisplayState: ServerDisplayState) => void
   onNavigateToServers: () => void
+  onOpenSettings: () => void
   onSignOut: () => void
 }
 
@@ -116,6 +117,7 @@ function DashboardView({
   serverDisplayState,
   onServerDisplayStateChange,
   onNavigateToServers,
+  onOpenSettings,
   onSignOut
 }: DashboardPreviewProps): React.JSX.Element {
   const serverDisplayStateRef = useRef(serverDisplayState)
@@ -353,7 +355,13 @@ function DashboardView({
         isServerToggleAnimating ? ' is-server-toggle-animating' : ''
       }`}
     >
-      <AppSidebar addServerDisabled addServerTitle="Only one server is supported in the MVP." />
+      <AppSidebar
+        activeItem="servers"
+        addServerDisabled
+        addServerTitle="Only one server is supported in the MVP."
+        onOpenServers={onNavigateToServers}
+        onOpenSettings={onOpenSettings}
+      />
 
       <div className="dashboard-main">
         <TopBar
@@ -364,6 +372,7 @@ function DashboardView({
           ]}
           createInstanceDisabled
           createInstanceTitle="Only one server is supported in the MVP."
+          onOpenSettings={onOpenSettings}
           onSignOut={onSignOut}
         />
 

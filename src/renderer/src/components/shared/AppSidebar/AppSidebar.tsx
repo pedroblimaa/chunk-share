@@ -2,18 +2,20 @@ import './AppSidebar.css'
 
 import Button from '../Button/Button'
 import MaterialIcon from '../MaterialIcon/MaterialIcon'
-
-interface AppSidebarProps {
-  addServerDisabled?: boolean
-  addServerTitle?: string
-  onAddServer?: () => void
-}
+import type { AppSidebarItem, AppSidebarProps } from './AppSidebar.model'
 
 function AppSidebar({
+  activeItem,
   addServerDisabled = false,
   addServerTitle,
-  onAddServer
+  onAddServer,
+  onOpenServers,
+  onOpenSettings
 }: AppSidebarProps): React.JSX.Element {
+  function getNavItemClassName(item: AppSidebarItem): string {
+    return `dashboard-nav-item${activeItem === item ? ' is-active' : ''}`
+  }
+
   return (
     <aside className="dashboard-sidebar">
       <div className="dashboard-brand">
@@ -27,18 +29,33 @@ function AppSidebar({
       </div>
 
       <nav className="dashboard-nav" aria-label="Primary navigation">
-        <a className="dashboard-nav-item is-active" href="#">
+        <button
+          className={getNavItemClassName('servers')}
+          type="button"
+          aria-current={activeItem === 'servers' ? 'page' : undefined}
+          onClick={onOpenServers}
+        >
           <MaterialIcon name="dashboard" filled />
-          <span>Dashboard</span>
-        </a>
-        <a className="dashboard-nav-item" href="#">
+          <span>Servers</span>
+        </button>
+        <button
+          className={getNavItemClassName('backups')}
+          type="button"
+          disabled
+          title="Backups are coming later."
+        >
           <MaterialIcon name="backup" />
           <span>Backups</span>
-        </a>
-        <a className="dashboard-nav-item" href="#">
+        </button>
+        <button
+          className={getNavItemClassName('settings')}
+          type="button"
+          aria-current={activeItem === 'settings' ? 'page' : undefined}
+          onClick={onOpenSettings}
+        >
           <MaterialIcon name="settings" />
           <span>Settings</span>
-        </a>
+        </button>
       </nav>
 
       <div className="dashboard-sidebar-footer">
