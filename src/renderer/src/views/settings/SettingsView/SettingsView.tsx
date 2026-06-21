@@ -7,7 +7,7 @@ import Button from '../../../components/shared/Button/Button'
 import Card from '../../../components/shared/Card/Card'
 import MaterialIcon from '../../../components/shared/MaterialIcon/MaterialIcon'
 import TopBar from '../../dashboard/components/TopBar/TopBar'
-import CloudStorageSettingsCard from '../components/CloudStorageSettingsCard/CloudStorageSettingsCard'
+import StorageModeSettingsCard from '../components/StorageModeSettingsCard/StorageModeSettingsCard'
 import { useCloudStorageSettings } from '../hooks/useCloudStorageSettings'
 import type { GoogleDriveStatusViewMap } from '../settings.model'
 import type { SettingsViewProps } from './SettingsView.model'
@@ -110,27 +110,7 @@ function SettingsView({
               </div>
             </Card>
 
-            <Card as="article" className="settings-storage-card">
-              <div className="settings-card-heading">
-                <MaterialIcon name="folder" />
-                <h2>Storage Mode</h2>
-              </div>
-
-              <div className="settings-storage-panel is-active">
-                <div>
-                  <strong>Local Storage</strong>
-                  <span>Local Only</span>
-                </div>
-                <Badge dot>Active</Badge>
-              </div>
-
-              <p className="settings-card-copy">
-                Server saves, locks, and versions are currently stored on this device for MVP
-                development.
-              </p>
-            </Card>
-
-            <CloudStorageSettingsCard
+            <StorageModeSettingsCard
               cloudStorageSettings={cloudStorageSettingsState.cloudStorageSettings}
               googleDriveAction={cloudStorageSettingsState.googleDriveAction}
               googleDriveErrorMessage={cloudStorageSettingsState.googleDriveErrorMessage}

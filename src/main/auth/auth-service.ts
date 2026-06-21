@@ -30,7 +30,7 @@ import {
 } from './auth-constants'
 
 export async function signInWithGoogle(): Promise<AuthSession> {
-  return signInWithGoogleScopes(GOOGLE_OAUTH_SCOPES, null)
+  return signInWithGoogleScopes(GOOGLE_OAUTH_SCOPES, null, false)
 }
 
 export async function ensureGoogleDriveAuthSession(): Promise<AuthSession> {
@@ -42,7 +42,8 @@ export async function ensureGoogleDriveAuthSession(): Promise<AuthSession> {
 
   return signInWithGoogleScopes(
     GOOGLE_DRIVE_OAUTH_SCOPES,
-    currentSession?.tokens.refreshToken ?? null
+    currentSession?.tokens.refreshToken ?? null,
+    true
   )
 }
 
@@ -59,11 +60,13 @@ function googleTokensIncludeDriveAccess(tokens: GoogleAuthTokens): boolean {
 
 async function signInWithGoogleScopes(
   scopes: string[],
-  fallbackRefreshToken: string | null
+  fallbackRefreshToken: string | null,
+  includeGrantedScopes: boolean
 ): Promise<AuthSession> {
   const state = createOAuthState()
   const authorizationServer = await createGoogleAuthorizationServer({ expectedState: state })
   const { authorizationUrl, codeVerifier } = await createGoogleAuthorizationUrl({
+    includeGrantedScopes,
     redirectUri: authorizationServer.redirectUri,
     scopes,
     state

@@ -34,7 +34,7 @@ export async function createGoogleAuthorizationUrl(
       code_challenge: codeChallenge,
       code_challenge_method: CodeChallengeMethod.S256,
       prompt: GOOGLE_AUTH_PROMPT,
-      include_granted_scopes: true,
+      include_granted_scopes: input.includeGrantedScopes,
       scope: input.scopes,
       state: input.state
     })

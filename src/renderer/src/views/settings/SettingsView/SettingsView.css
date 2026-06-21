@@ -4,11 +4,11 @@
 }
 
 .settings-grid {
+  align-items: start;
   display: grid;
   gap: 18px;
   grid-template-areas:
-    'account storage'
-    '. cloud';
+    'account storage';
   grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.8fr);
 }
 
@@ -19,11 +19,6 @@
 
 .settings-storage-card {
   grid-area: storage;
-  min-height: 180px;
-}
-
-.settings-cloud-card {
-  grid-area: cloud;
   min-height: 180px;
 }
 
@@ -144,8 +139,7 @@
   .settings-grid {
     grid-template-areas:
       'account'
-      'storage'
-      'cloud';
+      'storage';
     grid-template-columns: 1fr;
   }
 }

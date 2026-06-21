@@ -46,6 +46,7 @@ export interface ExchangeAuthorizationCodeInput {
 }
 
 export interface CreateGoogleAuthorizationUrlInput {
+  includeGrantedScopes: boolean
   redirectUri: string
   scopes: string[]
   state: string
