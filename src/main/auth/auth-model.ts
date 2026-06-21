@@ -41,6 +41,14 @@ export interface ExchangeAuthorizationCodeInput {
   code: string
   codeVerifier: string
   redirectUri: string
+  fallbackRefreshToken: string | null
+  scopes: string[]
+}
+
+export interface CreateGoogleAuthorizationUrlInput {
+  redirectUri: string
+  scopes: string[]
+  state: string
 }
 
 export interface GoogleUserInfoResponse {

@@ -6,6 +6,8 @@ const SERVER_FOLDER_NAME = process.env.CHUNK_SHARE_SERVER_FOLDER ?? '.chunkshare
 const SERVER_BACKUPS_FOLDER_NAME =
   process.env.CHUNK_SHARE_SERVER_BACKUPS_FOLDER ?? '.chunkshare-backups'
 const LOCAL_STATE_FILE_NAME = process.env.CHUNK_SHARE_LOCAL_STATE_FILE ?? 'localState.json'
+const CLOUD_STORAGE_SETTINGS_FILE_NAME =
+  process.env.CHUNK_SHARE_CLOUD_STORAGE_SETTINGS_FILE ?? 'cloudStorageSettings.json'
 
 export const mockCloudFolderPath = join(PROJECT_ROOT, MOCK_CLOUD_FOLDER_NAME)
 export const mockCloudVersionsFolderPath = join(mockCloudFolderPath, 'versions')
@@ -17,3 +19,4 @@ export const localServerJarFilePath = join(localServerFolderPath, 'server.jar')
 export const localServerPropertiesFilePath = join(localServerFolderPath, 'server.properties')
 export const localServerEulaFilePath = join(localServerFolderPath, 'eula.txt')
 export const localStateFilePath = join(PROJECT_ROOT, LOCAL_STATE_FILE_NAME)
+export const cloudStorageSettingsFilePath = join(PROJECT_ROOT, CLOUD_STORAGE_SETTINGS_FILE_NAME)

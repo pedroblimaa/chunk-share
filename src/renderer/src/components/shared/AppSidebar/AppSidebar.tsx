@@ -2,6 +2,7 @@ import './AppSidebar.css'
 
 import Button from '../Button/Button'
 import MaterialIcon from '../MaterialIcon/MaterialIcon'
+import Tooltip from '../Tooltip/Tooltip'
 import type { AppSidebarItem, AppSidebarProps } from './AppSidebar.model'
 
 function AppSidebar({
@@ -38,15 +39,12 @@ function AppSidebar({
           <MaterialIcon name="dashboard" filled />
           <span>Servers</span>
         </button>
-        <button
-          className={getNavItemClassName('backups')}
-          type="button"
-          disabled
-          title="Backups are coming later."
-        >
-          <MaterialIcon name="backup" />
-          <span>Backups</span>
-        </button>
+        <Tooltip content="Backups are coming later.">
+          <button className={getNavItemClassName('backups')} type="button" disabled>
+            <MaterialIcon name="backup" />
+            <span>Backups</span>
+          </button>
+        </Tooltip>
         <button
           className={getNavItemClassName('settings')}
           type="button"
@@ -59,17 +57,18 @@ function AppSidebar({
       </nav>
 
       <div className="dashboard-sidebar-footer">
-        <Button
-          variant="secondary"
-          size="large"
-          fullWidth
-          icon="add"
-          disabled={addServerDisabled}
-          title={addServerTitle}
-          onClick={onAddServer}
-        >
-          Add Server
-        </Button>
+        <Tooltip content={addServerDisabled ? addServerTitle : undefined}>
+          <Button
+            variant="secondary"
+            size="large"
+            fullWidth
+            icon="add"
+            disabled={addServerDisabled}
+            onClick={onAddServer}
+          >
+            Add Server
+          </Button>
+        </Tooltip>
       </div>
     </aside>
   )

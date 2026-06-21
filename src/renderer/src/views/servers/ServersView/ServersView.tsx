@@ -214,7 +214,6 @@ function ServersView({
               <button
                 aria-label={copyButtonLabel}
                 className={`servers-error-copy-button${copyButtonStateClass}`}
-                title={copyButtonLabel}
                 type="button"
                 onClick={copyDeleteError}
               >

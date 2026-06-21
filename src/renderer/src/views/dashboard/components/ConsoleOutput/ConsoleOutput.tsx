@@ -71,7 +71,6 @@ function ConsoleOutput({ logs }: ConsoleOutputProps): React.JSX.Element {
           <button
             aria-label={copyButtonLabel}
             className={`console-copy-button${copyButtonStateClass}`}
-            title={copyButtonLabel}
             type="button"
             onClick={copyConsoleOutput}
           >

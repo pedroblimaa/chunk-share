@@ -385,7 +385,6 @@ function DashboardView({
               <button
                 aria-label={errorCopyButtonLabel}
                 className={`dashboard-runtime-error-copy${errorCopyButtonStateClass}`}
-                title={errorCopyButtonLabel}
                 type="button"
                 onClick={copyRuntimeError}
               >

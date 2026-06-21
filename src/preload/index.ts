@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
+import type { CloudStorageSettings } from '../shared/cloud-storage.model'
 import type { ServerDisplayState } from '../shared/dashboard'
 import type { ServerConfig, ServerStorageSnapshot } from '../shared/domain'
 import {
@@ -13,10 +14,13 @@ import {
   SERVER_SETUP_LIST_VANILLA_VERSIONS_CHANNEL,
   SERVER_SETUP_PROGRESS_CHANNEL,
   SERVER_SETUP_SETUP_VANILLA_SERVER_CHANNEL,
+  STORAGE_CLOUD_SETTINGS_CHANNEL,
   STORAGE_DELETE_SERVER_CHANNEL,
   STORAGE_RESET_SERVER_LOCK_CHANNEL,
   STORAGE_SAVE_SERVER_CONFIG_CHANNEL,
-  STORAGE_SNAPSHOT_CHANNEL
+  STORAGE_SETUP_GOOGLE_DRIVE_FOLDER_CHANNEL,
+  STORAGE_SNAPSHOT_CHANNEL,
+  STORAGE_VALIDATE_GOOGLE_DRIVE_FOLDER_CHANNEL
 } from '../shared/ipc-channels'
 import type { ServerRuntimeEvent, ServerRuntimeSnapshot } from '../shared/server-runtime'
 import type {
@@ -52,6 +56,12 @@ const chunkShareApi = {
   },
   storage: {
     getSnapshot: (): Promise<ServerStorageSnapshot> => ipcRenderer.invoke(STORAGE_SNAPSHOT_CHANNEL),
+    getCloudStorageSettings: (): Promise<CloudStorageSettings> =>
+      ipcRenderer.invoke(STORAGE_CLOUD_SETTINGS_CHANNEL),
+    setupGoogleDriveFolder: (): Promise<CloudStorageSettings> =>
+      ipcRenderer.invoke(STORAGE_SETUP_GOOGLE_DRIVE_FOLDER_CHANNEL),
+    validateGoogleDriveFolder: (): Promise<CloudStorageSettings> =>
+      ipcRenderer.invoke(STORAGE_VALIDATE_GOOGLE_DRIVE_FOLDER_CHANNEL),
     deleteServer: (): Promise<ServerStorageSnapshot> =>
       ipcRenderer.invoke(STORAGE_DELETE_SERVER_CHANNEL),
     resetServerLock: (): Promise<ServerStorageSnapshot> =>

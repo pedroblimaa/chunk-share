@@ -3,6 +3,7 @@ import './ServerHeader.css'
 import type { ServerStatus } from '../../../../../../shared/dashboard'
 import MaterialIcon from '../../../../components/shared/MaterialIcon/MaterialIcon'
 import Popover from '../../../../components/shared/Popover/Popover'
+import Tooltip from '../../../../components/shared/Tooltip/Tooltip'
 
 interface ServerHeaderProps {
   name: string
@@ -100,7 +101,6 @@ function ServerHeader({
                 <button
                   aria-label={copyConnectionDetailsLabel}
                   className={`connection-popover-copy${copyConnectionDetailsStateClass}`}
-                  title={copyConnectionDetailsLabel}
                   type="button"
                   onClick={onCopyConnectionAddressDetails ?? onCopyConnectionAddress}
                 >
@@ -115,7 +115,6 @@ function ServerHeader({
               aria-expanded={connectionDetailsOpen}
               aria-label="Show connection addresses"
               disabled={!connectionAddress}
-              title={connectionAddress ? 'Show connection addresses' : 'No address yet'}
               onClick={onToggleConnectionDetails}
             >
               <MaterialIcon name="lan" />
@@ -126,19 +125,20 @@ function ServerHeader({
       </div>
 
       <div className="server-actions">
-        <button
-          aria-label={toggleButtonLabel}
-          className={`server-toggle-button is-${serverIsRunning ? 'running' : 'stopped'} is-tone-${toggleButtonTone}${
-            isAnimating ? ' is-animating' : ''
-          }${serverIsBusy ? ' is-busy' : ''}`}
-          disabled={toggleDisabled}
-          title={toggleButtonTooltip}
-          type="button"
-          onClick={onToggleServer}
-        >
-          <MaterialIcon name={toggleButtonIcon} filled />
-          <span>{toggleButtonLabel}</span>
-        </button>
+        <Tooltip content={toggleButtonTooltip}>
+          <button
+            aria-label={toggleButtonLabel}
+            className={`server-toggle-button is-${serverIsRunning ? 'running' : 'stopped'} is-tone-${toggleButtonTone}${
+              isAnimating ? ' is-animating' : ''
+            }${serverIsBusy ? ' is-busy' : ''}`}
+            disabled={toggleDisabled}
+            type="button"
+            onClick={onToggleServer}
+          >
+            <MaterialIcon name={toggleButtonIcon} filled />
+            <span>{toggleButtonLabel}</span>
+          </button>
+        </Tooltip>
         <button className="overflow-button" type="button" aria-label="More server actions">
           <MaterialIcon name="more_vert" />
         </button>

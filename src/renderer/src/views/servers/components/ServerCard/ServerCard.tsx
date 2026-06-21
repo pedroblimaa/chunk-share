@@ -10,6 +10,7 @@ import {
 import { ServerSyncStatus, type ServerSyncSnapshot } from '../../../../../../shared/server-sync'
 import Button from '../../../../components/shared/Button/Button'
 import MaterialIcon from '../../../../components/shared/MaterialIcon/MaterialIcon'
+import Tooltip from '../../../../components/shared/Tooltip/Tooltip'
 import { getServerSyncView } from '../../../../utils/server-sync-ui'
 
 export interface ServerCardSummary {
@@ -195,16 +196,17 @@ function ServerCard({
         >
           {openButtonLabel}
         </Button>
-        <Button
-          aria-label={`Delete ${server.name}`}
-          className="server-delete-action"
-          disabled={deleteDisabled}
-          icon="delete"
-          size="square"
-          title={deleteTitle ?? 'Delete server and create a local backup'}
-          variant="icon"
-          onClick={onDelete}
-        />
+        <Tooltip content={deleteDisabled ? deleteTitle : undefined} placement="left">
+          <Button
+            aria-label={`Delete ${server.name}`}
+            className="server-delete-action"
+            disabled={deleteDisabled}
+            icon="delete"
+            size="square"
+            variant="icon"
+            onClick={onDelete}
+          />
+        </Tooltip>
       </div>
     </article>
   )

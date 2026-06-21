@@ -3,6 +3,9 @@ import { AuthErrorCode, type GoogleCallbackFailureReason } from './auth-model'
 export const GOOGLE_OAUTH_CLIENT_ID_ENV_KEY = 'CHUNKSHARE_GOOGLE_CLIENT_ID'
 export const GOOGLE_OAUTH_CLIENT_SECRET_ENV_KEY = 'CHUNKSHARE_GOOGLE_CLIENT_SECRET'
 export const GOOGLE_OAUTH_SCOPES = ['openid', 'email', 'profile']
+export const GOOGLE_FULL_DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive'
+export const GOOGLE_DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file'
+export const GOOGLE_DRIVE_OAUTH_SCOPES = [...GOOGLE_OAUTH_SCOPES, GOOGLE_DRIVE_SCOPE]
 export const GOOGLE_AUTH_PROMPT = 'consent'
 export const GOOGLE_USER_INFO_ENDPOINT = 'https://openidconnect.googleapis.com/v1/userinfo'
 export const GOOGLE_AUTH_TOKENS_FILE_NAME = 'google-auth-tokens.json'

@@ -1,4 +1,6 @@
 import { ServerLockStatus } from '../../../shared/domain'
+import { CloudStorageProvider, GoogleDriveSetupStatus } from '../../../shared/cloud-storage.model'
+import type { CloudStorageSettings } from '../../../shared/cloud-storage.model'
 import type {
   JavaConfig,
   LatestSave,
@@ -33,6 +35,15 @@ export const DEFAULT_SERVER_SETUP_STATE: ServerSetupState = {
   status: 'not-configured',
   errorMessage: null,
   completedAt: null
+}
+
+export const DEFAULT_CLOUD_STORAGE_SETTINGS: CloudStorageSettings = {
+  activeProvider: CloudStorageProvider.Local,
+  googleDrive: {
+    status: GoogleDriveSetupStatus.NotConfigured,
+    folder: null,
+    errorMessage: null
+  }
 }
 
 export const DEFAULT_LOCAL_STATE: LocalState = {

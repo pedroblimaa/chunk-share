@@ -1,0 +1,13 @@
+{
+  "activeProvider": "local",
+  "googleDrive": {
+    "status": "valid",
+    "folder": {
+      "folderId": "13Cs84L7FQOVVMS-PWXY2CAljsfgJh0q2",
+      "folderName": "ChunkShare",
+      "configuredAt": "2026-06-21T14:34:20.932Z",
+      "validatedAt": "2026-06-21T14:34:20.932Z"
+    },
+    "errorMessage": null
+  }
+}

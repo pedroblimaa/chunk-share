@@ -3,6 +3,7 @@ import './ServerStatePanel.css'
 import type { ServerDisplayState } from '../../../../../../shared/dashboard'
 import Badge from '../../../../components/shared/Badge/Badge'
 import MaterialIcon from '../../../../components/shared/MaterialIcon/MaterialIcon'
+import Tooltip from '../../../../components/shared/Tooltip/Tooltip'
 import { getServerSyncView } from '../../../../utils/server-sync-ui'
 
 interface ServerStatePanelProps {
@@ -45,19 +46,20 @@ function ServerStatePanel({
       <div className="server-state-content">
         <p className="panel-kicker">Current State</p>
         <div className="server-state-summary">
-          <button
-            className="power-indicator"
-            type="button"
-            aria-label={
-              toggleButtonAriaLabel ??
-              (snapshot.serverStatus === 'running' ? 'Stop server' : 'Start server')
-            }
-            disabled={toggleDisabled}
-            title={toggleButtonTooltip}
-            onClick={onToggleServer}
-          >
-            <MaterialIcon name="power_settings_new" />
-          </button>
+          <Tooltip content={toggleButtonTooltip}>
+            <button
+              className="power-indicator"
+              type="button"
+              aria-label={
+                toggleButtonAriaLabel ??
+                (snapshot.serverStatus === 'running' ? 'Stop server' : 'Start server')
+              }
+              disabled={toggleDisabled}
+              onClick={onToggleServer}
+            >
+              <MaterialIcon name="power_settings_new" />
+            </button>
+          </Tooltip>
           <div>
             <h3>{formatState(snapshot.serverStatus)}</h3>
             <p>Last active: {lastActiveLabel}</p>

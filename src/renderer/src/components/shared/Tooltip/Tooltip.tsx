@@ -1,17 +1,14 @@
 import './Tooltip.css'
 
-interface TooltipProps {
-  children: React.ReactNode
-  content?: string
-}
+import type { TooltipProps } from './Tooltip.model'
 
-function Tooltip({ children, content }: TooltipProps): React.JSX.Element {
+function Tooltip({ children, content, placement = 'center' }: TooltipProps): React.JSX.Element {
   if (!content) {
     return <>{children}</>
   }
 
   return (
-    <span className="tooltip" data-tooltip={content} title={content}>
+    <span className="tooltip" data-placement={placement} data-tooltip={content}>
       {children}
     </span>
   )

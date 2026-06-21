@@ -118,7 +118,6 @@ function TopBar({
             aria-expanded={accountMenuOpen}
             aria-haspopup="menu"
             aria-label={user ? `Account menu for ${user.name}` : 'Account menu'}
-            title={user ? `Account menu for ${user.name}` : 'Account menu'}
             onClick={toggleAccountMenu}
           >
             {user?.avatarUrl ? (

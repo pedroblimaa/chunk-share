@@ -5,9 +5,15 @@
 
 body {
   background: var(--color-background-page);
-  user-select: none;
+  user-select: text;
 }
 
 #root {
   min-height: 100vh;
+}
+
+button,
+[role='button'],
+.material-symbols-outlined {
+  user-select: none;
 }

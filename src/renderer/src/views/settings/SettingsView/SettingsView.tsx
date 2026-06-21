@@ -1,14 +1,36 @@
 import './SettingsView.css'
 
+import { GoogleDriveSetupStatus } from '../../../../../shared/cloud-storage.model'
 import AppSidebar from '../../../components/shared/AppSidebar/AppSidebar'
 import Badge from '../../../components/shared/Badge/Badge'
 import Button from '../../../components/shared/Button/Button'
 import Card from '../../../components/shared/Card/Card'
 import MaterialIcon from '../../../components/shared/MaterialIcon/MaterialIcon'
 import TopBar from '../../dashboard/components/TopBar/TopBar'
+import CloudStorageSettingsCard from '../components/CloudStorageSettingsCard/CloudStorageSettingsCard'
+import { useCloudStorageSettings } from '../hooks/useCloudStorageSettings'
+import type { GoogleDriveStatusViewMap } from '../settings.model'
 import type { SettingsViewProps } from './SettingsView.model'
 
 const SINGLE_SERVER_DISABLED_REASON = 'Only one server is supported in the MVP.'
+const GOOGLE_DRIVE_STATUS_VIEW: GoogleDriveStatusViewMap = {
+  [GoogleDriveSetupStatus.NotConfigured]: {
+    label: 'Not configured',
+    tone: 'disabled'
+  },
+  [GoogleDriveSetupStatus.NeedsAuth]: {
+    label: 'Needs permission',
+    tone: 'warning'
+  },
+  [GoogleDriveSetupStatus.Valid]: {
+    label: 'Configured',
+    tone: 'active'
+  },
+  [GoogleDriveSetupStatus.Blocked]: {
+    label: 'Blocked',
+    tone: 'danger'
+  }
+}
 
 function SettingsView({
   serverDisplayState,
@@ -19,6 +41,7 @@ function SettingsView({
 }: SettingsViewProps): React.JSX.Element {
   const serverIsConfigured = serverDisplayState.serverStatus !== 'not-configured'
   const signedInUser = serverDisplayState.signedInUser
+  const cloudStorageSettingsState = useCloudStorageSettings()
 
   return (
     <div className="dashboard-screen settings-screen">
@@ -107,26 +130,17 @@ function SettingsView({
               </p>
             </Card>
 
-            <Card as="article" className="settings-cloud-card">
-              <div className="settings-card-heading">
-                <MaterialIcon name="cloud" />
-                <h2>Cloud Storage</h2>
-              </div>
-
-              <div className="settings-storage-panel">
-                <div>
-                  <strong>Google Drive</strong>
-                  <span>Shared folder sync</span>
-                </div>
-                <Badge className="settings-pending-badge" tone="disabled">
-                  Not configured
-                </Badge>
-              </div>
-
-              <p className="settings-card-copy">
-                Google Drive setup will be added here so friends can use one shared cloud folder.
-              </p>
-            </Card>
+            <CloudStorageSettingsCard
+              cloudStorageSettings={cloudStorageSettingsState.cloudStorageSettings}
+              googleDriveAction={cloudStorageSettingsState.googleDriveAction}
+              googleDriveErrorMessage={cloudStorageSettingsState.googleDriveErrorMessage}
+              googleDriveIsBusy={cloudStorageSettingsState.googleDriveIsBusy}
+              googleDriveStatusViewMap={GOOGLE_DRIVE_STATUS_VIEW}
+              onSetupDefaultGoogleDriveFolder={
+                cloudStorageSettingsState.setupDefaultGoogleDriveFolder
+              }
+              onValidateGoogleDriveFolder={cloudStorageSettingsState.validateGoogleDriveFolder}
+            />
           </section>
         </main>
       </div>

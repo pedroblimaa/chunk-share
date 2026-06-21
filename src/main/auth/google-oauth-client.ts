@@ -1,17 +1,10 @@
-import {
-  CodeChallengeMethod,
-  OAuth2Client,
-  type Credentials
-} from 'google-auth-library'
-import {
-  GOOGLE_AUTH_PROMPT,
-  GOOGLE_OAUTH_SCOPES,
-  GOOGLE_USER_INFO_ENDPOINT
-} from './auth-constants'
+import { CodeChallengeMethod, OAuth2Client, type Credentials } from 'google-auth-library'
+import { GOOGLE_AUTH_PROMPT, GOOGLE_USER_INFO_ENDPOINT } from './auth-constants'
 import { getGoogleOAuthConfig } from './auth-config'
 import { AuthError } from './auth-error'
 import {
   AuthErrorCode,
+  type CreateGoogleAuthorizationUrlInput,
   type ExchangeAuthorizationCodeInput,
   type GoogleAuthTokens,
   type GoogleRequestError,
@@ -30,10 +23,9 @@ export function createGoogleOAuthClient(redirectUri?: string): OAuth2Client {
   })
 }
 
-export async function createGoogleAuthorizationUrl(input: {
-  redirectUri: string
-  state: string
-}): Promise<{ authorizationUrl: string; codeVerifier: string }> {
+export async function createGoogleAuthorizationUrl(
+  input: CreateGoogleAuthorizationUrlInput
+): Promise<{ authorizationUrl: string; codeVerifier: string }> {
   try {
     const oauthClient = createGoogleOAuthClient(input.redirectUri)
     const { codeChallenge, codeVerifier } = await oauthClient.generateCodeVerifierAsync()
@@ -42,7 +34,8 @@ export async function createGoogleAuthorizationUrl(input: {
       code_challenge: codeChallenge,
       code_challenge_method: CodeChallengeMethod.S256,
       prompt: GOOGLE_AUTH_PROMPT,
-      scope: GOOGLE_OAUTH_SCOPES,
+      include_granted_scopes: true,
+      scope: input.scopes,
       state: input.state
     })
 
@@ -58,6 +51,8 @@ export async function createGoogleAuthorizationUrl(input: {
 export async function exchangeAuthorizationCode({
   code,
   codeVerifier,
+  fallbackRefreshToken,
+  scopes,
   redirectUri
 }: ExchangeAuthorizationCodeInput): Promise<GoogleAuthTokens> {
   const oauthClient = createGoogleOAuthClient(redirectUri)
@@ -70,14 +65,16 @@ export async function exchangeAuthorizationCode({
     'Unable to finish Google sign-in. Try again.'
   )
 
-  if (!tokens.refresh_token) {
+  const refreshToken = tokens.refresh_token ?? fallbackRefreshToken
+
+  if (!refreshToken) {
     throw new AuthError(
       'Google did not return a refresh token. Try signing in again.',
       AuthErrorCode.MissingRefreshToken
     )
   }
 
-  return createGoogleAuthTokens(tokens, tokens.refresh_token)
+  return createGoogleAuthTokens(tokens, refreshToken, scopes)
 }
 
 export async function refreshGoogleAuthTokens(tokens: GoogleAuthTokens): Promise<GoogleAuthTokens> {
@@ -88,18 +85,18 @@ export async function refreshGoogleAuthTokens(tokens: GoogleAuthTokens): Promise
     )
   }
 
-  const oauthClient = createAuthenticatedOAuthClient(tokens)
+  const oauthClient = createAuthenticatedGoogleOAuthClient(tokens)
   const { credentials } = await runGoogleRequest(
     () => oauthClient.refreshAccessToken(),
     'Your Google session expired. Sign in again.',
     AuthErrorCode.ExpiredSession
   )
 
-  return createGoogleAuthTokens(credentials, tokens.refreshToken)
+  return createGoogleAuthTokens(credentials, tokens.refreshToken, tokens.scope.split(/\s+/))
 }
 
 export async function fetchGoogleUserProfile(tokens: GoogleAuthTokens): Promise<GoogleUserProfile> {
-  const oauthClient = createAuthenticatedOAuthClient(tokens)
+  const oauthClient = createAuthenticatedGoogleOAuthClient(tokens)
   const response = await runGoogleRequest(
     () => oauthClient.fetch<GoogleUserInfoResponse>(GOOGLE_USER_INFO_ENDPOINT),
     'Unable to read Google profile. Sign in again.'
@@ -132,7 +129,11 @@ export async function fetchGoogleUserProfile(tokens: GoogleAuthTokens): Promise<
   }
 }
 
-function createGoogleAuthTokens(credentials: Credentials, refreshToken: string): GoogleAuthTokens {
+function createGoogleAuthTokens(
+  credentials: Credentials,
+  refreshToken: string,
+  fallbackScopes: string[]
+): GoogleAuthTokens {
   if (!credentials.access_token || !credentials.expiry_date) {
     throw new AuthError(
       'Google did not return usable auth tokens.',
@@ -144,11 +145,11 @@ function createGoogleAuthTokens(credentials: Credentials, refreshToken: string):
     accessToken: credentials.access_token,
     refreshToken,
     expiresAt: new Date(credentials.expiry_date).toISOString(),
-    scope: credentials.scope ?? GOOGLE_OAUTH_SCOPES.join(' ')
+    scope: credentials.scope ?? fallbackScopes.join(' ')
   }
 }
 
-function createAuthenticatedOAuthClient(tokens: GoogleAuthTokens): OAuth2Client {
+export function createAuthenticatedGoogleOAuthClient(tokens: GoogleAuthTokens): OAuth2Client {
   const oauthClient = createGoogleOAuthClient()
   oauthClient.setCredentials(toGoogleCredentials(tokens))
 

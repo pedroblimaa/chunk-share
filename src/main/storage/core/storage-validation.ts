@@ -1,4 +1,11 @@
 import { ServerHostingStatus, ServerLockStatus } from '../../../shared/domain'
+import {
+  CloudStorageProvider,
+  GoogleDriveSetupStatus,
+  type CloudStorageSettings,
+  type GoogleDriveFolderConfig,
+  type GoogleDriveStorageState
+} from '../../../shared/cloud-storage.model'
 import type {
   JavaConfig,
   LatestSave,
@@ -25,6 +32,10 @@ function isString(value: unknown): value is string {
 
 function isNullableString(value: unknown): value is string | null {
   return value === null || isString(value)
+}
+
+function isNullableErrorMessage(value: unknown): value is string | null {
+  return value === null || (isString(value) && value.length > 0)
 }
 
 function isPositiveInteger(value: unknown): value is number {
@@ -70,6 +81,47 @@ function isServerHostingStatus(value: unknown): value is ServerHostingStatus {
     value === ServerHostingStatus.Starting ||
     value === ServerHostingStatus.Running ||
     value === ServerHostingStatus.Stopping
+  )
+}
+
+function isCloudStorageProvider(value: unknown): value is CloudStorageProvider {
+  return value === CloudStorageProvider.Local || value === CloudStorageProvider.GoogleDrive
+}
+
+function isGoogleDriveSetupStatus(value: unknown): value is GoogleDriveSetupStatus {
+  return (
+    value === GoogleDriveSetupStatus.NotConfigured ||
+    value === GoogleDriveSetupStatus.NeedsAuth ||
+    value === GoogleDriveSetupStatus.Valid ||
+    value === GoogleDriveSetupStatus.Blocked
+  )
+}
+
+function isGoogleDriveFolderConfig(value: unknown): value is GoogleDriveFolderConfig {
+  if (!isRecord(value)) {
+    return false
+  }
+
+  return (
+    isString(value.folderId) &&
+    isString(value.folderName) &&
+    isString(value.configuredAt) &&
+    isNullableString(value.validatedAt)
+  )
+}
+
+function isGoogleDriveStorageState(value: unknown): value is GoogleDriveStorageState {
+  if (!isRecord(value) || !isGoogleDriveSetupStatus(value.status)) {
+    return false
+  }
+
+  if (value.status === GoogleDriveSetupStatus.NotConfigured) {
+    return value.folder === null && value.errorMessage === null
+  }
+
+  return (
+    (value.folder === null || isGoogleDriveFolderConfig(value.folder)) &&
+    isNullableErrorMessage(value.errorMessage)
   )
 }
 
@@ -167,4 +219,14 @@ function hasLocalStateBaseFields(value: StorageRecord): boolean {
 
 export function isLocalState(value: unknown): value is LocalState {
   return isRecord(value) && hasLocalStateBaseFields(value) && isServerSetupState(value.serverSetup)
+}
+
+export function isCloudStorageSettings(value: unknown): value is CloudStorageSettings {
+  if (!isRecord(value)) {
+    return false
+  }
+
+  return (
+    isCloudStorageProvider(value.activeProvider) && isGoogleDriveStorageState(value.googleDrive)
+  )
 }

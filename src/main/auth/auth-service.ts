@@ -21,13 +21,51 @@ import {
 } from './google-oauth-client'
 import { createGoogleAuthorizationServer } from './google-oauth-callback-server'
 import { createOAuthState } from './google-oauth-state'
-import { TOKEN_REFRESH_WINDOW_MS } from './auth-constants'
+import {
+  GOOGLE_DRIVE_OAUTH_SCOPES,
+  GOOGLE_DRIVE_SCOPE,
+  GOOGLE_FULL_DRIVE_SCOPE,
+  GOOGLE_OAUTH_SCOPES,
+  TOKEN_REFRESH_WINDOW_MS
+} from './auth-constants'
 
 export async function signInWithGoogle(): Promise<AuthSession> {
+  return signInWithGoogleScopes(GOOGLE_OAUTH_SCOPES, null)
+}
+
+export async function ensureGoogleDriveAuthSession(): Promise<AuthSession> {
+  const currentSession = await getCurrentAuthSession()
+
+  if (currentSession && googleTokensIncludeDriveAccess(currentSession.tokens)) {
+    return currentSession
+  }
+
+  return signInWithGoogleScopes(
+    GOOGLE_DRIVE_OAUTH_SCOPES,
+    currentSession?.tokens.refreshToken ?? null
+  )
+}
+
+export function googleTokensIncludeScope(tokens: GoogleAuthTokens, scope: string): boolean {
+  return tokens.scope.split(/\s+/).includes(scope)
+}
+
+function googleTokensIncludeDriveAccess(tokens: GoogleAuthTokens): boolean {
+  return (
+    googleTokensIncludeScope(tokens, GOOGLE_DRIVE_SCOPE) ||
+    googleTokensIncludeScope(tokens, GOOGLE_FULL_DRIVE_SCOPE)
+  )
+}
+
+async function signInWithGoogleScopes(
+  scopes: string[],
+  fallbackRefreshToken: string | null
+): Promise<AuthSession> {
   const state = createOAuthState()
   const authorizationServer = await createGoogleAuthorizationServer({ expectedState: state })
   const { authorizationUrl, codeVerifier } = await createGoogleAuthorizationUrl({
     redirectUri: authorizationServer.redirectUri,
+    scopes,
     state
   })
 
@@ -38,6 +76,8 @@ export async function signInWithGoogle(): Promise<AuthSession> {
     const tokens = await exchangeAuthorizationCode({
       code: authorizationCode.code,
       codeVerifier,
+      fallbackRefreshToken,
+      scopes,
       redirectUri: authorizationCode.redirectUri
     })
     const profile = await fetchGoogleUserProfile(tokens)
