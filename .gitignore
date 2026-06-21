@@ -15,4 +15,6 @@ out
 .chunkshare-backups/
 localState.json
 localState.test.json
+cloudStorageSettings.json
+cloudStorageSettings.test.json
 .aider*

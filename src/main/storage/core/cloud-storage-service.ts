@@ -4,6 +4,8 @@ import {
   type CloudStorageSettings,
   type GoogleDriveFolderConfig
 } from '../../../shared/cloud-storage.model'
+import { AuthError } from '../../auth/auth-error'
+import { AuthErrorCode } from '../../auth/auth-model'
 import { GoogleDriveError } from '../../cloud-storage/google-drive-error'
 import {
   createOrReuseDefaultGoogleDriveFolder,
@@ -62,7 +64,7 @@ async function saveValidatedGoogleDriveFolder(
       ...settings,
       activeProvider: CloudStorageProvider.Local,
       googleDrive: {
-        status: GoogleDriveSetupStatus.Blocked,
+        status: getCloudStorageErrorStatus(error),
         folder: settings.googleDrive.folder,
         errorMessage: getCloudStorageErrorMessage(error)
       }
@@ -78,6 +80,14 @@ async function writeAndReturnCloudStorageSettings(
   return settings
 }
 
+function getCloudStorageErrorStatus(error: unknown): GoogleDriveSetupStatus {
+  if (isGoogleDriveAuthError(error)) {
+    return GoogleDriveSetupStatus.NeedsAuth
+  }
+
+  return GoogleDriveSetupStatus.Blocked
+}
+
 function getCloudStorageErrorMessage(error: unknown): string {
   if (error instanceof GoogleDriveError) {
     return error.message
@@ -88,4 +98,19 @@ function getCloudStorageErrorMessage(error: unknown): string {
   }
 
   return 'Unable to configure Google Drive storage.'
+}
+
+function isGoogleDriveAuthError(error: unknown): boolean {
+  if (!(error instanceof AuthError)) {
+    return false
+  }
+
+  return (
+    error.code === AuthErrorCode.Cancelled ||
+    error.code === AuthErrorCode.ExpiredSession ||
+    error.code === AuthErrorCode.InvalidCallback ||
+    error.code === AuthErrorCode.InvalidStoredSession ||
+    error.code === AuthErrorCode.MissingRefreshToken ||
+    error.code === AuthErrorCode.TimedOut
+  )
 }
