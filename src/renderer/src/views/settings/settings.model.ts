@@ -6,7 +6,11 @@ export interface GoogleDriveStatusView {
   tone: BadgeTone
 }
 
-export type GoogleDriveSettingsAction = 'load' | 'setup-default-folder' | 'validate-folder'
+export type GoogleDriveSettingsAction =
+  | 'clear-folder'
+  | 'load'
+  | 'setup-default-folder'
+  | 'validate-folder'
 
 export type GoogleDriveSettingsActionState = GoogleDriveSettingsAction | null
 

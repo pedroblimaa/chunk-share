@@ -1,4 +1,5 @@
 import type { IncomingMessage, Server, ServerResponse } from 'http'
+import type { Socket } from 'net'
 import type { Player } from '../../shared/domain'
 
 export enum AuthErrorCode {
@@ -90,6 +91,11 @@ export interface GoogleAuthorizationServer {
   close: () => Promise<void>
 }
 
+export interface GoogleCallbackServer {
+  server: Server
+  sockets: Set<Socket>
+}
+
 export type GoogleCallbackResult =
   | {
       type: 'ignored'
@@ -109,7 +115,7 @@ export type GoogleCallbackResult =
 export type GoogleCallbackFailureReason = 'cancelled' | 'invalid-state' | 'missing-code'
 
 export interface GoogleCallbackRequestHandlerInput {
-  callbackServer: Server
+  callbackServer: GoogleCallbackServer
   expectedState: string
   reject: (error: Error) => void
   request: IncomingMessage

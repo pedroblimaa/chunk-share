@@ -8,6 +8,7 @@ export function useCloudStorageSettings(): {
   googleDriveAction: GoogleDriveSettingsActionState
   googleDriveErrorMessage: string | null
   googleDriveIsBusy: boolean
+  clearGoogleDriveFolder: () => void
   setupDefaultGoogleDriveFolder: () => void
   validateGoogleDriveFolder: () => void
 } {
@@ -78,8 +79,15 @@ export function useCloudStorageSettings(): {
     )
   }
 
+  const clearGoogleDriveFolder = (): void => {
+    void runGoogleDriveAction('clear-folder', () =>
+      window.chunkShare.storage.clearGoogleDriveFolder()
+    )
+  }
+
   return {
     cloudStorageSettings,
+    clearGoogleDriveFolder,
     googleDriveAction,
     googleDriveErrorMessage,
     googleDriveIsBusy,

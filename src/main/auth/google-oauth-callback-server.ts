@@ -1,8 +1,10 @@
 import { createServer, type Server, type ServerResponse } from 'http'
+import type { Socket } from 'net'
 import checkIconSvg from './callback-page/oauth-callback-check.svg?raw'
 import errorIconSvg from './callback-page/oauth-callback-error.svg?raw'
 import callbackPageHtmlTemplate from './callback-page/oauth-callback-page.html?raw'
 import {
+  GOOGLE_CALLBACK_CLOSE_TIMEOUT_MS,
   GOOGLE_CALLBACK_ERROR_CODES,
   GOOGLE_CALLBACK_FAILURES,
   GOOGLE_CALLBACK_PATH,
@@ -12,6 +14,7 @@ import {
 import { AuthError } from './auth-error'
 import {
   AuthErrorCode,
+  type GoogleCallbackServer,
   type GoogleAuthorizationCodeResult,
   type GoogleAuthorizationServer,
   type GoogleAuthorizationServerInput,
@@ -24,7 +27,7 @@ export async function createGoogleAuthorizationServer({
 }: GoogleAuthorizationServerInput): Promise<GoogleAuthorizationServer> {
   const { callbackServer, waitForCode } = createCallbackServer(expectedState)
 
-  await startCallbackServer(callbackServer)
+  await startCallbackServer(callbackServer.server)
 
   return {
     redirectUri: getRedirectUri(callbackServer),
@@ -34,15 +37,15 @@ export async function createGoogleAuthorizationServer({
 }
 
 function createCallbackServer(expectedState: string): {
-  callbackServer: Server
+  callbackServer: GoogleCallbackServer
   waitForCode: Promise<GoogleAuthorizationCodeResult>
 } {
-  let callbackServer: Server
+  let callbackServer: GoogleCallbackServer
 
   const waitForCode = new Promise<GoogleAuthorizationCodeResult>((resolve, reject) => {
     const timeout = createCallbackTimeout(reject)
 
-    callbackServer = createServer((request, response) => {
+    const server = createServer((request, response) => {
       handleGoogleCallbackRequest({
         callbackServer,
         expectedState,
@@ -53,6 +56,17 @@ function createCallbackServer(expectedState: string): {
         timeout
       })
     })
+    const sockets = new Set<Socket>()
+
+    server.on('connection', (socket) => {
+      sockets.add(socket)
+      socket.once('close', () => sockets.delete(socket))
+    })
+
+    callbackServer = {
+      server,
+      sockets
+    }
   })
 
   return {
@@ -68,9 +82,16 @@ function startCallbackServer(callbackServer: Server): Promise<void> {
   })
 }
 
-function closeCallbackServer(callbackServer: Server): Promise<void> {
+function closeCallbackServer(callbackServer: GoogleCallbackServer): Promise<void> {
   return new Promise((resolve, reject) => {
-    callbackServer.close((error) => {
+    const closeTimeout = setTimeout(() => {
+      destroyCallbackServerSockets(callbackServer)
+      resolve()
+    }, GOOGLE_CALLBACK_CLOSE_TIMEOUT_MS)
+    closeTimeout.unref()
+
+    callbackServer.server.close((error) => {
+      clearTimeout(closeTimeout)
       if (error) {
         reject(error)
         return
@@ -87,8 +108,13 @@ function createCallbackTimeout(reject: (error: Error) => void): NodeJS.Timeout {
   }, GOOGLE_CALLBACK_TIMEOUT_MS)
 }
 
-function getRedirectUri(callbackServer: Server): string {
-  const address = callbackServer.address()
+function destroyCallbackServerSockets(callbackServer: GoogleCallbackServer): void {
+  callbackServer.sockets.forEach((socket) => socket.destroy())
+  callbackServer.sockets.clear()
+}
+
+function getRedirectUri(callbackServer: GoogleCallbackServer): string {
+  const address = callbackServer.server.address()
 
   if (!address || typeof address === 'string') {
     throw new AuthError(
@@ -130,7 +156,8 @@ function handleGoogleCallbackRequest(input: GoogleCallbackRequestHandlerInput): 
 }
 
 function respondNotFound(response: ServerResponse): void {
-  response.writeHead(404)
+  response.shouldKeepAlive = false
+  response.writeHead(404, { Connection: 'close' })
   response.end()
 }
 
@@ -139,7 +166,11 @@ function respondWithCallbackPage(
   pageTitle: string,
   pageMessage: string
 ): void {
-  response.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' })
+  response.shouldKeepAlive = false
+  response.writeHead(200, {
+    Connection: 'close',
+    'Content-Type': 'text/html; charset=utf-8'
+  })
   response.end(createCallbackPage(pageTitle, pageMessage))
 }
 

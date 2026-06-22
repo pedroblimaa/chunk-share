@@ -7,6 +7,7 @@ export interface StorageModeSettingsCardProps {
   googleDriveErrorMessage: string | null
   googleDriveIsBusy: boolean
   googleDriveStatusViewMap: GoogleDriveStatusViewMap
+  onClearGoogleDriveFolder: () => void
   onSetupDefaultGoogleDriveFolder: () => void
   onValidateGoogleDriveFolder: () => void
 }

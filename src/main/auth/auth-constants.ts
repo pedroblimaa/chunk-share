@@ -10,6 +10,7 @@ export const GOOGLE_AUTH_PROMPT = 'consent'
 export const GOOGLE_USER_INFO_ENDPOINT = 'https://openidconnect.googleapis.com/v1/userinfo'
 export const GOOGLE_AUTH_TOKENS_FILE_NAME = 'google-auth-tokens.json'
 export const GOOGLE_CALLBACK_TIMEOUT_MS = 120_000
+export const GOOGLE_CALLBACK_CLOSE_TIMEOUT_MS = 1_000
 export const TOKEN_REFRESH_WINDOW_MS = 60_000
 export const GOOGLE_CALLBACK_PATH = '/oauth/google/callback'
 export const GOOGLE_CALLBACK_SUCCESS_PAGE = {

@@ -22,6 +22,7 @@ function StorageModeSettingsCard({
   googleDriveErrorMessage,
   googleDriveIsBusy,
   googleDriveStatusViewMap,
+  onClearGoogleDriveFolder,
   onSetupDefaultGoogleDriveFolder,
   onValidateGoogleDriveFolder
 }: StorageModeSettingsCardProps): React.JSX.Element {
@@ -31,6 +32,9 @@ function StorageModeSettingsCard({
   const googleDriveStatusView = googleDriveStatusViewMap[googleDriveStatus]
   const localTabIsSelected = selectedTab === 'local'
   const googleDriveTabIsSelected = selectedTab === 'google-drive'
+  const googleDriveCanBeCleared = Boolean(
+    googleDriveState?.folder || googleDriveState?.errorMessage || googleDriveErrorMessage
+  )
 
   return (
     <Card as="article" className="settings-storage-card">
@@ -118,24 +122,44 @@ function StorageModeSettingsCard({
               {getGoogleDriveActionLabel(
                 googleDriveAction,
                 'setup-default-folder',
-                'Create or reuse ChunkShare folder'
+                'Set up Drive folder'
               )}
             </Button>
 
-            {googleDriveState?.folder ? (
-              <Button
-                fullWidth
-                disabled={googleDriveIsBusy}
-                icon="sync"
-                variant="secondary"
-                onClick={onValidateGoogleDriveFolder}
-              >
-                {getGoogleDriveActionLabel(
-                  googleDriveAction,
-                  'validate-folder',
-                  'Validate folder access'
-                )}
-              </Button>
+            {googleDriveState?.folder || googleDriveCanBeCleared ? (
+              <div className="settings-drive-secondary-actions">
+                {googleDriveState?.folder ? (
+                  <Button
+                    fullWidth
+                    disabled={googleDriveIsBusy}
+                    icon="sync"
+                    variant="secondary"
+                    onClick={onValidateGoogleDriveFolder}
+                  >
+                    {getGoogleDriveActionLabel(
+                      googleDriveAction,
+                      'validate-folder',
+                      'Validate folder access'
+                    )}
+                  </Button>
+                ) : null}
+
+                {googleDriveCanBeCleared ? (
+                  <Button
+                    fullWidth
+                    disabled={googleDriveIsBusy}
+                    icon="link_off"
+                    variant="ghost"
+                    onClick={onClearGoogleDriveFolder}
+                  >
+                    {getGoogleDriveActionLabel(
+                      googleDriveAction,
+                      'clear-folder',
+                      'Forget cloud folder'
+                    )}
+                  </Button>
+                ) : null}
+              </div>
             ) : null}
           </div>
         </>

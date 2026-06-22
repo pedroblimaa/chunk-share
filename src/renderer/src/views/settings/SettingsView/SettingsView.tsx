@@ -116,6 +116,7 @@ function SettingsView({
               googleDriveErrorMessage={cloudStorageSettingsState.googleDriveErrorMessage}
               googleDriveIsBusy={cloudStorageSettingsState.googleDriveIsBusy}
               googleDriveStatusViewMap={GOOGLE_DRIVE_STATUS_VIEW}
+              onClearGoogleDriveFolder={cloudStorageSettingsState.clearGoogleDriveFolder}
               onSetupDefaultGoogleDriveFolder={
                 cloudStorageSettingsState.setupDefaultGoogleDriveFolder
               }

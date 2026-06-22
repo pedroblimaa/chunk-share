@@ -1,5 +1,6 @@
 import { ipcMain } from 'electron'
 import {
+  STORAGE_CLEAR_GOOGLE_DRIVE_FOLDER_CHANNEL,
   STORAGE_CLOUD_SETTINGS_CHANNEL,
   STORAGE_DELETE_SERVER_CHANNEL,
   STORAGE_RESET_SERVER_LOCK_CHANNEL,
@@ -9,6 +10,7 @@ import {
   STORAGE_VALIDATE_GOOGLE_DRIVE_FOLDER_CHANNEL
 } from '../../shared/ipc-channels'
 import {
+  clearGoogleDriveFolder,
   getCloudStorageSettings,
   setupGoogleDriveFolder,
   validateGoogleDriveFolder
@@ -30,6 +32,8 @@ export function registerStorageIpcHandlers(): void {
   ipcMain.handle(STORAGE_SETUP_GOOGLE_DRIVE_FOLDER_CHANNEL, () => setupGoogleDriveFolder())
 
   ipcMain.handle(STORAGE_VALIDATE_GOOGLE_DRIVE_FOLDER_CHANNEL, () => validateGoogleDriveFolder())
+
+  ipcMain.handle(STORAGE_CLEAR_GOOGLE_DRIVE_FOLDER_CHANNEL, () => clearGoogleDriveFolder())
 
   ipcMain.handle(STORAGE_DELETE_SERVER_CHANNEL, () => deleteConfiguredServer())
 

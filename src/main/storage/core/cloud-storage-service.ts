@@ -42,6 +42,20 @@ export async function validateGoogleDriveFolder(): Promise<CloudStorageSettings>
   return saveValidatedGoogleDriveFolder(() => validateGoogleDriveFolderAccess(folderId))
 }
 
+export async function clearGoogleDriveFolder(): Promise<CloudStorageSettings> {
+  const settings = await readCloudStorageSettings()
+
+  return writeAndReturnCloudStorageSettings({
+    ...settings,
+    activeProvider: CloudStorageProvider.Local,
+    googleDrive: {
+      status: GoogleDriveSetupStatus.NotConfigured,
+      folder: null,
+      errorMessage: null
+    }
+  })
+}
+
 async function saveValidatedGoogleDriveFolder(
   loadFolderConfig: () => Promise<GoogleDriveFolderConfig>
 ): Promise<CloudStorageSettings> {

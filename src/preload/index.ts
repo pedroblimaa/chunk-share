@@ -14,6 +14,7 @@ import {
   SERVER_SETUP_LIST_VANILLA_VERSIONS_CHANNEL,
   SERVER_SETUP_PROGRESS_CHANNEL,
   SERVER_SETUP_SETUP_VANILLA_SERVER_CHANNEL,
+  STORAGE_CLEAR_GOOGLE_DRIVE_FOLDER_CHANNEL,
   STORAGE_CLOUD_SETTINGS_CHANNEL,
   STORAGE_DELETE_SERVER_CHANNEL,
   STORAGE_RESET_SERVER_LOCK_CHANNEL,
@@ -62,6 +63,8 @@ const chunkShareApi = {
       ipcRenderer.invoke(STORAGE_SETUP_GOOGLE_DRIVE_FOLDER_CHANNEL),
     validateGoogleDriveFolder: (): Promise<CloudStorageSettings> =>
       ipcRenderer.invoke(STORAGE_VALIDATE_GOOGLE_DRIVE_FOLDER_CHANNEL),
+    clearGoogleDriveFolder: (): Promise<CloudStorageSettings> =>
+      ipcRenderer.invoke(STORAGE_CLEAR_GOOGLE_DRIVE_FOLDER_CHANNEL),
     deleteServer: (): Promise<ServerStorageSnapshot> =>
       ipcRenderer.invoke(STORAGE_DELETE_SERVER_CHANNEL),
     resetServerLock: (): Promise<ServerStorageSnapshot> =>
