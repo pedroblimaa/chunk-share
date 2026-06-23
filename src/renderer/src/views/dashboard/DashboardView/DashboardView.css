@@ -30,90 +30,6 @@
   grid-template-columns: minmax(0, 1.45fr) minmax(320px, 1fr);
 }
 
-.dashboard-runtime-error,
-.dashboard-runtime-addresses {
-  align-items: center;
-  border-radius: 6px;
-  display: flex;
-  gap: 10px;
-  padding: 12px 14px;
-}
-
-.dashboard-runtime-error {
-  background: var(--color-surface-panel);
-  border: 1px solid rgba(255, 111, 111, 0.34);
-  color: #ffb4b4;
-}
-
-.dashboard-runtime-addresses {
-  background: var(--color-surface-panel);
-  border: 1px solid var(--color-border-subtle);
-  color: var(--color-text-secondary);
-}
-
-.dashboard-runtime-error span,
-.dashboard-runtime-addresses span {
-  flex: 1;
-  overflow-wrap: anywhere;
-}
-
-.dashboard-runtime-error-copy,
-.dashboard-runtime-copy-button {
-  align-items: center;
-  background: transparent;
-  border: 1px solid var(--color-border-subtle);
-  border-radius: 6px;
-  color: currentColor;
-  cursor: pointer;
-  display: inline-flex;
-  flex: 0 0 auto;
-  height: 32px;
-  justify-content: center;
-  transition:
-    background-color 140ms ease,
-    border-color 140ms ease,
-    transform 140ms ease;
-  width: 32px;
-}
-
-.dashboard-runtime-error-copy {
-  background: rgba(255, 111, 111, 0.08);
-  border-color: rgba(255, 111, 111, 0.28);
-}
-
-.dashboard-runtime-error-copy:hover,
-.dashboard-runtime-error-copy:focus-visible,
-.dashboard-runtime-error-copy.is-copied,
-.dashboard-runtime-copy-button:hover,
-.dashboard-runtime-copy-button:focus-visible,
-.dashboard-runtime-copy-button.is-copied {
-  background: rgba(255, 111, 111, 0.16);
-  border-color: rgba(255, 111, 111, 0.52);
-  outline: 0;
-}
-
-.dashboard-runtime-copy-button:hover,
-.dashboard-runtime-copy-button:focus-visible,
-.dashboard-runtime-copy-button.is-copied {
-  background: var(--color-accent-glow);
-  border-color: var(--color-border-accent);
-}
-
-.dashboard-runtime-error-copy:active,
-.dashboard-runtime-copy-button:active {
-  transform: scale(0.92);
-}
-
-.dashboard-runtime-error-copy.is-copied,
-.dashboard-runtime-copy-button.is-copied {
-  animation: dashboard-copy-button-pop 320ms ease-out;
-}
-
-.dashboard-runtime-error-copy.is-failed,
-.dashboard-runtime-copy-button.is-failed {
-  animation: dashboard-copy-button-shake 260ms ease-out;
-}
-
 .dashboard-side-stats {
   display: flex;
   flex-direction: column;
@@ -188,34 +104,5 @@
 
   100% {
     transform: translateY(0);
-  }
-}
-
-@keyframes dashboard-copy-button-pop {
-  0% {
-    transform: scale(0.92);
-  }
-
-  55% {
-    transform: scale(1.1);
-  }
-
-  100% {
-    transform: scale(1);
-  }
-}
-
-@keyframes dashboard-copy-button-shake {
-  0%,
-  100% {
-    transform: translateX(0);
-  }
-
-  35% {
-    transform: translateX(-2px);
-  }
-
-  70% {
-    transform: translateX(2px);
   }
 }

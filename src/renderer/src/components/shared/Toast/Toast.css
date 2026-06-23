@@ -1,0 +1,109 @@
+.toast {
+  align-items: start;
+  animation: toast-enter 180ms ease-out both;
+  background: rgba(28, 28, 28, 0.98);
+  border: 1px solid var(--color-border-panel);
+  border-radius: 8px;
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.42);
+  color: var(--color-text-primary);
+  display: grid;
+  gap: 12px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  max-width: min(440px, calc(100vw - 32px));
+  padding: 14px;
+  position: fixed;
+  right: 24px;
+  top: 96px;
+  width: 440px;
+  z-index: 30;
+}
+
+.toast-icon {
+  align-items: center;
+  border-radius: 6px;
+  display: flex;
+  height: 38px;
+  justify-content: center;
+  width: 38px;
+}
+
+.toast-error {
+  border-color: rgba(255, 111, 111, 0.4);
+}
+
+.toast-error .toast-icon {
+  background: rgba(255, 111, 111, 0.12);
+  color: #ff9c9c;
+}
+
+.toast-warning {
+  border-color: rgba(255, 204, 102, 0.38);
+}
+
+.toast-warning .toast-icon {
+  background: rgba(255, 204, 102, 0.12);
+  color: #ffd27d;
+}
+
+.toast-success {
+  border-color: var(--color-border-accent-muted);
+}
+
+.toast-success .toast-icon {
+  background: var(--color-accent-glow);
+  color: var(--color-accent);
+}
+
+.toast-info .toast-icon {
+  background: rgba(120, 180, 255, 0.12);
+  color: #9cc6ff;
+}
+
+.toast-copy {
+  min-width: 0;
+}
+
+.toast-copy strong {
+  color: var(--color-text-primary);
+  display: block;
+  font-size: var(--font-size-action);
+  font-weight: var(--font-weight-bold);
+  line-height: 1.25;
+}
+
+.toast-copy p {
+  color: var(--color-text-secondary);
+  line-height: var(--line-height-copy);
+  margin-top: 4px;
+  overflow-wrap: anywhere;
+}
+
+.toast-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.toast-actions .chunk-button-square {
+  height: 32px;
+  width: 32px;
+}
+
+@media (max-width: 720px) {
+  .toast {
+    right: 16px;
+    top: 84px;
+    width: calc(100vw - 32px);
+  }
+}
+
+@keyframes toast-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}

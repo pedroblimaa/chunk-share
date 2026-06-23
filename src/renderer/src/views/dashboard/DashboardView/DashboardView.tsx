@@ -10,7 +10,7 @@ import {
 import { ServerSyncStatus } from '../../../../../shared/server-sync'
 import AppSidebar from '../../../components/shared/AppSidebar/AppSidebar'
 import Card from '../../../components/shared/Card/Card'
-import MaterialIcon from '../../../components/shared/MaterialIcon/MaterialIcon'
+import Toast from '../../../components/shared/Toast/Toast'
 import { getErrorMessage } from '../../../utils/error-message'
 import {
   applyRuntimeSnapshotToServerDisplayState,
@@ -306,6 +306,11 @@ function DashboardView({
     setConnectionDetailsOpen(false)
   }
 
+  function closeRuntimeErrorToast(): void {
+    setRuntimeErrorMessage(null)
+    setErrorCopyStatus('idle')
+  }
+
   function handleHeaderServerAction(): void {
     if (serverIsJoinable) {
       setConnectionDetailsOpen(true)
@@ -341,7 +346,6 @@ function DashboardView({
     .join(', ')
 
   const errorCopyButtonLabel = COPY_STATUS_LABELS[errorCopyStatus]
-  const errorCopyButtonStateClass = errorCopyStatus === 'idle' ? '' : ` is-${errorCopyStatus}`
   const addressCopyButtonLabel = COPY_STATUS_LABELS[addressCopyStatus]
   const addressCopyButtonStateClass = addressCopyStatus === 'idle' ? '' : ` is-${addressCopyStatus}`
   const latestSaveLabel = formatLatestSaveLabel(dashboardSnapshot.syncStatus.latestSave)
@@ -378,20 +382,20 @@ function DashboardView({
         />
 
         <main className="dashboard-content">
-          {runtimeErrorMessage && (
-            <div className="dashboard-runtime-error" role="alert">
-              <MaterialIcon name="error" />
-              <span>{runtimeErrorMessage}</span>
-              <button
-                aria-label={errorCopyButtonLabel}
-                className={`dashboard-runtime-error-copy${errorCopyButtonStateClass}`}
-                type="button"
-                onClick={copyRuntimeError}
-              >
-                <MaterialIcon name={COPY_STATUS_ICONS[errorCopyStatus]} />
-              </button>
-            </div>
-          )}
+          {runtimeErrorMessage ? (
+            <Toast
+              action={{
+                icon: COPY_STATUS_ICONS[errorCopyStatus],
+                label: errorCopyButtonLabel,
+                onClick: copyRuntimeError
+              }}
+              icon="error"
+              message={runtimeErrorMessage}
+              title="Server action failed"
+              tone="error"
+              onClose={closeRuntimeErrorToast}
+            />
+          ) : null}
 
           <ServerHeader
             name={dashboardSnapshot.serverName}
