@@ -8,8 +8,13 @@ out
 .env.local
 .env.*.local
 *.log*
-.mock-cloud/
-.mock-cloud-test/
+.storage/
+.storage-test/
+.server/
+.server-test/
+.backups/
+.chunkshare-storage/
+.chunkshare-storage-test/
 .chunkshare-server/
 .chunkshare-server-test/
 .chunkshare-backups/

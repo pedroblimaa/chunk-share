@@ -1,6 +1,6 @@
 import { ServerLockStatus } from '../../shared/domain'
 import type { ServerRuntimeLogLine, ServerRuntimeStatus } from '../../shared/server-runtime'
-import { readServerLock, writeServerLock } from '../storage/persistence/local-mock-cloud-storage'
+import { getActiveStorageAdapter } from '../storage/adapters/storage-adapter-service'
 
 type RuntimeLogTone = ServerRuntimeLogLine['tone']
 
@@ -45,7 +45,8 @@ async function updateHostingHeartbeat({
   }
 
   try {
-    const serverLock = await readServerLock()
+    const storageAdapter = await getActiveStorageAdapter()
+    const serverLock = await storageAdapter.readServerLock()
 
     if (serverLock.status !== ServerLockStatus.Locked || serverLock.sessionId !== sessionId) {
       stopHeartbeat()
@@ -53,7 +54,7 @@ async function updateHostingHeartbeat({
       return
     }
 
-    await writeServerLock({
+    await storageAdapter.writeServerLock({
       ...serverLock,
       lastHeartbeat: new Date().toISOString()
     })

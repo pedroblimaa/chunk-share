@@ -1,84 +1,54 @@
 import { createWriteStream } from 'fs'
-import { mkdir, readdir, rm, stat } from 'fs/promises'
-import { join } from 'path'
+import { mkdir, rm, stat } from 'fs/promises'
+import { basename, dirname, join } from 'path'
 import { ZipArchive } from 'archiver'
 import type { LatestSave, LocalState, Player } from '../../../shared/domain'
+import { getActiveStorageAdapter } from '../adapters/storage-adapter-service'
+import type { ServerSaveVersionFile, StorageAdapter } from '../adapters/storage-adapter.model'
 import { renameWithRetry } from '../core/file-system-utils'
-import { readLatestSave, writeLatestSave } from '../persistence/local-mock-cloud-storage'
 import { readLocalState, saveLocalSaveVersion } from '../persistence/local-state-store'
 import { StorageError } from '../core/storage-error'
-import { localServerFolderPath, mockCloudVersionsFolderPath } from '../core/storage-paths'
+import { localServerFolderPath } from '../core/storage-paths'
 
 const MAX_RETAINED_SAVE_VERSIONS = 3
-const SERVER_SAVE_FILE_PATTERN = /^server-v(\d+)\.zip$/
 
 export interface PublishServerSaveResult {
   latestSave: NonNullable<LatestSave>
   cleanupError: Error | null
 }
 
-interface ServerSaveVersionFile {
-  fileName: string
-  saveVersion: number
-}
-
 export async function publishServerSave(): Promise<PublishServerSaveResult> {
-  const latestSave = await readLatestSave()
-  const existingVersionFiles = await listServerSaveVersionFiles()
+  const storageAdapter = await getActiveStorageAdapter()
+  const latestSave = await storageAdapter.readLatestSave()
+  const existingVersionFiles = await storageAdapter.listServerSaveVersions()
   const nextSaveVersion = getNextSaveVersion(latestSave, existingVersionFiles)
   const localState = await readLocalState()
   const serverFolderPath = localServerFolderPath
   const fileName = createServerSaveFileName(nextSaveVersion)
-  const zipFilePath = join(mockCloudVersionsFolderPath, fileName)
+  const zipFilePath = getTempServerSaveZipPath(fileName)
 
   await assertServerFolderExists(serverFolderPath)
-  await zipFolder(serverFolderPath, zipFilePath)
 
-  const nextLatestSave = {
-    saveVersion: nextSaveVersion,
-    fileName,
-    uploadedAt: new Date().toISOString(),
-    uploadedBy: getUploadedBy(localState),
-    minecraftVersion: localState.serverConfig.minecraftVersion,
-    serverType: localState.serverConfig.serverType
-  }
-
-  await saveLocalSaveVersion(nextLatestSave.saveVersion)
-  await writeLatestSave(nextLatestSave)
-  const cleanupError = await pruneOldServerSaveVersions(nextSaveVersion)
-
-  return { latestSave: nextLatestSave, cleanupError }
-}
-
-async function listServerSaveVersionFiles(): Promise<ServerSaveVersionFile[]> {
   try {
-    await mkdir(mockCloudVersionsFolderPath, { recursive: true })
-    const entries = await readdir(mockCloudVersionsFolderPath, { withFileTypes: true })
+    await zipFolder(serverFolderPath, zipFilePath)
+    await storageAdapter.uploadServerSaveVersion(fileName, zipFilePath)
 
-    return entries
-      .filter((entry) => entry.isFile())
-      .map((entry) => parseServerSaveVersionFile(entry.name))
-      .filter((entry): entry is ServerSaveVersionFile => entry !== null)
-      .sort((a, b) => a.saveVersion - b.saveVersion)
-  } catch (error) {
-    if (isMissingFileError(error)) {
-      return []
+    const nextLatestSave = {
+      saveVersion: nextSaveVersion,
+      fileName,
+      uploadedAt: new Date().toISOString(),
+      uploadedBy: getUploadedBy(localState),
+      minecraftVersion: localState.serverConfig.minecraftVersion,
+      serverType: localState.serverConfig.serverType
     }
 
-    throw error
-  }
-}
+    await saveLocalSaveVersion(nextLatestSave.saveVersion)
+    await storageAdapter.writeLatestSave(nextLatestSave)
+    const cleanupError = await pruneOldServerSaveVersions(storageAdapter, nextSaveVersion)
 
-function parseServerSaveVersionFile(fileName: string): ServerSaveVersionFile | null {
-  const match = fileName.match(SERVER_SAVE_FILE_PATTERN)
-
-  if (!match) {
-    return null
-  }
-
-  return {
-    fileName,
-    saveVersion: Number(match[1])
+    return { latestSave: nextLatestSave, cleanupError }
+  } finally {
+    await rm(zipFilePath, { force: true })
   }
 }
 
@@ -96,15 +66,18 @@ function createServerSaveFileName(saveVersion: number): string {
   return `server-v${saveVersion.toString().padStart(3, '0')}.zip`
 }
 
-async function pruneOldServerSaveVersions(latestSaveVersion: number): Promise<Error | null> {
+async function pruneOldServerSaveVersions(
+  storageAdapter: StorageAdapter,
+  latestSaveVersion: number
+): Promise<Error | null> {
   try {
     const lastVersionToPrune = latestSaveVersion - MAX_RETAINED_SAVE_VERSIONS
-    const versionsToDelete = (await listServerSaveVersionFiles()).filter(
+    const versionsToDelete = (await storageAdapter.listServerSaveVersions()).filter(
       (versionFile) => versionFile.saveVersion <= lastVersionToPrune
     )
 
     for (const versionFile of versionsToDelete) {
-      await rm(join(mockCloudVersionsFolderPath, versionFile.fileName), { force: true })
+      await storageAdapter.deleteServerSaveVersion(versionFile.fileName)
     }
 
     return null
@@ -132,7 +105,7 @@ async function assertServerFolderExists(serverFolderPath: string): Promise<void>
 }
 
 async function zipFolder(sourceFolderPath: string, destinationFilePath: string): Promise<void> {
-  await mkdir(mockCloudVersionsFolderPath, { recursive: true })
+  await mkdir(dirname(destinationFilePath), { recursive: true })
 
   const tempFilePath = `${destinationFilePath}.${process.pid}.tmp`
   const zipFile = new ZipArchive({ zlib: { level: 6 } })
@@ -156,6 +129,13 @@ async function zipFolder(sourceFolderPath: string, destinationFilePath: string):
     await rm(tempFilePath, { force: true })
     throw error
   }
+}
+
+function getTempServerSaveZipPath(fileName: string): string {
+  return join(
+    dirname(localServerFolderPath),
+    `${basename(fileName, '.zip')}.${process.pid}.${Date.now()}.tmp.zip`
+  )
 }
 
 function getUploadedBy(localState: LocalState): Player {

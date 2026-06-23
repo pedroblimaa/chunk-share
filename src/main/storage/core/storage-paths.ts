@@ -1,18 +1,17 @@
 import { join } from 'path'
 
 const PROJECT_ROOT = process.cwd()
-const MOCK_CLOUD_FOLDER_NAME = process.env.CHUNK_SHARE_MOCK_CLOUD_FOLDER ?? '.mock-cloud'
-const SERVER_FOLDER_NAME = process.env.CHUNK_SHARE_SERVER_FOLDER ?? '.chunkshare-server'
-const SERVER_BACKUPS_FOLDER_NAME =
-  process.env.CHUNK_SHARE_SERVER_BACKUPS_FOLDER ?? '.chunkshare-backups'
+const LOCAL_STORAGE_FOLDER_NAME = process.env.CHUNK_SHARE_LOCAL_STORAGE_FOLDER ?? '.storage'
+const SERVER_FOLDER_NAME = process.env.CHUNK_SHARE_SERVER_FOLDER ?? '.server'
+const SERVER_BACKUPS_FOLDER_NAME = process.env.CHUNK_SHARE_SERVER_BACKUPS_FOLDER ?? '.backups'
 const LOCAL_STATE_FILE_NAME = process.env.CHUNK_SHARE_LOCAL_STATE_FILE ?? 'localState.json'
 const CLOUD_STORAGE_SETTINGS_FILE_NAME =
   process.env.CHUNK_SHARE_CLOUD_STORAGE_SETTINGS_FILE ?? 'cloudStorageSettings.json'
 
-export const mockCloudFolderPath = join(PROJECT_ROOT, MOCK_CLOUD_FOLDER_NAME)
-export const mockCloudVersionsFolderPath = join(mockCloudFolderPath, 'versions')
-export const latestSaveFilePath = join(mockCloudFolderPath, 'latest.json')
-export const serverLockFilePath = join(mockCloudFolderPath, 'lock.json')
+export const localStorageFolderPath = join(PROJECT_ROOT, LOCAL_STORAGE_FOLDER_NAME)
+export const localStorageVersionsFolderPath = join(localStorageFolderPath, 'versions')
+export const latestSaveFilePath = join(localStorageFolderPath, 'latest.json')
+export const serverLockFilePath = join(localStorageFolderPath, 'lock.json')
 export const localServerFolderPath = join(PROJECT_ROOT, SERVER_FOLDER_NAME)
 export const localServerBackupsFolderPath = join(PROJECT_ROOT, SERVER_BACKUPS_FOLDER_NAME)
 export const localServerJarFilePath = join(localServerFolderPath, 'server.jar')

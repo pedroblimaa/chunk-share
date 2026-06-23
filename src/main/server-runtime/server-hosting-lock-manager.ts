@@ -7,7 +7,7 @@ import {
   type ServerStorageSnapshot
 } from '../../shared/domain'
 import { STALE_LOCK_THRESHOLD_MS } from '../../shared/server-sync'
-import { readServerLock, writeServerLock } from '../storage/persistence/local-mock-cloud-storage'
+import { getActiveStorageAdapter } from '../storage/adapters/storage-adapter-service'
 import { saveActiveSessionId } from '../storage/persistence/local-state-store'
 import { ServerRuntimeError } from './server-runtime-error'
 
@@ -27,9 +27,10 @@ export async function createHostingLock(
   const now = new Date().toISOString()
   const saveVersion =
     storageSnapshot.latestSave?.saveVersion ?? storageSnapshot.localState.localSaveVersion ?? 0
+  const storageAdapter = await getActiveStorageAdapter()
 
   try {
-    await writeServerLock({
+    await storageAdapter.writeServerLock({
       status: ServerLockStatus.Locked,
       lockedBy: getHostingPlayer(storageSnapshot),
       sessionId,
@@ -41,9 +42,11 @@ export async function createHostingLock(
     })
     await saveActiveSessionId(sessionId)
   } catch (error) {
-    await writeServerLock({
-      status: ServerLockStatus.Unlocked
-    }).catch(() => undefined)
+    await storageAdapter
+      .writeServerLock({
+        status: ServerLockStatus.Unlocked
+      })
+      .catch(() => undefined)
 
     throw error
   }
@@ -70,13 +73,14 @@ export async function updateHostingLockSaveVersion(
   sessionId: string,
   saveVersion: number
 ): Promise<void> {
-  const serverLock = await readServerLock()
+  const storageAdapter = await getActiveStorageAdapter()
+  const serverLock = await storageAdapter.readServerLock()
 
   if (serverLock.status !== ServerLockStatus.Locked || serverLock.sessionId !== sessionId) {
     throw new ServerRuntimeError('Cannot update hosting save version because the lock changed.')
   }
 
-  await writeServerLock({
+  await storageAdapter.writeServerLock({
     ...serverLock,
     saveVersion,
     lastHeartbeat: new Date().toISOString()
@@ -88,7 +92,8 @@ async function updateHostingLockStatus(
   hostingStatus: ServerHostingStatus,
   allowedCurrentStatuses: ServerHostingStatus[]
 ): Promise<void> {
-  const serverLock = await readServerLock()
+  const storageAdapter = await getActiveStorageAdapter()
+  const serverLock = await storageAdapter.readServerLock()
 
   if (serverLock.status !== ServerLockStatus.Locked || serverLock.sessionId !== sessionId) {
     throw new ServerRuntimeError('Cannot update hosting status because the hosting lock changed.')
@@ -100,7 +105,7 @@ async function updateHostingLockStatus(
     )
   }
 
-  await writeServerLock({
+  await storageAdapter.writeServerLock({
     ...serverLock,
     hostingStatus,
     lastHeartbeat: new Date().toISOString()
@@ -108,7 +113,8 @@ async function updateHostingLockStatus(
 }
 
 async function assertHostingLockCanBeAcquired(): Promise<void> {
-  const serverLock = await readServerLock()
+  const storageAdapter = await getActiveStorageAdapter()
+  const serverLock = await storageAdapter.readServerLock()
 
   if (serverLock.status === ServerLockStatus.Unlocked) {
     return
@@ -131,7 +137,9 @@ export async function clearHostingLockAfterStartFailure(): Promise<void> {
     return
   }
 
-  await writeServerLock({ status: ServerLockStatus.Unlocked })
+  const storageAdapter = await getActiveStorageAdapter()
+
+  await storageAdapter.writeServerLock({ status: ServerLockStatus.Unlocked })
   await saveActiveSessionId(null)
 
   activeRuntimeSessionId = null
@@ -142,7 +150,8 @@ export async function clearHostingLockAfterCleanStop(): Promise<void> {
     throw new ServerRuntimeError('Cannot unlock server because this runtime has no active session.')
   }
 
-  const serverLock = await readServerLock()
+  const storageAdapter = await getActiveStorageAdapter()
+  const serverLock = await storageAdapter.readServerLock()
 
   if (serverLock.status === ServerLockStatus.Locked) {
     if (serverLock.sessionId !== activeRuntimeSessionId) {
@@ -151,7 +160,7 @@ export async function clearHostingLockAfterCleanStop(): Promise<void> {
       )
     }
 
-    await writeServerLock({ status: ServerLockStatus.Unlocked })
+    await storageAdapter.writeServerLock({ status: ServerLockStatus.Unlocked })
   }
 
   await saveActiveSessionId(null)

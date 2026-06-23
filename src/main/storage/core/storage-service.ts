@@ -4,10 +4,7 @@ import {
   type ServerStorageSnapshot
 } from '../../../shared/domain'
 import { getServerSyncSnapshot } from '../../server-sync/server-sync-service'
-import {
-  resetServerLock as resetLocalMockServerLock,
-  resetServerSaves as resetLocalMockServerSaves
-} from '../persistence/local-mock-cloud-storage'
+import { getActiveStorageAdapter } from '../adapters/storage-adapter-service'
 import { resetConfiguredServer, saveServerConfig } from '../persistence/local-state-store'
 import { backupServerFolder } from '../server-save/server-folder-backup'
 import { StorageError } from './storage-error'
@@ -26,7 +23,9 @@ export async function updateServerConfig(
 }
 
 export async function resetServerLock(): Promise<ServerStorageSnapshot> {
-  await resetLocalMockServerLock()
+  const storageAdapter = await getActiveStorageAdapter()
+
+  await storageAdapter.resetServerLock()
 
   return getStorageSnapshot()
 }
@@ -44,7 +43,9 @@ export async function deleteConfiguredServer(): Promise<ServerStorageSnapshot> {
   const serverFolderPath = localState.serverConfig.serverFolderPath ?? localServerFolderPath
 
   await backupServerFolder(serverFolderPath, localState.serverConfig.name)
-  await resetLocalMockServerSaves()
+  const storageAdapter = await getActiveStorageAdapter()
+
+  await storageAdapter.resetServerSaves()
   await resetConfiguredServer()
 
   return getStorageSnapshot()

@@ -1,5 +1,3 @@
-import { stat } from 'fs/promises'
-import { join } from 'path'
 import {
   ServerLockStatus,
   type LatestSave,
@@ -12,15 +10,16 @@ import {
   ServerSyncStatus,
   type ServerSyncSnapshot
 } from '../../shared/server-sync'
-import { readLatestSave, readServerLock } from '../storage/persistence/local-mock-cloud-storage'
+import { getActiveStorageAdapter } from '../storage/adapters/storage-adapter-service'
+import type { StorageAdapter } from '../storage/adapters/storage-adapter.model'
 import { readLocalState } from '../storage/persistence/local-state-store'
-import { mockCloudVersionsFolderPath } from '../storage/core/storage-paths'
 import { getActiveRuntimeSessionId } from '../server-runtime/server-hosting-lock-manager'
 
 interface ServerSyncContext {
   latestSave: LatestSave
   serverLock: ServerLock
   localState: LocalState
+  storageAdapter: StorageAdapter
 }
 
 interface ServerSyncRuleContext extends ServerSyncContext {
@@ -52,16 +51,22 @@ const SERVER_SYNC_RULES: ServerSyncRule[] = [
 ]
 
 export async function getServerSyncSnapshot(): Promise<ServerStorageSnapshot> {
+  const storageAdapter = await getActiveStorageAdapter()
   const [latestSave, serverLock, localState] = await Promise.all([
-    readLatestSave(),
-    readServerLock(),
+    storageAdapter.readLatestSave(),
+    storageAdapter.readServerLock(),
     readLocalState()
   ])
 
   return {
     latestSave,
     serverLock,
-    serverSync: await buildServerSyncSnapshot({ latestSave, serverLock, localState }),
+    serverSync: await buildServerSyncSnapshot({
+      latestSave,
+      serverLock,
+      localState,
+      storageAdapter
+    }),
     localState
   }
 }
@@ -123,9 +128,10 @@ async function incompatibleRule({
 }
 
 async function missingCloudFileRule({
-  latestSave
+  latestSave,
+  storageAdapter
 }: ServerSyncRuleContext): Promise<ServerSyncDecision | null> {
-  if (!latestSave || (await cloudSaveFileExists(latestSave))) {
+  if (!latestSave || (await storageAdapter.serverSaveVersionExists(latestSave.fileName))) {
     return null
   }
 
@@ -205,22 +211,4 @@ function isCompatibleWithLocalConfig(
     latestSave.minecraftVersion === localState.serverConfig.minecraftVersion &&
     latestSave.serverType === localState.serverConfig.serverType
   )
-}
-
-async function cloudSaveFileExists(latestSave: NonNullable<LatestSave>): Promise<boolean> {
-  try {
-    const fileStats = await stat(join(mockCloudVersionsFolderPath, latestSave.fileName))
-
-    return fileStats.isFile()
-  } catch (error) {
-    if (isMissingFileError(error)) {
-      return false
-    }
-
-    throw error
-  }
-}
-
-function isMissingFileError(error: unknown): boolean {
-  return error instanceof Error && 'code' in error && error.code === 'ENOENT'
 }

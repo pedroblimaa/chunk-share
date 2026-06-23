@@ -2,14 +2,11 @@ import extractZip from 'extract-zip'
 import { mkdir, rm, stat } from 'fs/promises'
 import { basename, dirname, join } from 'path'
 import type { ServerStorageSnapshot } from '../../../shared/domain'
+import { getActiveStorageAdapter } from '../adapters/storage-adapter-service'
 import { renameWithRetry } from '../core/file-system-utils'
 import { saveLocalSaveVersion } from '../persistence/local-state-store'
 import { StorageError } from '../core/storage-error'
-import {
-  localServerBackupsFolderPath,
-  localServerFolderPath,
-  mockCloudVersionsFolderPath
-} from '../core/storage-paths'
+import { localServerBackupsFolderPath, localServerFolderPath } from '../core/storage-paths'
 
 export async function restoreLatestServerSave(
   storageSnapshot: ServerStorageSnapshot
@@ -26,10 +23,12 @@ export async function restoreLatestServerSave(
     )
   }
 
-  const zipFilePath = join(mockCloudVersionsFolderPath, latestSave.fileName)
+  const zipFilePath = getTempZipFilePath(latestSave.saveVersion)
   const tempExtractFolderPath = getTempExtractFolderPath(latestSave.saveVersion)
   let backupFolderPath: string | null = null
 
+  const storageAdapter = await getActiveStorageAdapter()
+  await storageAdapter.downloadServerSaveVersion(latestSave.fileName, zipFilePath)
   await assertZipFileExists(zipFilePath)
   await rm(tempExtractFolderPath, { recursive: true, force: true })
   await mkdir(tempExtractFolderPath, { recursive: true })
@@ -51,6 +50,8 @@ export async function restoreLatestServerSave(
     }
 
     throw error
+  } finally {
+    await rm(zipFilePath, { force: true })
   }
 }
 
@@ -68,6 +69,13 @@ function getTempExtractFolderPath(saveVersion: number): string {
   return join(
     dirname(localServerFolderPath),
     `${basename(localServerFolderPath)}.extract-v${saveVersion.toString().padStart(3, '0')}.${process.pid}.tmp`
+  )
+}
+
+function getTempZipFilePath(saveVersion: number): string {
+  return join(
+    dirname(localServerFolderPath),
+    `${basename(localServerFolderPath)}.download-v${saveVersion.toString().padStart(3, '0')}.${process.pid}.tmp.zip`
   )
 }
 
