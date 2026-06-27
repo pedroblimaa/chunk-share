@@ -8,21 +8,35 @@ export interface StorageProviderSwitchPanelProps {
   hasError: boolean
   operation: ActiveStorageSettingsOperation
   preview: CloudStorageProviderSwitchPreview | null
+  onActivateTarget: () => void
   onCancel: () => void
-  onReplace: () => void
+  onCopyCurrentData: () => void
   onRetry: () => void
-  onUseExisting: () => void
 }
 
 export interface StorageProviderSwitchChoiceProps {
   operation: ActiveStorageSettingsOperation
   preview: CloudStorageProviderSwitchPreview
+  onActivateTarget: () => void
   onCancel: () => void
-  onReplace: () => void
-  onUseExisting: () => void
+  onCopyCurrentData: () => void
 }
 
 export interface StorageProviderDataSummaryProps {
   label: string
   summary: CloudStorageProviderDataSummary
+}
+
+export interface StorageProviderSwitchChoiceCopy {
+  title: string
+  description: string
+  activateLabel: string
+  copyLabel: string
+}
+
+export enum StorageProviderSwitchScenario {
+  BothHaveData = 'both-have-data',
+  SourceOnly = 'source-only',
+  TargetOnly = 'target-only',
+  BothEmpty = 'both-empty'
 }

@@ -1,31 +1,37 @@
 import './StorageProviderSwitchPanel.css'
 
-import { CloudStorageProvider } from '../../../../../../shared/cloud-storage.model'
+import {
+  CloudStorageProvider,
+  type CloudStorageProviderDataSummary,
+  type CloudStorageProviderSwitchPreview
+} from '../../../../../../shared/cloud-storage.model'
 import Button from '../../../../components/shared/Button/Button'
 import { StorageSettingsOperation, type ActiveStorageSettingsOperation } from '../../settings.model'
-import type {
-  StorageProviderDataSummaryProps,
-  StorageProviderSwitchChoiceProps,
-  StorageProviderSwitchPanelProps
+import {
+  StorageProviderSwitchScenario,
+  type StorageProviderDataSummaryProps,
+  type StorageProviderSwitchChoiceCopy,
+  type StorageProviderSwitchChoiceProps,
+  type StorageProviderSwitchPanelProps
 } from './StorageProviderSwitchPanel.model'
 
 function StorageProviderSwitchPanel({
   hasError,
   operation,
   preview,
+  onActivateTarget,
   onCancel,
-  onReplace,
-  onRetry,
-  onUseExisting
+  onCopyCurrentData,
+  onRetry
 }: StorageProviderSwitchPanelProps): React.JSX.Element | null {
   if (preview) {
     return (
       <StorageProviderSwitchChoice
         operation={operation}
         preview={preview}
+        onActivateTarget={onActivateTarget}
         onCancel={onCancel}
-        onReplace={onReplace}
-        onUseExisting={onUseExisting}
+        onCopyCurrentData={onCopyCurrentData}
       />
     )
   }
@@ -48,7 +54,7 @@ function StorageProviderSwitchPanel({
           <strong>Unable to check storage data</strong>
           <span>Retry the check or cancel this provider switch.</span>
         </div>
-        <div className="settings-provider-switch-actions settings-provider-switch-retry-actions">
+        <div className="settings-provider-switch-actions settings-provider-switch-two-actions">
           <Button fullWidth icon="refresh" onClick={onRetry}>
             Retry
           </Button>
@@ -66,46 +72,147 @@ function StorageProviderSwitchPanel({
 function StorageProviderSwitchChoice({
   operation,
   preview,
+  onActivateTarget,
   onCancel,
-  onReplace,
-  onUseExisting
+  onCopyCurrentData
 }: StorageProviderSwitchChoiceProps): React.JSX.Element {
   const sourceLabel = getStorageProviderLabel(preview.source.provider)
   const targetLabel = getStorageProviderLabel(preview.target.provider)
+  const scenario = getStorageProviderSwitchScenario(preview)
+  const choiceCopy = getStorageProviderSwitchChoiceCopy(scenario, targetLabel)
+  const sourceHasData = storageProviderHasData(preview.source)
+  const copyReplacesTargetData = scenario === StorageProviderSwitchScenario.BothHaveData
+  const copyIsRecommended = scenario === StorageProviderSwitchScenario.SourceOnly
   const isBusy =
     operation === StorageSettingsOperation.CopyProviderData ||
     operation === StorageSettingsOperation.SwitchProvider
+  const activateTargetButton = (
+    <Button
+      disabled={isBusy}
+      fullWidth
+      icon="swap_horiz"
+      variant={copyIsRecommended ? 'secondary' : undefined}
+      onClick={onActivateTarget}
+    >
+      {operation === StorageSettingsOperation.SwitchProvider ? 'Switching...' : choiceCopy.activateLabel}
+    </Button>
+  )
+  const copyCurrentDataButton = sourceHasData ? (
+    <Button
+      disabled={isBusy}
+      fullWidth
+      icon="content_copy"
+      variant={copyReplacesTargetData ? 'danger' : undefined}
+      onClick={onCopyCurrentData}
+    >
+      {getCopyActionLabel(operation, copyReplacesTargetData, choiceCopy.copyLabel)}
+    </Button>
+  ) : null
 
   return (
     <div className="settings-provider-switch-panel" role="group" aria-label="Switch storage mode">
       <div>
-        <strong>Both providers contain saves</strong>
-        <span>Choose which save history ChunkShare should use.</span>
+        <strong>{choiceCopy.title}</strong>
+        <span>{choiceCopy.description}</span>
       </div>
       <div className="settings-provider-switch-comparison">
         <StorageProviderDataSummary label={`Current - ${sourceLabel}`} summary={preview.source} />
         <StorageProviderDataSummary label={`Target - ${targetLabel}`} summary={preview.target} />
       </div>
-      <p className="settings-provider-switch-warning">
-        Replacing {targetLabel} removes its current ChunkShare save history.
-      </p>
-      <div className="settings-provider-switch-actions">
-        <Button disabled={isBusy} fullWidth icon="swap_horiz" onClick={onUseExisting}>
-          {operation === StorageSettingsOperation.SwitchProvider
-            ? 'Switching...'
-            : `Use ${targetLabel} data (Recommended)`}
-        </Button>
-        <Button disabled={isBusy} fullWidth icon="content_copy" variant="danger" onClick={onReplace}>
-          {operation === StorageSettingsOperation.CopyProviderData
-            ? 'Replacing...'
-            : `Replace ${targetLabel} with ${sourceLabel}`}
-        </Button>
+      {copyReplacesTargetData ? (
+        <p className="settings-provider-switch-warning">
+          Replacing {targetLabel} removes its current ChunkShare save history.
+        </p>
+      ) : null}
+      <div
+        className={`settings-provider-switch-actions${
+          sourceHasData ? '' : ' settings-provider-switch-two-actions'
+        }`}
+      >
+        {copyIsRecommended ? copyCurrentDataButton : activateTargetButton}
+        {copyIsRecommended ? activateTargetButton : copyCurrentDataButton}
         <Button disabled={isBusy} fullWidth variant="ghost" onClick={onCancel}>
           Cancel
         </Button>
       </div>
     </div>
   )
+}
+
+function getStorageProviderSwitchScenario(
+  preview: CloudStorageProviderSwitchPreview
+): StorageProviderSwitchScenario {
+  const sourceHasData = storageProviderHasData(preview.source)
+  const targetHasData = storageProviderHasData(preview.target)
+
+  if (sourceHasData && targetHasData) {
+    return StorageProviderSwitchScenario.BothHaveData
+  }
+
+  if (sourceHasData) {
+    return StorageProviderSwitchScenario.SourceOnly
+  }
+
+  if (targetHasData) {
+    return StorageProviderSwitchScenario.TargetOnly
+  }
+
+  return StorageProviderSwitchScenario.BothEmpty
+}
+
+function getStorageProviderSwitchChoiceCopy(
+  scenario: StorageProviderSwitchScenario,
+  targetLabel: string
+): StorageProviderSwitchChoiceCopy {
+  if (scenario === StorageProviderSwitchScenario.BothHaveData) {
+    return {
+      title: 'Both providers contain saves',
+      description: 'Choose which save history ChunkShare should use.',
+      activateLabel: `Use ${targetLabel} data (Recommended)`,
+      copyLabel: `Replace ${targetLabel} with current data`
+    }
+  }
+
+  if (scenario === StorageProviderSwitchScenario.SourceOnly) {
+    return {
+      title: 'Only the current provider contains saves',
+      description: `Copy the current save history or activate an empty ${targetLabel}.`,
+      activateLabel: `Activate empty ${targetLabel}`,
+      copyLabel: `Copy saves and activate ${targetLabel} (Recommended)`
+    }
+  }
+
+  if (scenario === StorageProviderSwitchScenario.TargetOnly) {
+    return {
+      title: `${targetLabel} contains saves`,
+      description: 'Activate this provider to use its existing save history.',
+      activateLabel: `Activate ${targetLabel} data`,
+      copyLabel: ''
+    }
+  }
+
+  return {
+    title: 'No saves found',
+    description: 'Neither provider contains save history yet.',
+    activateLabel: `Activate ${targetLabel}`,
+    copyLabel: ''
+  }
+}
+
+function getCopyActionLabel(
+  operation: ActiveStorageSettingsOperation,
+  replacesTargetData: boolean,
+  idleLabel: string
+): string {
+  if (operation !== StorageSettingsOperation.CopyProviderData) {
+    return idleLabel
+  }
+
+  return replacesTargetData ? 'Replacing...' : 'Copying...'
+}
+
+function storageProviderHasData(summary: CloudStorageProviderDataSummary): boolean {
+  return summary.latestSaveVersion !== null || summary.versionCount > 0
 }
 
 function StorageProviderDataSummary({ label, summary }: StorageProviderDataSummaryProps): React.JSX.Element {

@@ -1,17 +1,20 @@
 export const AUTH_GET_SESSION_CHANNEL = 'auth:get-session'
 export const AUTH_SIGN_IN_WITH_GOOGLE_CHANNEL = 'auth:sign-in-with-google'
 export const AUTH_SIGN_OUT_CHANNEL = 'auth:sign-out'
+
 export const DASHBOARD_SNAPSHOT_CHANNEL = 'dashboard:get-snapshot'
+
 export const STORAGE_SNAPSHOT_CHANNEL = 'storage:get-snapshot'
 export const STORAGE_CLOUD_SETTINGS_CHANNEL = 'storage:get-cloud-settings'
 export const STORAGE_SETUP_GOOGLE_DRIVE_FOLDER_CHANNEL = 'storage:setup-google-drive-folder'
 export const STORAGE_VALIDATE_GOOGLE_DRIVE_FOLDER_CHANNEL = 'storage:validate-google-drive-folder'
 export const STORAGE_CLEAR_GOOGLE_DRIVE_FOLDER_CHANNEL = 'storage:clear-google-drive-folder'
-export const STORAGE_GET_CLOUD_PROVIDER_SWITCH_PREVIEW_CHANNEL = 'storage:get-cloud-provider-switch-preview'
-export const STORAGE_SET_CLOUD_PROVIDER_CHANNEL = 'storage:set-cloud-provider'
+export const STORAGE_GET_PROVIDER_SWITCH_PREVIEW_CHANNEL = 'storage:get-provider-switch-preview'
+export const STORAGE_SET_PROVIDER_CHANNEL = 'storage:set-provider'
 export const STORAGE_SAVE_SERVER_CONFIG_CHANNEL = 'storage:save-server-config'
 export const STORAGE_DELETE_SERVER_CHANNEL = 'storage:delete-server'
 export const STORAGE_RESET_SERVER_LOCK_CHANNEL = 'storage:reset-server-lock'
+
 export const SERVER_SETUP_LIST_VANILLA_VERSIONS_CHANNEL = 'serverSetup:list-vanilla-versions'
 export const SERVER_SETUP_SETUP_VANILLA_SERVER_CHANNEL = 'serverSetup:setup-vanilla-server'
 export const SERVER_SETUP_PROGRESS_CHANNEL = 'serverSetup:progress'
