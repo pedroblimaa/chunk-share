@@ -8,7 +8,7 @@ import Card from '../../../components/shared/Card/Card'
 import MaterialIcon from '../../../components/shared/MaterialIcon/MaterialIcon'
 import TopBar from '../../dashboard/components/TopBar/TopBar'
 import StorageModeSettingsCard from '../components/StorageModeSettingsCard/StorageModeSettingsCard'
-import { useCloudStorageSettings } from '../hooks/useCloudStorageSettings'
+import { useStorageProviderSettings } from '../hooks/useStorageProviderSettings'
 import type { GoogleDriveStatusViewMap } from '../settings.model'
 import type { SettingsViewProps } from './SettingsView.model'
 
@@ -41,7 +41,7 @@ function SettingsView({
 }: SettingsViewProps): React.JSX.Element {
   const serverIsConfigured = serverDisplayState.serverStatus !== 'not-configured'
   const signedInUser = serverDisplayState.signedInUser
-  const cloudStorageSettingsState = useCloudStorageSettings()
+  const storageProviderSettingsState = useStorageProviderSettings()
 
   return (
     <div className="dashboard-screen settings-screen">
@@ -74,11 +74,7 @@ function SettingsView({
               </div>
 
               <div className="settings-account-summary">
-                <div
-                  className={`settings-account-avatar${
-                    signedInUser?.avatarUrl ? ' has-image' : ''
-                  }`}
-                >
+                <div className={`settings-account-avatar${signedInUser?.avatarUrl ? ' has-image' : ''}`}>
                   {signedInUser?.avatarUrl ? (
                     <img src={signedInUser.avatarUrl} alt="" aria-hidden="true" />
                   ) : (
@@ -111,18 +107,19 @@ function SettingsView({
             </Card>
 
             <StorageModeSettingsCard
-              cloudStorageErrorMessage={cloudStorageSettingsState.cloudStorageErrorMessage}
-              cloudStorageSettings={cloudStorageSettingsState.cloudStorageSettings}
-              googleDriveAction={cloudStorageSettingsState.googleDriveAction}
-              googleDriveIsBusy={cloudStorageSettingsState.googleDriveIsBusy}
+              storageErrorMessage={storageProviderSettingsState.storageErrorMessage}
+              storageProviderSwitchPreview={storageProviderSettingsState.storageProviderSwitchPreview}
+              storageProviderSettings={storageProviderSettingsState.storageProviderSettings}
+              activeStorageOperation={storageProviderSettingsState.activeStorageOperation}
+              storageIsBusy={storageProviderSettingsState.storageIsBusy}
               googleDriveStatusViewMap={GOOGLE_DRIVE_STATUS_VIEW}
-              onClearGoogleDriveFolder={cloudStorageSettingsState.clearGoogleDriveFolder}
-              onDismissCloudStorageError={cloudStorageSettingsState.dismissCloudStorageError}
-              onSetupDefaultGoogleDriveFolder={
-                cloudStorageSettingsState.setupDefaultGoogleDriveFolder
-              }
-              onSwitchCloudStorageProvider={cloudStorageSettingsState.switchCloudStorageProvider}
-              onValidateGoogleDriveFolder={cloudStorageSettingsState.validateGoogleDriveFolder}
+              onCancelStorageProviderSwitch={storageProviderSettingsState.cancelStorageProviderSwitch}
+              onClearGoogleDriveFolder={storageProviderSettingsState.clearGoogleDriveFolder}
+              onDismissStorageError={storageProviderSettingsState.dismissStorageError}
+              onPrepareStorageProviderSwitch={storageProviderSettingsState.prepareStorageProviderSwitch}
+              onSetupDefaultGoogleDriveFolder={storageProviderSettingsState.setupDefaultGoogleDriveFolder}
+              onSwitchStorageProvider={storageProviderSettingsState.switchStorageProvider}
+              onValidateGoogleDriveFolder={storageProviderSettingsState.validateGoogleDriveFolder}
             />
           </section>
         </main>

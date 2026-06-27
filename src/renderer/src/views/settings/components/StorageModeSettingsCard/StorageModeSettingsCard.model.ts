@@ -1,27 +1,29 @@
 import type {
   CloudStorageProvider,
+  CloudStorageProviderSwitchDataMode,
+  CloudStorageProviderSwitchPreview,
   CloudStorageSettings
 } from '../../../../../../shared/cloud-storage.model'
-import type { GoogleDriveSettingsActionState, GoogleDriveStatusViewMap } from '../../settings.model'
+import type { ActiveStorageSettingsOperation, GoogleDriveStatusViewMap } from '../../settings.model'
 
 export type StorageModeProvider = CloudStorageProvider.Local | CloudStorageProvider.GoogleDrive
 
-export interface ProviderSwitchChoiceProps {
-  isBusy: boolean
-  providerLabel: string
-  onCancel: () => void
-  onSwitch: () => void
-}
-
 export interface StorageModeSettingsCardProps {
-  cloudStorageErrorMessage: string | null
-  cloudStorageSettings: CloudStorageSettings | null
-  googleDriveAction: GoogleDriveSettingsActionState
-  googleDriveIsBusy: boolean
+  storageErrorMessage: string | null
+  storageProviderSwitchPreview: CloudStorageProviderSwitchPreview | null
+  storageProviderSettings: CloudStorageSettings | null
+  activeStorageOperation: ActiveStorageSettingsOperation
+  storageIsBusy: boolean
   googleDriveStatusViewMap: GoogleDriveStatusViewMap
-  onClearGoogleDriveFolder: () => void
-  onDismissCloudStorageError: () => void
+  onClearGoogleDriveFolder: () => Promise<boolean>
+  onCancelStorageProviderSwitch: () => void
+  onDismissStorageError: () => void
+  onPrepareStorageProviderSwitch: (provider: CloudStorageProvider) => void
   onSetupDefaultGoogleDriveFolder: () => void
-  onSwitchCloudStorageProvider: (provider: CloudStorageProvider) => void
+  onSwitchStorageProvider: (
+    provider: CloudStorageProvider,
+    dataMode: CloudStorageProviderSwitchDataMode,
+    expectedPreview?: CloudStorageProviderSwitchPreview
+  ) => void
   onValidateGoogleDriveFolder: () => void
 }
