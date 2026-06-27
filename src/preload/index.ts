@@ -1,5 +1,10 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { CloudStorageSettings } from '../shared/cloud-storage.model'
+import type {
+  CloudStorageProvider,
+  CloudStorageProviderSwitchPreview,
+  CloudStorageProviderSwitchRequest,
+  CloudStorageSettings
+} from '../shared/cloud-storage.model'
 import type { ServerDisplayState } from '../shared/dashboard'
 import type { ServerConfig, ServerStorageSnapshot } from '../shared/domain'
 import {
@@ -17,8 +22,10 @@ import {
   STORAGE_CLEAR_GOOGLE_DRIVE_FOLDER_CHANNEL,
   STORAGE_CLOUD_SETTINGS_CHANNEL,
   STORAGE_DELETE_SERVER_CHANNEL,
+  STORAGE_GET_CLOUD_PROVIDER_SWITCH_PREVIEW_CHANNEL,
   STORAGE_RESET_SERVER_LOCK_CHANNEL,
   STORAGE_SAVE_SERVER_CONFIG_CHANNEL,
+  STORAGE_SET_CLOUD_PROVIDER_CHANNEL,
   STORAGE_SETUP_GOOGLE_DRIVE_FOLDER_CHANNEL,
   STORAGE_SNAPSHOT_CHANNEL,
   STORAGE_VALIDATE_GOOGLE_DRIVE_FOLDER_CHANNEL
@@ -33,16 +40,14 @@ import type {
 const chunkShareApi = {
   auth: {
     getSession: (): Promise<ServerDisplayState> => ipcRenderer.invoke(AUTH_GET_SESSION_CHANNEL),
-    signInWithGoogle: (): Promise<ServerDisplayState> =>
-      ipcRenderer.invoke(AUTH_SIGN_IN_WITH_GOOGLE_CHANNEL),
+    signInWithGoogle: (): Promise<ServerDisplayState> => ipcRenderer.invoke(AUTH_SIGN_IN_WITH_GOOGLE_CHANNEL),
     signOut: (): Promise<ServerDisplayState> => ipcRenderer.invoke(AUTH_SIGN_OUT_CHANNEL)
   },
   dashboard: {
     getSnapshot: (): Promise<ServerDisplayState> => ipcRenderer.invoke(DASHBOARD_SNAPSHOT_CHANNEL)
   },
   serverRuntime: {
-    getSnapshot: (): Promise<ServerRuntimeSnapshot> =>
-      ipcRenderer.invoke(SERVER_RUNTIME_SNAPSHOT_CHANNEL),
+    getSnapshot: (): Promise<ServerRuntimeSnapshot> => ipcRenderer.invoke(SERVER_RUNTIME_SNAPSHOT_CHANNEL),
     start: (): Promise<ServerRuntimeSnapshot> => ipcRenderer.invoke(SERVER_RUNTIME_START_CHANNEL),
     stop: (): Promise<ServerRuntimeSnapshot> => ipcRenderer.invoke(SERVER_RUNTIME_STOP_CHANNEL),
     onEvent: (listener: (event: ServerRuntimeEvent) => void): (() => void) => {
@@ -65,8 +70,13 @@ const chunkShareApi = {
       ipcRenderer.invoke(STORAGE_VALIDATE_GOOGLE_DRIVE_FOLDER_CHANNEL),
     clearGoogleDriveFolder: (): Promise<CloudStorageSettings> =>
       ipcRenderer.invoke(STORAGE_CLEAR_GOOGLE_DRIVE_FOLDER_CHANNEL),
-    deleteServer: (): Promise<ServerStorageSnapshot> =>
-      ipcRenderer.invoke(STORAGE_DELETE_SERVER_CHANNEL),
+    getCloudStorageProviderSwitchPreview: (
+      provider: CloudStorageProvider
+    ): Promise<CloudStorageProviderSwitchPreview> =>
+      ipcRenderer.invoke(STORAGE_GET_CLOUD_PROVIDER_SWITCH_PREVIEW_CHANNEL, provider),
+    setCloudStorageProvider: (request: CloudStorageProviderSwitchRequest): Promise<CloudStorageSettings> =>
+      ipcRenderer.invoke(STORAGE_SET_CLOUD_PROVIDER_CHANNEL, request),
+    deleteServer: (): Promise<ServerStorageSnapshot> => ipcRenderer.invoke(STORAGE_DELETE_SERVER_CHANNEL),
     resetServerLock: (): Promise<ServerStorageSnapshot> =>
       ipcRenderer.invoke(STORAGE_RESET_SERVER_LOCK_CHANNEL),
     saveServerConfig: (serverConfig: ServerConfig): Promise<ServerStorageSnapshot> =>
@@ -78,10 +88,7 @@ const chunkShareApi = {
     setupVanillaServer: (input: SetupVanillaServerInput): Promise<ServerStorageSnapshot> =>
       ipcRenderer.invoke(SERVER_SETUP_SETUP_VANILLA_SERVER_CHANNEL, input),
     onProgress: (listener: (event: ServerSetupProgressEvent) => void): (() => void) => {
-      const progressListener = (
-        _: Electron.IpcRendererEvent,
-        event: ServerSetupProgressEvent
-      ): void => {
+      const progressListener = (_: Electron.IpcRendererEvent, event: ServerSetupProgressEvent): void => {
         listener(event)
       }
 

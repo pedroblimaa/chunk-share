@@ -111,15 +111,17 @@ function SettingsView({
             </Card>
 
             <StorageModeSettingsCard
+              cloudStorageErrorMessage={cloudStorageSettingsState.cloudStorageErrorMessage}
               cloudStorageSettings={cloudStorageSettingsState.cloudStorageSettings}
               googleDriveAction={cloudStorageSettingsState.googleDriveAction}
-              googleDriveErrorMessage={cloudStorageSettingsState.googleDriveErrorMessage}
               googleDriveIsBusy={cloudStorageSettingsState.googleDriveIsBusy}
               googleDriveStatusViewMap={GOOGLE_DRIVE_STATUS_VIEW}
               onClearGoogleDriveFolder={cloudStorageSettingsState.clearGoogleDriveFolder}
+              onDismissCloudStorageError={cloudStorageSettingsState.dismissCloudStorageError}
               onSetupDefaultGoogleDriveFolder={
                 cloudStorageSettingsState.setupDefaultGoogleDriveFolder
               }
+              onSwitchCloudStorageProvider={cloudStorageSettingsState.switchCloudStorageProvider}
               onValidateGoogleDriveFolder={cloudStorageSettingsState.validateGoogleDriveFolder}
             />
           </section>

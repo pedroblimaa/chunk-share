@@ -10,6 +10,7 @@ export type GoogleDriveSettingsAction =
   | 'clear-folder'
   | 'load'
   | 'setup-default-folder'
+  | 'switch-provider'
   | 'validate-folder'
 
 export type GoogleDriveSettingsActionState = GoogleDriveSettingsAction | null

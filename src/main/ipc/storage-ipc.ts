@@ -3,8 +3,10 @@ import {
   STORAGE_CLEAR_GOOGLE_DRIVE_FOLDER_CHANNEL,
   STORAGE_CLOUD_SETTINGS_CHANNEL,
   STORAGE_DELETE_SERVER_CHANNEL,
+  STORAGE_GET_CLOUD_PROVIDER_SWITCH_PREVIEW_CHANNEL,
   STORAGE_RESET_SERVER_LOCK_CHANNEL,
   STORAGE_SAVE_SERVER_CONFIG_CHANNEL,
+  STORAGE_SET_CLOUD_PROVIDER_CHANNEL,
   STORAGE_SETUP_GOOGLE_DRIVE_FOLDER_CHANNEL,
   STORAGE_SNAPSHOT_CHANNEL,
   STORAGE_VALIDATE_GOOGLE_DRIVE_FOLDER_CHANNEL
@@ -12,6 +14,8 @@ import {
 import {
   clearGoogleDriveFolder,
   getCloudStorageSettings,
+  getCloudStorageProviderSwitchPreview,
+  setCloudStorageProvider,
   setupGoogleDriveFolder,
   validateGoogleDriveFolder
 } from '../storage/core/cloud-storage-service'
@@ -22,7 +26,11 @@ import {
   updateServerConfig
 } from '../storage/core/storage-service'
 import { StorageError } from '../storage/core/storage-error'
-import { isServerConfig } from '../storage/core/storage-validation'
+import {
+  isCloudStorageProvider,
+  isCloudStorageProviderSwitchRequest,
+  isServerConfig
+} from '../storage/core/storage-validation'
 
 export function registerStorageIpcHandlers(): void {
   ipcMain.handle(STORAGE_SNAPSHOT_CHANNEL, () => getStorageSnapshot())
@@ -34,6 +42,22 @@ export function registerStorageIpcHandlers(): void {
   ipcMain.handle(STORAGE_VALIDATE_GOOGLE_DRIVE_FOLDER_CHANNEL, () => validateGoogleDriveFolder())
 
   ipcMain.handle(STORAGE_CLEAR_GOOGLE_DRIVE_FOLDER_CHANNEL, () => clearGoogleDriveFolder())
+
+  ipcMain.handle(STORAGE_GET_CLOUD_PROVIDER_SWITCH_PREVIEW_CHANNEL, (_, provider: unknown) => {
+    if (!isCloudStorageProvider(provider)) {
+      throw new StorageError('Invalid cloud storage provider preview payload.')
+    }
+
+    return getCloudStorageProviderSwitchPreview(provider)
+  })
+
+  ipcMain.handle(STORAGE_SET_CLOUD_PROVIDER_CHANNEL, (_, request: unknown) => {
+    if (!isCloudStorageProviderSwitchRequest(request)) {
+      throw new StorageError('Invalid cloud storage provider switch payload.')
+    }
+
+    return setCloudStorageProvider(request)
+  })
 
   ipcMain.handle(STORAGE_DELETE_SERVER_CHANNEL, () => deleteConfiguredServer())
 

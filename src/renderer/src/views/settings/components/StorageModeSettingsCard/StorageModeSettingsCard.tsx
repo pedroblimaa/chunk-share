@@ -1,43 +1,91 @@
 import './StorageModeSettingsCard.css'
 
 import { useState } from 'react'
-import { GoogleDriveSetupStatus } from '../../../../../../shared/cloud-storage.model'
+import {
+  CloudStorageProvider,
+  GoogleDriveSetupStatus
+} from '../../../../../../shared/cloud-storage.model'
 import Badge from '../../../../components/shared/Badge/Badge'
 import Button from '../../../../components/shared/Button/Button'
 import Card from '../../../../components/shared/Card/Card'
 import MaterialIcon from '../../../../components/shared/MaterialIcon/MaterialIcon'
 import Tooltip from '../../../../components/shared/Tooltip/Tooltip'
+import Toast from '../../../../components/shared/Toast/Toast'
 import type { GoogleDriveSettingsAction } from '../../settings.model'
-import type { StorageModeSettingsCardProps } from './StorageModeSettingsCard.model'
+import type {
+  ProviderSwitchChoiceProps,
+  StorageModeProvider,
+  StorageModeSettingsCardProps
+} from './StorageModeSettingsCard.model'
 
 const STORAGE_MODE_INFO =
-  'Share the Google Drive folder with friends as Editors so they can sync too.'
+  'ChunkShare can store shared saves locally or in the configured Google Drive folder.'
 const CLOUD_SWITCH_NOTE =
-  'Google Drive is configured, but Local Storage remains active until cloud sync switching is enabled.'
-type StorageModeTab = 'local' | 'google-drive'
+  'Google Drive must be configured and validated before it can become the active storage provider.'
 
 function StorageModeSettingsCard({
+  cloudStorageErrorMessage,
   cloudStorageSettings,
   googleDriveAction,
-  googleDriveErrorMessage,
   googleDriveIsBusy,
   googleDriveStatusViewMap,
   onClearGoogleDriveFolder,
+  onDismissCloudStorageError,
   onSetupDefaultGoogleDriveFolder,
+  onSwitchCloudStorageProvider,
   onValidateGoogleDriveFolder
 }: StorageModeSettingsCardProps): React.JSX.Element {
-  const [selectedTab, setSelectedTab] = useState<StorageModeTab>('local')
+  const activeProvider = cloudStorageSettings?.activeProvider ?? CloudStorageProvider.Local
+  const [selectedProvider, setSelectedProvider] = useState<StorageModeProvider | null>(null)
+  const [pendingProvider, setPendingProvider] = useState<StorageModeProvider | null>(null)
+  const displayedProvider = selectedProvider ?? activeProvider
+  const effectivePendingProvider = pendingProvider === activeProvider ? null : pendingProvider
   const googleDriveState = cloudStorageSettings?.googleDrive
   const googleDriveStatus = googleDriveState?.status ?? GoogleDriveSetupStatus.NotConfigured
   const googleDriveStatusView = googleDriveStatusViewMap[googleDriveStatus]
-  const localTabIsSelected = selectedTab === 'local'
-  const googleDriveTabIsSelected = selectedTab === 'google-drive'
+  const googleDriveIsValid = googleDriveStatus === GoogleDriveSetupStatus.Valid
+  const localPanelIsSelected = displayedProvider === CloudStorageProvider.Local
+  const googleDrivePanelIsSelected = displayedProvider === CloudStorageProvider.GoogleDrive
   const googleDriveCanBeCleared = Boolean(
-    googleDriveState?.folder || googleDriveState?.errorMessage || googleDriveErrorMessage
+    googleDriveState?.folder || googleDriveState?.errorMessage
   )
+  const providerSwitchIsBusy = googleDriveAction === 'switch-provider'
+
+  const handleSelectProvider = (provider: StorageModeProvider): void => {
+    setSelectedProvider(provider)
+
+    if (provider === activeProvider) {
+      setPendingProvider(null)
+      return
+    }
+
+    if (provider === CloudStorageProvider.GoogleDrive && !googleDriveIsValid) {
+      setPendingProvider(null)
+      return
+    }
+
+    setPendingProvider(provider)
+  }
+
+  const switchToPendingProvider = (): void => {
+    if (!pendingProvider) {
+      return
+    }
+
+    onSwitchCloudStorageProvider(pendingProvider)
+  }
 
   return (
     <Card as="article" className="settings-storage-card">
+      {cloudStorageErrorMessage ? (
+        <Toast
+          message={cloudStorageErrorMessage}
+          title="Storage update failed"
+          tone="error"
+          onClose={onDismissCloudStorageError}
+        />
+      ) : null}
+
       <div className="settings-card-heading settings-storage-heading">
         <div>
           <MaterialIcon name="folder" />
@@ -52,49 +100,84 @@ function StorageModeSettingsCard({
 
       <div className="settings-storage-segmented" aria-label="Storage provider">
         <button
-          className={`settings-storage-segment${localTabIsSelected ? ' is-selected' : ''}`}
+          className={getStorageSegmentClassName(
+            CloudStorageProvider.Local,
+            displayedProvider,
+            activeProvider
+          )}
           type="button"
-          aria-pressed={localTabIsSelected}
-          onClick={() => setSelectedTab('local')}
+          aria-pressed={displayedProvider === CloudStorageProvider.Local}
+          onClick={() => handleSelectProvider(CloudStorageProvider.Local)}
         >
           <MaterialIcon name="hard_drive" />
           <span>Local</span>
+          {activeProvider === CloudStorageProvider.Local ? <small>Active</small> : null}
         </button>
         <button
-          className={`settings-storage-segment${googleDriveTabIsSelected ? ' is-selected' : ''}`}
+          className={getStorageSegmentClassName(
+            CloudStorageProvider.GoogleDrive,
+            displayedProvider,
+            activeProvider
+          )}
           type="button"
-          aria-describedby={googleDriveTabIsSelected ? 'settings-cloud-switch-note' : undefined}
-          aria-pressed={googleDriveTabIsSelected}
-          onClick={() => setSelectedTab('google-drive')}
+          aria-describedby={googleDrivePanelIsSelected ? 'settings-cloud-switch-note' : undefined}
+          aria-pressed={displayedProvider === CloudStorageProvider.GoogleDrive}
+          onClick={() => handleSelectProvider(CloudStorageProvider.GoogleDrive)}
         >
           <MaterialIcon name="cloud" />
           <span>Google Drive</span>
+          {activeProvider === CloudStorageProvider.GoogleDrive ? <small>Active</small> : null}
         </button>
       </div>
 
-      {localTabIsSelected ? (
-        <div className="settings-storage-panel is-active">
-          <div>
-            <strong>Local Storage</strong>
-            <span>Server saves, locks, and versions are currently stored on this device.</span>
+      {localPanelIsSelected ? (
+        <>
+          <div
+            className={`settings-storage-panel${
+              activeProvider === CloudStorageProvider.Local ? ' is-active' : ''
+            }`}
+          >
+            <div>
+              <strong>Local Storage</strong>
+              <span>Server saves, locks, and versions are stored on this device.</span>
+            </div>
+            {activeProvider === CloudStorageProvider.Local ? <Badge dot>Active</Badge> : null}
           </div>
-          <Badge dot>Active</Badge>
-        </div>
+
+          {effectivePendingProvider === CloudStorageProvider.Local ? (
+            <ProviderSwitchChoice
+              isBusy={providerSwitchIsBusy}
+              providerLabel="Local Storage"
+              onCancel={() => setPendingProvider(null)}
+              onSwitch={switchToPendingProvider}
+            />
+          ) : null}
+        </>
       ) : null}
 
-      {googleDriveTabIsSelected ? (
+      {googleDrivePanelIsSelected ? (
         <>
-          <p className="settings-storage-note" id="settings-cloud-switch-note">
-            {CLOUD_SWITCH_NOTE}
-          </p>
-          <div className="settings-storage-panel">
+          {!googleDriveIsValid ? (
+            <p className="settings-storage-note" id="settings-cloud-switch-note">
+              {CLOUD_SWITCH_NOTE}
+            </p>
+          ) : null}
+          <div
+            className={`settings-storage-panel${
+              activeProvider === CloudStorageProvider.GoogleDrive ? ' is-active' : ''
+            }`}
+          >
             <div>
               <strong>Google Drive</strong>
               <span>{googleDriveState?.folder?.folderName ?? 'Shared folder sync'}</span>
             </div>
-            <Badge className="settings-pending-badge" tone={googleDriveStatusView.tone}>
-              {googleDriveStatusView.label}
-            </Badge>
+            {activeProvider === CloudStorageProvider.GoogleDrive ? (
+              <Badge dot>Active</Badge>
+            ) : (
+              <Badge className="settings-pending-badge" tone={googleDriveStatusView.tone}>
+                {googleDriveStatusView.label}
+              </Badge>
+            )}
           </div>
 
           {googleDriveState?.folder ? (
@@ -106,10 +189,17 @@ function StorageModeSettingsCard({
             </dl>
           ) : null}
 
-          {googleDriveState?.errorMessage || googleDriveErrorMessage ? (
-            <p className="settings-drive-error">
-              {googleDriveErrorMessage ?? googleDriveState?.errorMessage}
-            </p>
+          {googleDriveState?.errorMessage ? (
+            <p className="settings-drive-error">{googleDriveState.errorMessage}</p>
+          ) : null}
+
+          {effectivePendingProvider === CloudStorageProvider.GoogleDrive ? (
+            <ProviderSwitchChoice
+              isBusy={providerSwitchIsBusy}
+              providerLabel="Google Drive"
+              onCancel={() => setPendingProvider(null)}
+              onSwitch={switchToPendingProvider}
+            />
           ) : null}
 
           <div className="settings-drive-actions">
@@ -122,7 +212,7 @@ function StorageModeSettingsCard({
               {getGoogleDriveActionLabel(
                 googleDriveAction,
                 'setup-default-folder',
-                'Set up Drive folder'
+                googleDriveState?.folder ? 'Recheck Drive folder' : 'Set up Drive folder'
               )}
             </Button>
 
@@ -166,6 +256,47 @@ function StorageModeSettingsCard({
       ) : null}
     </Card>
   )
+}
+
+function ProviderSwitchChoice({
+  isBusy,
+  providerLabel,
+  onCancel,
+  onSwitch
+}: ProviderSwitchChoiceProps): React.JSX.Element {
+  return (
+    <div className="settings-provider-switch-choice" role="group" aria-label="Switch storage mode">
+      <div>
+        <strong>Switch to {providerLabel}?</strong>
+        <span>ChunkShare will use the saves and lock state already stored there.</span>
+      </div>
+      <div className="settings-provider-switch-actions">
+        <Button disabled fullWidth icon="content_copy" variant="secondary">
+          Copy current saves (soon)
+        </Button>
+        <Button disabled={isBusy} fullWidth icon="swap_horiz" onClick={onSwitch}>
+          {isBusy ? 'Switching...' : 'Use existing data'}
+        </Button>
+        <Button disabled={isBusy} fullWidth variant="ghost" onClick={onCancel}>
+          Cancel
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+function getStorageSegmentClassName(
+  provider: StorageModeProvider,
+  selectedProvider: StorageModeProvider,
+  activeProvider: CloudStorageProvider
+): string {
+  return [
+    'settings-storage-segment',
+    selectedProvider === provider ? 'is-selected' : '',
+    activeProvider === provider ? 'is-active-provider' : ''
+  ]
+    .filter(Boolean)
+    .join(' ')
 }
 
 function getGoogleDriveActionLabel(

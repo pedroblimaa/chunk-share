@@ -3,6 +3,11 @@ export enum CloudStorageProvider {
   GoogleDrive = 'google-drive'
 }
 
+export enum CloudStorageProviderSwitchDataMode {
+  CopyCurrentToTarget = 'copy-current-to-target',
+  UseTargetAsIs = 'use-target-as-is'
+}
+
 export enum GoogleDriveSetupStatus {
   NotConfigured = 'not-configured',
   NeedsAuth = 'needs-auth',
@@ -27,3 +32,26 @@ export interface CloudStorageSettings {
   activeProvider: CloudStorageProvider
   googleDrive: GoogleDriveStorageState
 }
+
+export interface CloudStorageProviderDataSummary {
+  provider: CloudStorageProvider
+  latestSaveVersion: number | null
+  latestSaveUploadedAt: string | null
+  versionCount: number
+}
+
+export interface CloudStorageProviderSwitchPreview {
+  source: CloudStorageProviderDataSummary
+  target: CloudStorageProviderDataSummary
+}
+
+export type CloudStorageProviderSwitchRequest =
+  | {
+      provider: CloudStorageProvider
+      dataMode: CloudStorageProviderSwitchDataMode.UseTargetAsIs
+    }
+  | {
+      provider: CloudStorageProvider
+      dataMode: CloudStorageProviderSwitchDataMode.CopyCurrentToTarget
+      expectedPreview: CloudStorageProviderSwitchPreview
+    }

@@ -1,7 +1,11 @@
 import { ServerHostingStatus, ServerLockStatus } from '../../../shared/domain'
 import {
   CloudStorageProvider,
+  CloudStorageProviderSwitchDataMode,
   GoogleDriveSetupStatus,
+  type CloudStorageProviderDataSummary,
+  type CloudStorageProviderSwitchRequest,
+  type CloudStorageProviderSwitchPreview,
   type CloudStorageSettings,
   type GoogleDriveFolderConfig,
   type GoogleDriveStorageState
@@ -84,8 +88,35 @@ function isServerHostingStatus(value: unknown): value is ServerHostingStatus {
   )
 }
 
-function isCloudStorageProvider(value: unknown): value is CloudStorageProvider {
+export function isCloudStorageProvider(value: unknown): value is CloudStorageProvider {
   return value === CloudStorageProvider.Local || value === CloudStorageProvider.GoogleDrive
+}
+
+function isCloudStorageProviderSwitchDataMode(value: unknown): value is CloudStorageProviderSwitchDataMode {
+  return Object.values(CloudStorageProviderSwitchDataMode).includes(
+    value as CloudStorageProviderSwitchDataMode
+  )
+}
+
+function isCloudStorageProviderDataSummary(value: unknown): value is CloudStorageProviderDataSummary {
+  if (!isRecord(value)) {
+    return false
+  }
+
+  return (
+    isCloudStorageProvider(value.provider) &&
+    isNullablePositiveInteger(value.latestSaveVersion) &&
+    isNullableString(value.latestSaveUploadedAt) &&
+    isNonNegativeInteger(value.versionCount)
+  )
+}
+
+function isCloudStorageProviderSwitchPreview(value: unknown): value is CloudStorageProviderSwitchPreview {
+  return (
+    isRecord(value) &&
+    isCloudStorageProviderDataSummary(value.source) &&
+    isCloudStorageProviderDataSummary(value.target)
+  )
 }
 
 function isGoogleDriveSetupStatus(value: unknown): value is GoogleDriveSetupStatus {
@@ -226,7 +257,23 @@ export function isCloudStorageSettings(value: unknown): value is CloudStorageSet
     return false
   }
 
-  return (
-    isCloudStorageProvider(value.activeProvider) && isGoogleDriveStorageState(value.googleDrive)
-  )
+  return isCloudStorageProvider(value.activeProvider) && isGoogleDriveStorageState(value.googleDrive)
+}
+
+export function isCloudStorageProviderSwitchRequest(
+  value: unknown
+): value is CloudStorageProviderSwitchRequest {
+  if (
+    !isRecord(value) ||
+    !isCloudStorageProvider(value.provider) ||
+    !isCloudStorageProviderSwitchDataMode(value.dataMode)
+  ) {
+    return false
+  }
+
+  if (value.dataMode === CloudStorageProviderSwitchDataMode.UseTargetAsIs) {
+    return true
+  }
+
+  return isCloudStorageProviderSwitchPreview(value.expectedPreview)
 }
