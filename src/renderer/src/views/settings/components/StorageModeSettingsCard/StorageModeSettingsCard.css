@@ -75,6 +75,11 @@
   color: var(--color-text-primary);
 }
 
+.settings-storage-segment:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
 .settings-storage-segment.is-selected {
   background: var(--color-background-console);
   border-color: var(--color-border-accent-muted);
@@ -151,55 +156,6 @@
   margin-top: 16px;
 }
 
-.settings-provider-switch-choice {
-  background: var(--color-background-console);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: 6px;
-  display: grid;
-  gap: 14px;
-  margin-top: 14px;
-  padding: 16px;
-}
-
-.settings-provider-switch-choice strong {
-  color: var(--color-text-primary);
-  display: block;
-  font-size: var(--font-size-body);
-  font-weight: var(--font-weight-bold);
-  line-height: var(--line-height-copy);
-}
-
-.settings-provider-switch-choice span {
-  color: var(--color-text-secondary);
-  display: block;
-  font-size: var(--font-size-caption);
-  line-height: var(--line-height-copy);
-  margin-top: 3px;
-}
-
-.settings-provider-switch-actions {
-  display: grid;
-  gap: 10px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.settings-provider-switch-actions .chunk-button-primary {
-  background: var(--color-accent);
-  color: var(--color-text-on-accent);
-}
-
-.settings-provider-switch-actions .chunk-button-primary:hover:not(:disabled) {
-  background: var(--color-accent-strong);
-}
-
-.settings-provider-switch-actions .chunk-button-primary .chunk-button-label {
-  color: var(--color-text-on-accent);
-}
-
-.settings-provider-switch-actions .chunk-button-primary .material-symbols-outlined {
-  color: var(--color-text-on-accent);
-}
-
 .settings-drive-secondary-actions {
   display: grid;
   gap: 10px;
@@ -212,8 +168,7 @@
     flex-direction: column;
   }
 
-  .settings-drive-secondary-actions,
-  .settings-provider-switch-actions {
+  .settings-drive-secondary-actions {
     grid-template-columns: 1fr;
   }
 }

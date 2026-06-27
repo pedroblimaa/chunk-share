@@ -86,14 +86,17 @@ export async function validateGoogleDriveFolder(): Promise<CloudStorageSettings>
 
 export async function clearGoogleDriveFolder(): Promise<CloudStorageSettings> {
   const settings = await readCloudStorageSettings()
-  assertStorageSettingsCanChange()
 
   if (settings.activeProvider === CloudStorageProvider.GoogleDrive) {
-    throw new StorageError('Switch to local storage before clearing the active Google Drive folder.')
+    await assertCloudStorageProviderCanSwitch(CloudStorageProvider.GoogleDrive, CloudStorageProvider.Local)
+    await ensureLocalStorage()
+  } else {
+    assertStorageSettingsCanChange()
   }
 
   return writeAndReturnCloudStorageSettings({
     ...settings,
+    activeProvider: CloudStorageProvider.Local,
     googleDrive: {
       status: GoogleDriveSetupStatus.NotConfigured,
       folder: null,
