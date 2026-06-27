@@ -1,6 +1,33 @@
+import { CloudStorageProvider, GoogleDriveSetupStatus } from '../../../shared/cloud-storage.model'
+import { StorageError } from '../core/storage-error'
+import { readCloudStorageSettings } from '../persistence/cloud-storage-settings-store'
+import { googleDriveStorageAdapter } from './google-drive-storage-adapter'
 import { localStorageAdapter } from './local-storage-adapter'
 import type { StorageAdapter } from './storage-adapter.model'
 
 export async function getActiveStorageAdapter(): Promise<StorageAdapter> {
-  return localStorageAdapter
+  const settings = await readCloudStorageSettings()
+
+  return getStorageAdapterForProvider(settings.activeProvider)
+}
+
+export async function getStorageAdapterForProvider(
+  provider: CloudStorageProvider
+): Promise<StorageAdapter> {
+  if (provider === CloudStorageProvider.Local) {
+    return localStorageAdapter
+  }
+
+  const settings = await readCloudStorageSettings()
+
+  if (
+    settings.googleDrive.status !== GoogleDriveSetupStatus.Valid ||
+    !settings.googleDrive.folder
+  ) {
+    throw new StorageError(
+      'Google Drive storage is selected, but the Drive folder is not configured or valid.'
+    )
+  }
+
+  return googleDriveStorageAdapter
 }

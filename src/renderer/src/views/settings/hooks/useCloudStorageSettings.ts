@@ -1,37 +1,43 @@
 import { useCallback, useEffect, useState } from 'react'
-import type { CloudStorageSettings } from '../../../../../shared/cloud-storage.model'
+import {
+  CloudStorageProviderSwitchDataMode,
+  type CloudStorageProvider,
+  type CloudStorageSettings
+} from '../../../../../shared/cloud-storage.model'
 import { getErrorMessage } from '../../../utils/error-message'
 import type { GoogleDriveSettingsAction, GoogleDriveSettingsActionState } from '../settings.model'
 
 export function useCloudStorageSettings(): {
   cloudStorageSettings: CloudStorageSettings | null
+  cloudStorageErrorMessage: string | null
   googleDriveAction: GoogleDriveSettingsActionState
-  googleDriveErrorMessage: string | null
   googleDriveIsBusy: boolean
   clearGoogleDriveFolder: () => void
+  dismissCloudStorageError: () => void
   setupDefaultGoogleDriveFolder: () => void
+  switchCloudStorageProvider: (provider: CloudStorageProvider) => void
   validateGoogleDriveFolder: () => void
 } {
   const [cloudStorageSettings, setCloudStorageSettings] = useState<CloudStorageSettings | null>(
     null
   )
   const [googleDriveAction, setGoogleDriveAction] = useState<GoogleDriveSettingsActionState>('load')
-  const [googleDriveErrorMessage, setGoogleDriveErrorMessage] = useState<string | null>(null)
+  const [cloudStorageErrorMessage, setCloudStorageErrorMessage] = useState<string | null>(null)
   const googleDriveIsBusy = googleDriveAction !== null || cloudStorageSettings === null
 
-  const runGoogleDriveAction = useCallback(
+  const runCloudStorageAction = useCallback(
     async (
       action: GoogleDriveSettingsAction,
       loadSettings: () => Promise<CloudStorageSettings>
     ): Promise<void> => {
       setGoogleDriveAction(action)
-      setGoogleDriveErrorMessage(null)
+      setCloudStorageErrorMessage(null)
 
       try {
         const nextSettings = await loadSettings()
         setCloudStorageSettings(nextSettings)
       } catch (error: unknown) {
-        setGoogleDriveErrorMessage(getErrorMessage(error, 'Unable to update Google Drive storage.'))
+        setCloudStorageErrorMessage(getErrorMessage(error, 'Unable to update cloud storage.'))
       } finally {
         setGoogleDriveAction(null)
       }
@@ -51,7 +57,7 @@ export function useCloudStorageSettings(): {
       })
       .catch((error: unknown) => {
         if (!shouldIgnoreResult) {
-          setGoogleDriveErrorMessage(
+          setCloudStorageErrorMessage(
             getErrorMessage(error, 'Unable to load Google Drive storage settings.')
           )
         }
@@ -68,30 +74,45 @@ export function useCloudStorageSettings(): {
   }, [])
 
   const setupDefaultGoogleDriveFolder = (): void => {
-    void runGoogleDriveAction('setup-default-folder', () =>
+    void runCloudStorageAction('setup-default-folder', () =>
       window.chunkShare.storage.setupGoogleDriveFolder()
     )
   }
 
   const validateGoogleDriveFolder = (): void => {
-    void runGoogleDriveAction('validate-folder', () =>
+    void runCloudStorageAction('validate-folder', () =>
       window.chunkShare.storage.validateGoogleDriveFolder()
     )
   }
 
   const clearGoogleDriveFolder = (): void => {
-    void runGoogleDriveAction('clear-folder', () =>
+    void runCloudStorageAction('clear-folder', () =>
       window.chunkShare.storage.clearGoogleDriveFolder()
     )
   }
 
+  const switchCloudStorageProvider = (provider: CloudStorageProvider): void => {
+    void runCloudStorageAction('switch-provider', () =>
+      window.chunkShare.storage.setCloudStorageProvider({
+        provider,
+        dataMode: CloudStorageProviderSwitchDataMode.UseTargetAsIs
+      })
+    )
+  }
+
+  const dismissCloudStorageError = (): void => {
+    setCloudStorageErrorMessage(null)
+  }
+
   return {
     cloudStorageSettings,
+    cloudStorageErrorMessage,
     clearGoogleDriveFolder,
+    dismissCloudStorageError,
     googleDriveAction,
-    googleDriveErrorMessage,
     googleDriveIsBusy,
     setupDefaultGoogleDriveFolder,
+    switchCloudStorageProvider,
     validateGoogleDriveFolder
   }
 }
