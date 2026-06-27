@@ -1,5 +1,6 @@
-import { stat } from 'fs/promises'
+﻿import { stat } from 'fs/promises'
 import { ServerRuntimeError } from './server-runtime-error'
+import { isMissingFileError } from '../shared/main-helpers'
 
 export async function assertFolderExists(folderPath: string): Promise<void> {
   const fileStats = await stat(folderPath).catch((error: unknown) => {
@@ -27,8 +28,4 @@ export async function assertFileExists(filePath: string): Promise<void> {
   if (!fileStats.isFile()) {
     throw new ServerRuntimeError(`server.jar path is not a file: ${filePath}`)
   }
-}
-
-export function isMissingFileError(error: unknown): boolean {
-  return error instanceof Error && 'code' in error && error.code === 'ENOENT'
 }

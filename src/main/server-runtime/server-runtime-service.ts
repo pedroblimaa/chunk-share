@@ -1,47 +1,69 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'child_process'
 import { readFile } from 'fs/promises'
 import { join } from 'path'
-import type { ServerStorageSnapshot } from '../../shared/domain'
-import { ServerSyncStatus, type ServerSyncSnapshot } from '../../shared/server-sync'
+import { ServerLockStatus, type ServerStorageSnapshot } from '../../shared/domain'
 import type {
   ServerConnectionAddress,
+  ServerRecoveryPhase,
   ServerRuntimeEvent,
   ServerRuntimeLogLine,
   ServerRuntimePlayers,
+  ServerRuntimeRecovery,
   ServerRuntimeResources,
   ServerRuntimeSnapshot,
   ServerRuntimeStatus
 } from '../../shared/server-runtime'
-import { getServerSyncSnapshot } from '../server-sync/server-sync-service'
+import { ServerSyncStatus, type ServerSyncSnapshot } from '../../shared/server-sync'
 import { getSyncStartBlockedMessage } from '../server-sync/server-sync-messages'
+import { getServerSyncSnapshot } from '../server-sync/server-sync-service'
+import { getErrorMessage } from '../shared/main-helpers'
+import { getActiveStorageAdapter } from '../storage/adapters/storage-adapter-service'
+import { localServerFolderPath, localServerJarFilePath } from '../storage/core/storage-paths'
+import { readLocalState, saveLocalStateDirty } from '../storage/persistence/local-state-store'
 import { publishServerSave } from '../storage/server-save/server-save-publisher'
 import { restoreLatestServerSave } from '../storage/server-save/server-save-restorer'
-import { localServerFolderPath, localServerJarFilePath } from '../storage/core/storage-paths'
 import { parseMinecraftOutput, type MinecraftOutputEvent } from './minecraft-output-parser'
+import { startHeartbeat, stopHeartbeat } from './server-heartbeat-manager'
 import {
   clearHostingLockAfterCleanStop,
   clearHostingLockAfterStartFailure,
   createHostingLock,
   markHostingLockRunning,
   markHostingLockStopping,
+  restoreActiveRuntimeSessionId,
   updateHostingLockSaveVersion
 } from './server-hosting-lock-manager'
-import { startHeartbeat, stopHeartbeat } from './server-heartbeat-manager'
-import { startPlayerPolling, stopPlayerPolling } from './server-player-poller'
 import { getConnectionAddresses } from './server-network-addresses'
+import { startPlayerPolling, stopPlayerPolling } from './server-player-poller'
 import {
-  assertFileExists,
-  assertFolderExists,
-  isMissingFileError
-} from './server-runtime-file-checks'
+  findOwnedMinecraftProcess,
+  isProcessRunning,
+  isTcpPortOpen,
+  waitForProcessExit
+} from './server-process-inspector'
 import { ServerRuntimeError } from './server-runtime-error'
+import { assertFileExists, assertFolderExists } from './server-runtime-file-checks'
+import {
+  getConsoleTimestamp,
+  getPreStartPublishErrorMessage,
+  getPreStartRestoreErrorMessage,
+  getProcessStartErrorMessage,
+  getRecoveryErrorMessage,
+  getRestoreRecoveryErrorMessage,
+  getStopCompletionErrorMessage
+} from './server-runtime-messages'
+import { ServerRuntimeSessionManager } from './server-runtime-session-manager'
+import { readPersistedServerRuntimeSession } from './server-runtime-state-store'
+import type { PersistedServerRuntimeSession } from './server-runtime.model'
 
 type ServerRuntimeListener = (event: ServerRuntimeEvent) => void
 type RuntimeLogTone = ServerRuntimeLogLine['tone']
 
 const SERVER_STOP_TIMEOUT_MS = 15_000
+const SERVER_START_TIMEOUT_MS = 120_000
 const JAVA_COMMAND = 'java'
-const JAVA_ARGS = ['-Xmx4G', '-Xms2G', '-jar', 'server.jar', 'nogui']
+const BASE_JAVA_ARGS = ['-Xmx4G', '-Xms2G']
+const SERVER_JAVA_ARGS = ['-jar', 'server.jar', 'nogui']
 const DEFAULT_PLAYER_LIMIT = 20
 const MOCK_RESOURCES: ServerRuntimeResources = {
   cpuPercent: 0,
@@ -53,17 +75,29 @@ const MOCK_RESOURCES: ServerRuntimeResources = {
 class ServerRuntime {
   private serverProcess: ChildProcessWithoutNullStreams | null = null
   private stopTimeout: NodeJS.Timeout | null = null
+  private startTimeout: NodeJS.Timeout | null = null
   private sessionId: string | null = null
   private stdoutBuffer = ''
   private stderrBuffer = ''
   private userRequestedStop = false
-  private status: ServerRuntimeStatus = 'stopped'
+  private status: ServerRuntimeStatus = 'initializing'
   private errorMessage: string | null = null
   private logs: ServerRuntimeLogLine[] = []
   private connectionAddresses: ServerConnectionAddress[] = []
   private players: ServerRuntimePlayers = { online: 0, max: DEFAULT_PLAYER_LIMIT }
   private resources: ServerRuntimeResources = MOCK_RESOURCES
+  private recovery: ServerRuntimeRecovery | null = null
+  private persistedSessionManager = new ServerRuntimeSessionManager()
+  private serverReachedReady = false
+  private recoveryMode = false
+  private processClosePromise: Promise<void> | null = null
+  private resolveProcessClose: (() => void) | null = null
+  private processFailureMessage: string | null = null
   private listeners = new Set<ServerRuntimeListener>()
+
+  private get persistedSession(): PersistedServerRuntimeSession | null {
+    return this.persistedSessionManager.current
+  }
 
   getSnapshot(): ServerRuntimeSnapshot {
     return {
@@ -72,8 +106,106 @@ class ServerRuntime {
       connectionAddresses: this.connectionAddresses,
       players: this.players,
       resources: this.resources,
-      logs: this.logs
+      logs: this.logs,
+      recovery: this.recovery
     }
+  }
+
+  async initialize(): Promise<void> {
+    let persistedSession: PersistedServerRuntimeSession | null
+
+    try {
+      persistedSession = await readPersistedServerRuntimeSession()
+    } catch (error) {
+      try {
+        const restoredLegacySession = await this.restoreLegacyRuntimeSession()
+
+        if (!restoredLegacySession) {
+          this.finishWithError(`Unable to read the previous server session: ${getErrorMessage(error)}`)
+        }
+      } catch {
+        this.finishWithError(`Unable to read the previous server session: ${getErrorMessage(error)}`)
+      }
+
+      this.finishInitialization()
+      return
+    }
+
+    if (!persistedSession) {
+      try {
+        await this.restoreLegacyRuntimeSession()
+      } catch (error) {
+        this.finishWithError(`Unable to restore the previous server session: ${getErrorMessage(error)}`)
+      }
+
+      this.finishInitialization()
+      return
+    }
+
+    this.persistedSessionManager.restore(persistedSession)
+    restoreActiveRuntimeSessionId(persistedSession.sessionId)
+
+    if (persistedSession.phase === 'published') {
+      await this.reconcilePublishedSession()
+      return
+    }
+
+    if (persistedSession.phase !== 'lock-acquired') {
+      const processIsRunning = await this.getPersistedProcessIsRunning()
+      this.enterRecoveryRequired(
+        processIsRunning
+          ? 'The Minecraft server is still running in the background.'
+          : 'The previous Minecraft server session ended without publishing.',
+        false,
+        processIsRunning
+      )
+      return
+    }
+
+    try {
+      await this.clearInterruptedStart(persistedSession.sessionId)
+      this.finishWithError('The previous Minecraft server start was interrupted. Try starting again.')
+    } catch (error) {
+      this.enterRecoveryRequired(
+        `The previous server start was interrupted, but its lock could not be cleared: ${getErrorMessage(error)}`,
+        false,
+        false
+      )
+    }
+  }
+
+  private async restoreLegacyRuntimeSession(): Promise<boolean> {
+    const localState = await readLocalState()
+
+    if (!localState.activeSessionId) {
+      return false
+    }
+
+    const storageAdapter = await getActiveStorageAdapter()
+    const serverLock = await storageAdapter.readServerLock()
+
+    if (
+      serverLock.status !== ServerLockStatus.Locked ||
+      serverLock.sessionId !== localState.activeSessionId
+    ) {
+      return false
+    }
+
+    await this.persistedSessionManager.replace({
+      phase: 'ready',
+      processId: null,
+      processTag: null,
+      sessionId: localState.activeSessionId,
+      startedAt: serverLock.startedAt
+    })
+    restoreActiveRuntimeSessionId(localState.activeSessionId)
+    this.enterRecoveryRequired(
+      'The previous Minecraft server session ended without publishing.',
+      false,
+      false
+    )
+
+    return true
   }
 
   subscribe(listener: ServerRuntimeListener): () => void {
@@ -82,15 +214,40 @@ class ServerRuntime {
     return () => this.listeners.delete(listener)
   }
 
+  failInitialization(error: unknown): void {
+    this.finishWithError(`Unable to initialize the server runtime: ${getErrorMessage(error)}`)
+  }
+
   async start(): Promise<ServerRuntimeSnapshot> {
+    if (this.status === 'initializing') {
+      throw new ServerRuntimeError('ChunkShare is still checking the previous server session.')
+    }
+
     if (this.serverProcess) {
       throw new ServerRuntimeError('Minecraft server is already running.')
     }
 
-    if (this.status === 'starting' || this.status === 'running' || this.status === 'stopping') {
+    if (
+      this.status === 'starting' ||
+      this.status === 'running' ||
+      this.status === 'stopping' ||
+      this.status === 'recovering' ||
+      this.status === 'recovery-required'
+    ) {
       throw new ServerRuntimeError('Minecraft server is already starting, running, or stopping.')
     }
 
+    this.beginServerStart()
+
+    try {
+      return await this.startConfiguredServer()
+    } catch (error) {
+      await this.handleStartPreparationFailure(error)
+      throw error
+    }
+  }
+
+  private async startConfiguredServer(): Promise<ServerRuntimeSnapshot> {
     let storageSnapshot = await getServerSyncSnapshot()
     let { localState, serverSync } = storageSnapshot
 
@@ -119,16 +276,10 @@ class ServerRuntime {
       createHostingLock(storageSnapshot, connectionAddresses)
     )
     this.sessionId = sessionId
+    await this.persistedSessionManager.create(sessionId)
 
-    this.status = 'starting'
-    this.errorMessage = null
-    this.logs = restoredCloudSaveBeforeStart ? this.logs : []
-    this.stdoutBuffer = ''
-    this.stderrBuffer = ''
     this.connectionAddresses = connectionAddresses
     this.players = { online: 0, max: maxPlayers }
-    this.resources = MOCK_RESOURCES
-    this.emitRuntimeEvent()
 
     if (serverSync.status === ServerSyncStatus.LocalNewer) {
       storageSnapshot = await this.publishLocalNewerSaveBeforeStart(sessionId)
@@ -136,19 +287,49 @@ class ServerRuntime {
       this.assertServerSyncAllowsStart(serverSync)
     }
 
+    const javaArgs = getJavaArgs(sessionId)
     this.addLogLine(
       'ChunkShare',
-      `Starting Minecraft server with ${JAVA_COMMAND} ${JAVA_ARGS.join(' ')}`
+      `Starting Minecraft server with ${JAVA_COMMAND} ${[...BASE_JAVA_ARGS, ...SERVER_JAVA_ARGS].join(' ')}`
     )
 
-    this.serverProcess = spawn(JAVA_COMMAND, JAVA_ARGS, {
-      cwd: serverFolderPath,
-      windowsHide: true
-    })
-
-    this.attachServerProcessListeners(this.serverProcess, sessionId)
+    await this.launchServerProcess(serverFolderPath, sessionId, javaArgs)
 
     return this.getSnapshot()
+  }
+
+  private beginServerStart(): void {
+    this.status = 'starting'
+    this.errorMessage = null
+    this.logs = []
+    this.stdoutBuffer = ''
+    this.stderrBuffer = ''
+    this.connectionAddresses = []
+    this.players = { online: 0, max: DEFAULT_PLAYER_LIMIT }
+    this.resources = MOCK_RESOURCES
+    this.recovery = null
+    this.recoveryMode = false
+    this.serverReachedReady = false
+    this.processFailureMessage = null
+    this.emitRuntimeEvent()
+  }
+
+  private async handleStartPreparationFailure(error: unknown): Promise<void> {
+    if (this.status === 'recovery-required') {
+      return
+    }
+
+    if (this.sessionId && !this.serverProcess) {
+      const lockWasCleared = await this.clearFailedStartSession(this.sessionId, getErrorMessage(error))
+
+      if (!lockWasCleared) {
+        return
+      }
+    }
+
+    if (this.status !== 'error') {
+      this.finishWithError(getErrorMessage(error))
+    }
   }
 
   private async restoreCloudSaveBeforeStart(
@@ -177,9 +358,7 @@ class ServerRuntime {
     }
   }
 
-  private async publishLocalNewerSaveBeforeStart(
-    sessionId: string
-  ): Promise<ServerStorageSnapshot> {
+  private async publishLocalNewerSaveBeforeStart(sessionId: string): Promise<ServerStorageSnapshot> {
     this.addLogLine('ChunkShare', 'Publishing newer local save before start.')
 
     try {
@@ -202,10 +381,12 @@ class ServerRuntime {
 
       return getServerSyncSnapshot()
     } catch (error) {
-      await clearHostingLockAfterStartFailure().catch(() => undefined)
-      this.sessionId = null
-
       const message = getPreStartPublishErrorMessage(error)
+
+      if (!(await this.clearFailedStartSession(sessionId, message))) {
+        throw new ServerRuntimeError(message)
+      }
+
       this.finishWithError(message)
       throw new ServerRuntimeError(message)
     }
@@ -223,8 +404,170 @@ class ServerRuntime {
     }
   }
 
+  async recover(): Promise<ServerRuntimeSnapshot> {
+    if (this.status !== 'recovery-required' || !this.persistedSession) {
+      throw new ServerRuntimeError('No crashed Minecraft server session is available to recover.')
+    }
+
+    this.recoveryMode = true
+    this.serverReachedReady = false
+    this.setRecoveryProgress(
+      'starting',
+      this.persistedSession.processId !== null && isProcessRunning(this.persistedSession.processId)
+    )
+
+    try {
+      if (this.persistedSession.phase === 'published') {
+        await this.finalizePublishedSession()
+        return this.getSnapshot()
+      }
+
+      await this.stopPersistedBackgroundProcess()
+      await this.startRecoveryServer()
+      return this.getSnapshot()
+    } catch (error) {
+      const message = getRecoveryErrorMessage(error)
+      const processIsRunning = await this.getPersistedProcessIsRunning()
+      this.enterRecoveryRequired(message, true, processIsRunning)
+      throw new ServerRuntimeError(message)
+    }
+  }
+
+  async restoreSharedSaveAfterRecovery(): Promise<ServerRuntimeSnapshot> {
+    if (this.status !== 'recovery-required' || !this.recovery?.attemptFailed || !this.persistedSession) {
+      throw new ServerRuntimeError('Recover the server before restoring the last shared save.')
+    }
+
+    this.setRecoveryProgress('restoring', false)
+
+    const persistedSession = this.persistedSession
+
+    try {
+      await this.assertPersistedProcessStopped()
+
+      const storageSnapshot = await getServerSyncSnapshot()
+
+      if (!storageSnapshot.latestSave) {
+        throw new ServerRuntimeError('No shared save is available to restore.')
+      }
+
+      await restoreLatestServerSave(storageSnapshot, { allowDirtyLocalState: true })
+      await saveLocalStateDirty(false)
+      await this.clearInterruptedStart(persistedSession.sessionId)
+
+      this.completeStoppedRuntime()
+
+      return this.getSnapshot()
+    } catch (error) {
+      const message = getRestoreRecoveryErrorMessage(error)
+      const processIsRunning = await this.getPersistedProcessIsRunning()
+      this.enterRecoveryRequired(message, true, processIsRunning)
+      throw new ServerRuntimeError(message)
+    }
+  }
+
+  async shutdown(): Promise<void> {
+    if (!this.serverProcess) {
+      const pendingProcessClose = this.processClosePromise
+      await pendingProcessClose
+
+      if (pendingProcessClose) {
+        this.assertShutdownCompleted()
+      }
+
+      return
+    }
+
+    if (this.status === 'recovering' && this.recovery?.phase === 'starting') {
+      this.serverProcess.kill()
+    } else if (this.status !== 'stopping' && this.status !== 'recovering') {
+      await this.stop()
+    }
+
+    await this.processClosePromise
+    this.assertShutdownCompleted()
+  }
+
+  private assertShutdownCompleted(): void {
+    if (this.status !== 'stopped') {
+      throw new ServerRuntimeError(
+        this.errorMessage ?? 'Minecraft server shutdown did not finish successfully.'
+      )
+    }
+  }
+
+  private async startRecoveryServer(): Promise<void> {
+    const storageSnapshot = await getServerSyncSnapshot()
+    const { localState } = storageSnapshot
+
+    if (localState.serverSetup.status !== 'ready') {
+      throw new ServerRuntimeError('Server setup must be completed before recovery.')
+    }
+
+    const serverFolderPath = localState.serverConfig.serverFolderPath ?? localServerFolderPath
+    await assertFolderExists(serverFolderPath)
+    await assertFileExists(localServerJarFilePath)
+
+    const connectionAddresses = getConnectionAddresses(localState.serverConfig.port)
+    const maxPlayers = await readMaxPlayers(serverFolderPath)
+    const sessionId = await createHostingLock(storageSnapshot, connectionAddresses)
+
+    this.sessionId = sessionId
+    await this.persistedSessionManager.create(sessionId)
+    this.connectionAddresses = connectionAddresses
+    this.players = { online: 0, max: maxPlayers }
+    this.addLogLine('ChunkShare', 'Starting Minecraft server recovery.')
+
+    await this.launchServerProcess(serverFolderPath, sessionId, getJavaArgs(sessionId))
+  }
+
+  private async launchServerProcess(
+    serverFolderPath: string,
+    sessionId: string,
+    javaArgs: string[]
+  ): Promise<void> {
+    await this.persistedSessionManager.markLaunching()
+    await saveLocalStateDirty(true)
+
+    let minecraftProcess: ChildProcessWithoutNullStreams
+
+    try {
+      minecraftProcess = spawn(JAVA_COMMAND, javaArgs, {
+        cwd: serverFolderPath,
+        windowsHide: true
+      })
+    } catch (error) {
+      await saveLocalStateDirty(false)
+      throw error
+    }
+
+    if (!minecraftProcess.pid) {
+      minecraftProcess.kill()
+      await saveLocalStateDirty(false)
+      throw new ServerRuntimeError('Minecraft server did not return a process ID.')
+    }
+
+    this.serverProcess = minecraftProcess
+    this.processClosePromise = new Promise<void>((resolve) => {
+      this.resolveProcessClose = resolve
+    })
+    this.attachServerProcessListeners(minecraftProcess, sessionId)
+    this.scheduleStartTimeout()
+
+    try {
+      await this.persistedSessionManager.markProcessStarted(minecraftProcess.pid)
+    } catch (error) {
+      minecraftProcess.kill()
+      throw error
+    }
+  }
+
   async stop(): Promise<ServerRuntimeSnapshot> {
     if (!this.serverProcess) {
+      if (this.status === 'recovery-required') {
+        throw new ServerRuntimeError('Recover the server before attempting to stop it.')
+      }
+
       this.status = 'stopped'
       this.errorMessage = null
       this.players = { ...this.players, online: 0 }
@@ -247,6 +590,12 @@ class ServerRuntime {
     this.addLogLine('ChunkShare', 'Sending graceful stop command to Minecraft server.')
     this.serverProcess.stdin.write('stop\n')
 
+    this.scheduleStopTimeout()
+
+    return this.getSnapshot()
+  }
+
+  private scheduleStopTimeout(): void {
     this.clearStopTimeout()
     this.stopTimeout = setTimeout(() => {
       if (!this.serverProcess) {
@@ -257,8 +606,18 @@ class ServerRuntime {
       this.finishWithError('Minecraft server did not stop within 15 seconds.')
       this.serverProcess.kill()
     }, SERVER_STOP_TIMEOUT_MS)
+  }
 
-    return this.getSnapshot()
+  private scheduleStartTimeout(): void {
+    this.clearStartTimeout()
+    this.startTimeout = setTimeout(() => {
+      if (!this.serverProcess || this.serverReachedReady) {
+        return
+      }
+
+      this.processFailureMessage = 'Minecraft server did not finish starting within 2 minutes.'
+      this.serverProcess.kill()
+    }, SERVER_START_TIMEOUT_MS)
   }
 
   private attachServerProcessListeners(
@@ -286,12 +645,7 @@ class ServerRuntime {
     })
 
     minecraftProcess.once('error', (error) => {
-      this.serverProcess = null
-      this.sessionId = null
-      this.userRequestedStop = false
-      stopHeartbeat()
-      void clearHostingLockAfterStartFailure()
-      this.finishWithError(getProcessStartErrorMessage(error))
+      this.processFailureMessage = getProcessStartErrorMessage(error)
     })
 
     minecraftProcess.once('close', (exitCode) => {
@@ -301,47 +655,44 @@ class ServerRuntime {
 
   private async handleServerProcessClose(exitCode: number | null): Promise<void> {
     this.clearStopTimeout()
+    this.clearStartTimeout()
     stopPlayerPolling()
     stopHeartbeat()
     this.flushServerOutputBuffers()
 
-    if (this.status === 'error') {
-      this.serverProcess = null
-      this.sessionId = null
-      this.userRequestedStop = false
-      this.emitRuntimeEvent()
-      return
-    }
-
     this.serverProcess = null
-    this.sessionId = null
     this.players = { ...this.players, online: 0 }
 
     if (this.userRequestedStop && exitCode === 0) {
       await this.publishSaveAfterCleanStop()
+      this.resolveManagedProcessClose()
       return
     }
 
-    this.userRequestedStop = false
-    this.status = exitCode === 0 ? 'stopped' : 'crashed'
-    this.errorMessage =
-      this.status === 'stopped'
-        ? null
-        : `Minecraft server exited with code ${exitCode ?? 'unknown'}.`
+    const failureMessage =
+      this.processFailureMessage ?? `Minecraft server exited with code ${exitCode ?? 'unknown'}.`
 
-    this.emitRuntimeEvent()
+    this.userRequestedStop = false
+
+    this.sessionId = null
+    this.enterRecoveryRequired(failureMessage, this.recoveryMode, false)
+    this.resolveManagedProcessClose()
   }
 
   private async publishSaveAfterCleanStop(): Promise<void> {
+    if (this.recoveryMode && this.recovery) {
+      this.setRecoveryProgress('publishing', false)
+    }
+
     this.addLogLine('ChunkShare', 'Publishing server save.')
 
     try {
       const publishResult = await publishServerSave()
+      await saveLocalStateDirty(false)
+      await this.persistedSessionManager.markPublished()
       await clearHostingLockAfterCleanStop()
-      this.sessionId = null
-      this.userRequestedStop = false
-      this.status = 'stopped'
-      this.errorMessage = null
+      await this.clearPersistedRuntimeState()
+      this.completeStoppedRuntime(false)
       this.addLogLine(
         'ChunkShare',
         `Server save v${publishResult.latestSave.saveVersion} published.`,
@@ -361,7 +712,8 @@ class ServerRuntime {
       this.emitRuntimeEvent()
     } catch (error) {
       this.userRequestedStop = false
-      this.finishWithError(getStopCompletionErrorMessage(error))
+
+      this.enterRecoveryRequired(getStopCompletionErrorMessage(error), this.recoveryMode, false)
     }
   }
 
@@ -420,11 +772,7 @@ class ServerRuntime {
     this.stderrBuffer = ''
   }
 
-  private handleMinecraftOutputEvent(
-    event: MinecraftOutputEvent,
-    source: string,
-    sessionId: string
-  ): void {
+  private handleMinecraftOutputEvent(event: MinecraftOutputEvent, source: string, sessionId: string): void {
     if (event.type === 'players') {
       this.updatePlayers(event.players)
       return
@@ -436,20 +784,51 @@ class ServerRuntime {
     }
 
     if (event.type === 'java-version-mismatch') {
-      this.finishWithError(
-        `This Minecraft server requires Java ${event.requiredJavaVersion}, but ChunkShare is using Java ${event.currentJavaVersion}. Install a newer Java version and restart ChunkShare.`
-      )
+      this.processFailureMessage =
+        `This Minecraft server requires Java ${event.requiredJavaVersion}, but ChunkShare is using Java ${event.currentJavaVersion}. ` +
+        'Install a newer Java version and restart ChunkShare.'
+      this.serverProcess?.kill()
       return
     }
 
-    if (this.status === 'starting') {
-      this.markServerReady(sessionId)
+    if (this.status === 'starting' || this.status === 'recovering') {
+      void this.markServerReady(sessionId)
     }
   }
 
-  private markServerReady(sessionId: string): void {
+  private async markServerReady(sessionId: string): Promise<void> {
+    if (this.serverReachedReady) {
+      return
+    }
+
+    this.serverReachedReady = true
+    this.clearStartTimeout()
+
+    try {
+      await this.persistedSessionManager.markReady()
+
+      if (!this.serverProcess || this.sessionId !== sessionId) {
+        return
+      }
+
+      await markHostingLockRunning(sessionId)
+    } catch (error) {
+      this.processFailureMessage = `Unable to prepare the running server: ${getErrorMessage(error)}`
+      this.serverProcess?.kill()
+      return
+    }
+
+    if (!this.serverProcess || this.sessionId !== sessionId) {
+      return
+    }
+
+    if (this.recoveryMode) {
+      this.beginAutomaticRecoveryStop()
+      return
+    }
+
     this.status = 'running'
-    void this.startHeartbeatAfterLockPromotion(sessionId)
+    this.startHeartbeatForSession(sessionId)
     startPlayerPolling({
       getServerProcess: () => this.serverProcess,
       getStatus: () => this.status,
@@ -458,31 +837,26 @@ class ServerRuntime {
     this.emitRuntimeEvent()
   }
 
-  private async startHeartbeatAfterLockPromotion(sessionId: string): Promise<void> {
-    if (this.status !== 'running') {
-      return
-    }
-
-    try {
-      await markHostingLockRunning(sessionId)
-    } catch (error: unknown) {
-      this.addLogLine(
-        'ChunkShare',
-        `Unable to mark hosting lock as running: ${getErrorMessage(error)}`,
-        'warning'
-      )
-      return
-    }
-
-    if (this.status !== 'running') {
-      return
-    }
-
+  private startHeartbeatForSession(sessionId: string): void {
     startHeartbeat({
       sessionId,
       getStatus: () => this.status,
       addLogLine: (logSource, message, logTone) => this.addLogLine(logSource, message, logTone)
     })
+  }
+
+  private beginAutomaticRecoveryStop(): void {
+    if (!this.serverProcess || !this.recovery) {
+      return
+    }
+
+    this.userRequestedStop = true
+    this.setRecoveryProgress('saving', true)
+    this.markHostingLockStopping()
+    this.addLogLine('ChunkShare', 'Recovery loaded successfully. Saving the world.')
+    this.serverProcess.stdin.write('save-all flush\n')
+    this.serverProcess.stdin.write('stop\n')
+    this.scheduleStopTimeout()
   }
 
   private markHostingLockStopping(): void {
@@ -515,6 +889,176 @@ class ServerRuntime {
 
     this.logs = [...this.logs, logLine]
     this.emitRuntimeEvent(logLine)
+  }
+
+  private async reconcilePublishedSession(): Promise<void> {
+    try {
+      await this.finalizePublishedSession()
+    } catch (error) {
+      this.enterRecoveryRequired(
+        `The previous save was published, but the hosting lock still needs cleanup: ${getErrorMessage(error)}`,
+        false,
+        false
+      )
+    }
+  }
+
+  private async finalizePublishedSession(): Promise<void> {
+    await clearHostingLockAfterCleanStop()
+    await this.clearPersistedRuntimeState()
+    this.completeStoppedRuntime()
+  }
+
+  private async clearPersistedRuntimeState(): Promise<void> {
+    try {
+      await this.persistedSessionManager.clear()
+    } catch (error) {
+      this.addLogLine(
+        'ChunkShare',
+        `The server session finished, but its local recovery metadata could not be removed: ${getErrorMessage(error)}`,
+        'warning'
+      )
+    }
+
+    this.persistedSessionManager.forget()
+  }
+
+  private completeStoppedRuntime(emitEvent = true): void {
+    this.resetRuntimeSession()
+    this.status = 'stopped'
+    this.errorMessage = null
+
+    if (emitEvent) {
+      this.emitRuntimeEvent()
+    }
+  }
+
+  private finishInitialization(): void {
+    if (this.status !== 'initializing') {
+      return
+    }
+
+    this.status = 'stopped'
+    this.emitRuntimeEvent()
+  }
+
+  private setRecoveryProgress(phase: ServerRecoveryPhase, processIsRunning: boolean): void {
+    this.status = 'recovering'
+    this.errorMessage = null
+    this.recovery = {
+      phase,
+      attemptFailed: false,
+      processIsRunning
+    }
+    this.emitRuntimeEvent()
+  }
+
+  private async getPersistedProcessIsRunning(): Promise<boolean> {
+    if (!this.persistedSession) {
+      return false
+    }
+
+    try {
+      return (await findOwnedMinecraftProcess(this.persistedSession)) !== null
+    } catch {
+      return false
+    }
+  }
+
+  private enterRecoveryRequired(message: string, attemptFailed: boolean, processIsRunning: boolean): void {
+    this.status = 'recovery-required'
+    this.errorMessage = message
+    this.recoveryMode = this.serverProcess !== null && this.recoveryMode
+    this.recovery = {
+      phase: null,
+      attemptFailed,
+      processIsRunning
+    }
+    stopPlayerPolling()
+    stopHeartbeat()
+    this.addLogLine('ChunkShare', message, 'error')
+  }
+
+  private async stopPersistedBackgroundProcess(): Promise<void> {
+    if (!this.persistedSession) {
+      return
+    }
+
+    const processId = await findOwnedMinecraftProcess(this.persistedSession)
+
+    if (processId === null) {
+      await this.assertNoUntrackedBackgroundServer()
+      return
+    }
+
+    try {
+      process.kill(processId)
+    } catch (error) {
+      throw new ServerRuntimeError(
+        `Unable to stop the background Minecraft process: ${getErrorMessage(error)}`
+      )
+    }
+
+    await waitForProcessExit(processId)
+  }
+
+  private async assertNoUntrackedBackgroundServer(): Promise<void> {
+    const localState = await readLocalState()
+
+    if (await isTcpPortOpen(localState.serverConfig.port)) {
+      throw new ServerRuntimeError(
+        'The previous Minecraft server is still running, but ChunkShare does not know its process ID. Stop the Java process, then retry recovery.'
+      )
+    }
+  }
+
+  private async assertPersistedProcessStopped(): Promise<void> {
+    if (!this.persistedSession) {
+      return
+    }
+
+    if ((await findOwnedMinecraftProcess(this.persistedSession)) !== null) {
+      throw new ServerRuntimeError('Cannot restore while the previous server process is still running.')
+    }
+
+    await this.assertNoUntrackedBackgroundServer()
+  }
+
+  private async clearInterruptedStart(sessionId: string): Promise<void> {
+    await clearHostingLockAfterStartFailure(sessionId)
+    await this.clearPersistedRuntimeState()
+  }
+
+  private async clearFailedStartSession(sessionId: string, failureMessage: string): Promise<boolean> {
+    try {
+      await this.clearInterruptedStart(sessionId)
+      this.sessionId = null
+      return true
+    } catch (error) {
+      this.enterRecoveryRequired(
+        `${failureMessage} The hosting lock could not be cleared: ${getErrorMessage(error)}`,
+        false,
+        false
+      )
+      return false
+    }
+  }
+
+  private resetRuntimeSession(): void {
+    this.sessionId = null
+    this.persistedSessionManager.forget()
+    this.recovery = null
+    this.recoveryMode = false
+    this.serverReachedReady = false
+    this.processFailureMessage = null
+    this.userRequestedStop = false
+    this.connectionAddresses = []
+  }
+
+  private resolveManagedProcessClose(): void {
+    this.resolveProcessClose?.()
+    this.resolveProcessClose = null
+    this.processClosePromise = null
   }
 
   private finishWithError(message: string): void {
@@ -562,6 +1106,15 @@ class ServerRuntime {
     clearTimeout(this.stopTimeout)
     this.stopTimeout = null
   }
+
+  private clearStartTimeout(): void {
+    if (!this.startTimeout) {
+      return
+    }
+
+    clearTimeout(this.startTimeout)
+    this.startTimeout = null
+  }
 }
 
 const serverRuntime = new ServerRuntime()
@@ -574,6 +1127,14 @@ export function subscribeToServerRuntime(listener: ServerRuntimeListener): () =>
   return serverRuntime.subscribe(listener)
 }
 
+export async function initializeServerRuntime(): Promise<void> {
+  try {
+    await serverRuntime.initialize()
+  } catch (error) {
+    serverRuntime.failInitialization(error)
+  }
+}
+
 export function startMinecraftServer(): Promise<ServerRuntimeSnapshot> {
   return serverRuntime.start()
 }
@@ -582,69 +1143,25 @@ export function stopMinecraftServer(): Promise<ServerRuntimeSnapshot> {
   return serverRuntime.stop()
 }
 
+export function recoverMinecraftServer(): Promise<ServerRuntimeSnapshot> {
+  return serverRuntime.recover()
+}
+
+export function restoreSharedSaveAfterRecovery(): Promise<ServerRuntimeSnapshot> {
+  return serverRuntime.restoreSharedSaveAfterRecovery()
+}
+
+export function shutdownMinecraftServer(): Promise<void> {
+  return serverRuntime.shutdown()
+}
+
 async function readMaxPlayers(serverFolderPath: string): Promise<number> {
-  const properties = await readFile(join(serverFolderPath, 'server.properties'), 'utf8').catch(
-    () => ''
-  )
+  const properties = await readFile(join(serverFolderPath, 'server.properties'), 'utf8').catch(() => '')
   const match = properties.match(/^max-players=(\d+)$/m)
 
   return match ? Number(match[1]) : DEFAULT_PLAYER_LIMIT
 }
 
-function getProcessStartErrorMessage(error: Error): string {
-  if (isMissingExecutableError(error)) {
-    return 'Java was not found on PATH. Install Java or add java.exe to PATH, then restart ChunkShare and try again.'
-  }
-
-  return `Unable to start Minecraft server: ${error.message}`
-}
-
-function getPublishErrorMessage(error: unknown): string {
-  if (error instanceof Error) {
-    return `Unable to publish server save: ${error.message}`
-  }
-
-  return 'Unable to publish server save.'
-}
-
-function getPreStartPublishErrorMessage(error: unknown): string {
-  if (error instanceof Error) {
-    return `Unable to publish newer local save before start: ${error.message}`
-  }
-
-  return 'Unable to publish newer local save before start.'
-}
-
-function getPreStartRestoreErrorMessage(error: unknown): string {
-  if (error instanceof Error) {
-    return `Unable to update local server from shared save before start: ${error.message}`
-  }
-
-  return 'Unable to update local server from shared save before start.'
-}
-
-function getStopCompletionErrorMessage(error: unknown): string {
-  const message = error instanceof Error ? error.message : null
-
-  if (message?.startsWith('Cannot unlock server')) {
-    return `Server save published, but ChunkShare could not unlock the server: ${message}`
-  }
-
-  return getPublishErrorMessage(error)
-}
-
-function getConsoleTimestamp(): string {
-  return new Intl.DateTimeFormat(undefined, {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit'
-  }).format(new Date())
-}
-
-function getErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : 'Unknown error.'
-}
-
-function isMissingExecutableError(error: unknown): boolean {
-  return isMissingFileError(error)
+function getJavaArgs(sessionId: string): string[] {
+  return [...BASE_JAVA_ARGS, `-Dchunkshare.sessionId=${sessionId}`, ...SERVER_JAVA_ARGS]
 }

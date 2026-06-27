@@ -1,58 +1,65 @@
-import './StorageProviderSwitchPanel.css'
+import './StorageProviderSwitchDialog.css'
 
+import { useEffect, useRef } from 'react'
 import {
   CloudStorageProvider,
   type CloudStorageProviderDataSummary,
   type CloudStorageProviderSwitchPreview
 } from '../../../../../../shared/cloud-storage.model'
 import Button from '../../../../components/shared/Button/Button'
+import MaterialIcon from '../../../../components/shared/MaterialIcon/MaterialIcon'
 import { StorageSettingsOperation, type ActiveStorageSettingsOperation } from '../../settings.model'
 import {
   StorageProviderSwitchScenario,
   type StorageProviderDataSummaryProps,
   type StorageProviderSwitchChoiceCopy,
   type StorageProviderSwitchChoiceProps,
-  type StorageProviderSwitchPanelProps
-} from './StorageProviderSwitchPanel.model'
+  type StorageProviderSwitchDialogProps
+} from './StorageProviderSwitchDialog.model'
 
-function StorageProviderSwitchPanel({
-  hasError,
+function StorageProviderSwitchDialog({
+  errorMessage,
   operation,
   preview,
   onActivateTarget,
   onCancel,
   onCopyCurrentData,
   onRetry
-}: StorageProviderSwitchPanelProps): React.JSX.Element | null {
-  if (preview) {
-    return (
-      <StorageProviderSwitchChoice
-        operation={operation}
-        preview={preview}
-        onActivateTarget={onActivateTarget}
-        onCancel={onCancel}
-        onCopyCurrentData={onCopyCurrentData}
-      />
-    )
-  }
-
+}: StorageProviderSwitchDialogProps): React.JSX.Element | null {
+  const dialogRef = useRef<HTMLElement>(null)
+  const dialogIsBusy = operation !== null
   const progressLabel = getProviderSwitchProgressLabel(operation)
+  let dialogContent: React.JSX.Element | null = null
 
-  if (progressLabel) {
-    return (
-      <div className="settings-provider-switch-panel" aria-live="polite">
-        <strong>{progressLabel}</strong>
-        <span>Keep ChunkShare open while storage data is checked and prepared.</span>
+  if (preview) {
+    dialogContent = (
+      <>
+        {errorMessage ? <p className="settings-provider-switch-error">{errorMessage}</p> : null}
+        <StorageProviderSwitchChoice
+          operation={operation}
+          preview={preview}
+          onActivateTarget={onActivateTarget}
+          onCancel={onCancel}
+          onCopyCurrentData={onCopyCurrentData}
+        />
+      </>
+    )
+  } else if (progressLabel) {
+    dialogContent = (
+      <div className="settings-provider-switch-loading" aria-live="polite">
+        <MaterialIcon name="progress_activity" />
+        <div>
+          <strong>{progressLabel}</strong>
+          <span>Keep ChunkShare open while storage data is checked and prepared.</span>
+        </div>
       </div>
     )
-  }
-
-  if (hasError) {
-    return (
-      <div className="settings-provider-switch-panel" role="group" aria-label="Retry storage switch">
+  } else if (errorMessage) {
+    dialogContent = (
+      <>
         <div>
           <strong>Unable to check storage data</strong>
-          <span>Retry the check or cancel this provider switch.</span>
+          <span>{errorMessage}</span>
         </div>
         <div className="settings-provider-switch-actions settings-provider-switch-two-actions">
           <Button fullWidth icon="refresh" onClick={onRetry}>
@@ -62,11 +69,58 @@ function StorageProviderSwitchPanel({
             Cancel
           </Button>
         </div>
-      </div>
+      </>
     )
   }
 
-  return null
+  useEffect(() => {
+    const previouslyFocusedElement =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null
+    const previousBodyOverflow = document.body.style.overflow
+
+    document.body.style.overflow = 'hidden'
+    dialogRef.current?.focus()
+
+    return () => {
+      document.body.style.overflow = previousBodyOverflow
+      previouslyFocusedElement?.focus()
+    }
+  }, [])
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape' && !dialogIsBusy) {
+        onCancel()
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [dialogIsBusy, onCancel])
+
+  if (!dialogContent) {
+    return null
+  }
+
+  return (
+    <div className="settings-provider-switch-backdrop">
+      <section
+        aria-labelledby="settings-provider-switch-title"
+        aria-modal="true"
+        className="settings-provider-switch-dialog"
+        ref={dialogRef}
+        role="dialog"
+        tabIndex={-1}
+      >
+        <div className="settings-provider-switch-heading">
+          <MaterialIcon name="swap_horiz" />
+          <h3 id="settings-provider-switch-title">Switch Storage Mode</h3>
+        </div>
+        <div className="settings-provider-switch-content">{dialogContent}</div>
+      </section>
+    </div>
+  )
 }
 
 function StorageProviderSwitchChoice({
@@ -76,7 +130,6 @@ function StorageProviderSwitchChoice({
   onCancel,
   onCopyCurrentData
 }: StorageProviderSwitchChoiceProps): React.JSX.Element {
-  const sourceLabel = getStorageProviderLabel(preview.source.provider)
   const targetLabel = getStorageProviderLabel(preview.target.provider)
   const scenario = getStorageProviderSwitchScenario(preview)
   const choiceCopy = getStorageProviderSwitchChoiceCopy(scenario, targetLabel)
@@ -110,14 +163,17 @@ function StorageProviderSwitchChoice({
   ) : null
 
   return (
-    <div className="settings-provider-switch-panel" role="group" aria-label="Switch storage mode">
+    <>
       <div>
         <strong>{choiceCopy.title}</strong>
         <span>{choiceCopy.description}</span>
       </div>
       <div className="settings-provider-switch-comparison">
-        <StorageProviderDataSummary label={`Current - ${sourceLabel}`} summary={preview.source} />
-        <StorageProviderDataSummary label={`Target - ${targetLabel}`} summary={preview.target} />
+        <StorageProviderDataSummary summary={preview.source} />
+        <div className="settings-provider-switch-direction" aria-hidden="true">
+          <MaterialIcon name="arrow_forward" />
+        </div>
+        <StorageProviderDataSummary summary={preview.target} />
       </div>
       {copyReplacesTargetData ? (
         <p className="settings-provider-switch-warning">
@@ -135,7 +191,7 @@ function StorageProviderSwitchChoice({
           Cancel
         </Button>
       </div>
-    </div>
+    </>
   )
 }
 
@@ -215,10 +271,13 @@ function storageProviderHasData(summary: CloudStorageProviderDataSummary): boole
   return summary.latestSaveVersion !== null || summary.versionCount > 0
 }
 
-function StorageProviderDataSummary({ label, summary }: StorageProviderDataSummaryProps): React.JSX.Element {
+function StorageProviderDataSummary({ summary }: StorageProviderDataSummaryProps): React.JSX.Element {
   return (
-    <div>
-      <strong>{label}</strong>
+    <div className="settings-provider-switch-summary">
+      <div className="settings-provider-switch-summary-heading">
+        <MaterialIcon name={getStorageProviderIcon(summary.provider)} />
+        <strong>{getStorageProviderLabel(summary.provider)}</strong>
+      </div>
       <span>
         {summary.latestSaveVersion === null
           ? 'No latest save'
@@ -251,6 +310,10 @@ function getStorageProviderLabel(provider: CloudStorageProvider): string {
   return provider === CloudStorageProvider.Local ? 'Local Storage' : 'Google Drive'
 }
 
+function getStorageProviderIcon(provider: CloudStorageProvider): string {
+  return provider === CloudStorageProvider.Local ? 'hard_drive' : 'cloud'
+}
+
 function formatNullableDate(value: string | null): string {
   if (!value) {
     return 'Not available'
@@ -262,4 +325,4 @@ function formatNullableDate(value: string | null): string {
   }).format(new Date(value))
 }
 
-export default StorageProviderSwitchPanel
+export default StorageProviderSwitchDialog

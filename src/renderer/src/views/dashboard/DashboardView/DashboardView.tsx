@@ -3,13 +3,11 @@ import './DashboardView.css'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ServerDisplayState } from '../../../../../shared/dashboard'
 import { ServerHostingStatus, ServerLockStatus } from '../../../../../shared/domain'
-import {
-  isServerActiveStatus,
-  type ServerRuntimeSnapshot
-} from '../../../../../shared/server-runtime'
+import { isServerActiveStatus, type ServerRuntimeSnapshot } from '../../../../../shared/server-runtime'
 import { ServerSyncStatus } from '../../../../../shared/server-sync'
 import AppSidebar from '../../../components/shared/AppSidebar/AppSidebar'
 import Card from '../../../components/shared/Card/Card'
+import ConfirmationDialog from '../../../components/shared/ConfirmationDialog/ConfirmationDialog'
 import Toast from '../../../components/shared/Toast/Toast'
 import { getErrorMessage } from '../../../utils/error-message'
 import {
@@ -24,6 +22,7 @@ import {
 import ConsoleOutput from '../components/ConsoleOutput/ConsoleOutput'
 import DashboardStatCard from '../components/DashboardStatCard/DashboardStatCard'
 import ServerHeader from '../components/ServerHeader/ServerHeader'
+import ServerRecoveryPanel from '../components/ServerRecoveryPanel/ServerRecoveryPanel'
 import ServerStatePanel from '../components/ServerStatePanel/ServerStatePanel'
 import TopBar from '../components/TopBar/TopBar'
 
@@ -70,6 +69,33 @@ function getHeaderToggleButtonView({
   syncBlocksStart: boolean
 }): HeaderToggleButtonView {
   const syncView = getServerSyncView(dashboardSnapshot.syncStatus)
+
+  if (dashboardSnapshot.serverStatus === 'initializing') {
+    return {
+      label: 'Initializing...',
+      icon: 'sync',
+      tone: 'default',
+      tooltip: 'ChunkShare is checking the previous server session.'
+    }
+  }
+
+  if (dashboardSnapshot.serverStatus === 'recovering') {
+    return {
+      label: 'Recovering...',
+      icon: 'sync',
+      tone: 'default',
+      tooltip: 'ChunkShare is recovering and publishing the local world.'
+    }
+  }
+
+  if (dashboardSnapshot.serverStatus === 'recovery-required') {
+    return {
+      label: 'Recovery Required',
+      icon: 'warning',
+      tone: 'default',
+      tooltip: 'Use Recover Server before starting another hosting session.'
+    }
+  }
 
   if (serverIsJoinable) {
     return {
@@ -127,6 +153,7 @@ function DashboardView({
   const [addressCopyStatus, setAddressCopyStatus] = useState<CopyStatus>('idle')
   const [isServerToggleAnimating, setIsServerToggleAnimating] = useState(false)
   const [connectionDetailsOpen, setConnectionDetailsOpen] = useState(false)
+  const [restoreSharedSaveConfirmationOpen, setRestoreSharedSaveConfirmationOpen] = useState(false)
 
   useEffect(() => {
     serverDisplayStateRef.current = serverDisplayState
@@ -264,6 +291,29 @@ function DashboardView({
     }
   }
 
+  async function recoverServer(): Promise<void> {
+    setRuntimeErrorMessage(null)
+
+    try {
+      const nextRuntimeSnapshot = await window.chunkShare.serverRuntime.recover()
+      applyRuntimeSnapshotToDisplayState(nextRuntimeSnapshot)
+    } catch (error: unknown) {
+      setRuntimeErrorMessage(getErrorMessage(error, 'Unable to recover server.'))
+    }
+  }
+
+  async function restoreSharedSave(): Promise<void> {
+    setRestoreSharedSaveConfirmationOpen(false)
+    setRuntimeErrorMessage(null)
+
+    try {
+      const nextRuntimeSnapshot = await window.chunkShare.serverRuntime.restoreSharedSave()
+      await refreshServerDisplayState(nextRuntimeSnapshot)
+    } catch (error: unknown) {
+      setRuntimeErrorMessage(getErrorMessage(error, 'Unable to restore the last shared save.'))
+    }
+  }
+
   async function copyConnectionAddress(): Promise<void> {
     if (!dashboardSnapshot.connectionAddress) {
       return
@@ -330,8 +380,11 @@ function DashboardView({
     dashboardSnapshot.serverStatus !== 'running' && !dashboardSnapshot.syncStatus.isStartAllowed
   const toggleDisabled =
     dashboardSnapshot.serverStatus === 'not-configured' ||
+    dashboardSnapshot.serverStatus === 'initializing' ||
     dashboardSnapshot.serverStatus === 'starting' ||
     dashboardSnapshot.serverStatus === 'stopping' ||
+    dashboardSnapshot.serverStatus === 'recovering' ||
+    dashboardSnapshot.serverStatus === 'recovery-required' ||
     dashboardSnapshot.serverStatus === 'crashed' ||
     syncBlocksStart
 
@@ -418,6 +471,15 @@ function DashboardView({
             onToggleServer={handleHeaderServerAction}
           />
 
+          {dashboardSnapshot.recovery ? (
+            <ServerRecoveryPanel
+              hasSharedSave={dashboardSnapshot.syncStatus.latestSave !== null}
+              recovery={dashboardSnapshot.recovery}
+              onRecover={() => void recoverServer()}
+              onRestoreSharedSave={() => setRestoreSharedSaveConfirmationOpen(true)}
+            />
+          ) : null}
+
           <div className="dashboard-grid">
             <ServerStatePanel
               lastActiveLabel={lastActiveLabel}
@@ -449,8 +511,7 @@ function DashboardView({
                 <Card className="compact-stat-card" padding="compact">
                   <p>Players</p>
                   <strong>
-                    {dashboardSnapshot.players.online}{' '}
-                    <span>/ {dashboardSnapshot.players.max}</span>
+                    {dashboardSnapshot.players.online} <span>/ {dashboardSnapshot.players.max}</span>
                   </strong>
                 </Card>
               </div>
@@ -460,6 +521,19 @@ function DashboardView({
           <ConsoleOutput logs={dashboardSnapshot.consoleLogs} />
         </main>
       </div>
+
+      {restoreSharedSaveConfirmationOpen ? (
+        <ConfirmationDialog
+          cancelLabel="Keep Local World"
+          confirmIcon="history"
+          confirmLabel="Restore Shared Save"
+          description="This replaces the crashed local world with the last published shared save. Local crash changes will be lost."
+          icon="warning"
+          title="Discard Local Crash Changes?"
+          onCancel={() => setRestoreSharedSaveConfirmationOpen(false)}
+          onConfirm={() => void restoreSharedSave()}
+        />
+      ) : null}
     </div>
   )
 }

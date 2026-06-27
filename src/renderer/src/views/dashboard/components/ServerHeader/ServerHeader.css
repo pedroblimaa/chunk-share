@@ -57,20 +57,25 @@
   color: var(--color-accent);
 }
 
+.status-initializing,
 .status-starting,
-.status-stopping {
+.status-stopping,
+.status-recovering {
   animation: server-status-pulse 1200ms ease-in-out infinite;
   border-color: var(--color-warning);
   color: var(--color-warning);
 }
 
+.status-initializing span,
 .status-starting span,
-.status-stopping span {
+.status-stopping span,
+.status-recovering span {
   background: var(--color-warning);
   box-shadow: 0 0 12px var(--color-warning);
 }
 
 .status-crashed span,
+.status-recovery-required span,
 .status-error span {
   background: var(--color-danger-text);
 }

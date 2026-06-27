@@ -14,9 +14,13 @@ export function applyRuntimeSnapshotToServerDisplayState(
   runtimeSnapshot: ServerRuntimeSnapshot
 ): ServerDisplayState {
   const serverIsActive = isServerActiveStatus(runtimeSnapshot.status)
-  const connectionAddresses = serverIsActive
-    ? runtimeSnapshot.connectionAddresses
-    : serverDisplayState.connectionAddresses
+  let connectionAddresses = serverDisplayState.connectionAddresses
+
+  if (runtimeSnapshot.status === 'running') {
+    connectionAddresses = runtimeSnapshot.connectionAddresses
+  } else if (serverIsActive) {
+    connectionAddresses = []
+  }
 
   return {
     ...serverDisplayState,
@@ -36,17 +40,13 @@ export function applyRuntimeSnapshotToServerDisplayState(
       cpuPercent: serverIsActive ? runtimeSnapshot.resources.cpuPercent : 0,
       memoryUsedMb: serverIsActive ? runtimeSnapshot.resources.memoryUsedMb : 0
     },
-    consoleLogs: runtimeSnapshot.logs
+    consoleLogs: runtimeSnapshot.logs,
+    recovery: runtimeSnapshot.recovery
   }
 }
 
-function getCurrentHost(
-  serverDisplayState: ServerDisplayState,
-  serverIsActive: boolean
-): string | null {
-  return serverIsActive
-    ? (serverDisplayState.signedInUser?.name ?? 'You')
-    : serverDisplayState.currentHost
+function getCurrentHost(serverDisplayState: ServerDisplayState, serverIsActive: boolean): string | null {
+  return serverIsActive ? (serverDisplayState.signedInUser?.name ?? 'You') : serverDisplayState.currentHost
 }
 
 function getPrimaryConnectionAddress(addresses: ServerConnectionAddress[]): string | null {

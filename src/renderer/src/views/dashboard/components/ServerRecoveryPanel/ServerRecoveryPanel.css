@@ -1,0 +1,62 @@
+.server-recovery-panel {
+  align-items: center;
+  background: var(--color-danger-glow);
+  border: 1px solid rgba(255, 180, 171, 0.32);
+  border-radius: 8px;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  padding: 18px 20px;
+}
+
+.server-recovery-panel > .material-symbols-outlined {
+  color: var(--color-danger-text);
+  font-size: 28px;
+}
+
+.server-recovery-panel[aria-live='polite'] > .material-symbols-outlined {
+  animation: server-recovery-spin 900ms linear infinite;
+  color: var(--color-warning);
+}
+
+.server-recovery-panel strong {
+  color: var(--color-text-primary);
+  display: block;
+  font-weight: var(--font-weight-bold);
+}
+
+.server-recovery-panel p {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-copy);
+  margin-top: 4px;
+}
+
+.server-recovery-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+@media (max-width: 860px) {
+  .server-recovery-panel {
+    align-items: start;
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .server-recovery-actions {
+    grid-column: 1 / -1;
+    justify-content: stretch;
+  }
+
+  .server-recovery-actions .chunk-button {
+    flex: 1 1 220px;
+  }
+}
+
+@keyframes server-recovery-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

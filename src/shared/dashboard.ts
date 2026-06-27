@@ -1,5 +1,5 @@
 import type { ServerStatus } from './domain'
-import type { ServerConnectionAddress } from './server-runtime'
+import type { ServerConnectionAddress, ServerRuntimeRecovery } from './server-runtime'
 import type { ServerSyncSnapshot } from './server-sync'
 
 export type { ServerStatus } from './domain'
@@ -52,4 +52,5 @@ export interface ServerDisplayState {
   resources: ServerResourceUsage
   consoleLogs: ConsoleLogLine[]
   allowedPlayers: AllowedPlayer[]
+  recovery: ServerRuntimeRecovery | null
 }

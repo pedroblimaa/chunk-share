@@ -7,6 +7,15 @@ import { registerDashboardIpcHandlers } from './ipc/dashboard-ipc'
 import { registerServerRuntimeIpcHandlers } from './ipc/server-runtime-ipc'
 import { registerServerSetupIpcHandlers } from './ipc/server-setup-ipc'
 import { registerStorageIpcHandlers } from './ipc/storage-ipc'
+import { isServerActiveStatus } from '../shared/server-runtime'
+import {
+  getServerRuntimeSnapshot,
+  initializeServerRuntime,
+  shutdownMinecraftServer
+} from './server-runtime/server-runtime-service'
+
+let shutdownIsRunning = false
+let shutdownIsComplete = false
 
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
@@ -53,11 +62,36 @@ app.whenReady().then(() => {
   registerServerRuntimeIpcHandlers()
 
   createWindow()
+  void initializeServerRuntime()
 
   app.on('activate', function () {
     // macOS keeps the app alive after closing all windows.
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
+})
+
+app.on('before-quit', (event) => {
+  if (shutdownIsComplete || !isServerActiveStatus(getServerRuntimeSnapshot().status)) {
+    return
+  }
+
+  event.preventDefault()
+
+  if (shutdownIsRunning) {
+    return
+  }
+
+  shutdownIsRunning = true
+
+  void shutdownMinecraftServer()
+    .then(() => {
+      shutdownIsComplete = true
+      app.quit()
+    })
+    .catch((error: unknown) => {
+      shutdownIsRunning = false
+      console.error('Unable to finish Minecraft server shutdown.', error)
+    })
 })
 
 app.on('window-all-closed', () => {

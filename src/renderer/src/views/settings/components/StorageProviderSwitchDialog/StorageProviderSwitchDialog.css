@@ -1,0 +1,171 @@
+.settings-provider-switch-backdrop {
+  align-items: center;
+  backdrop-filter: blur(3px);
+  background: rgba(0, 0, 0, 0.62);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 20px;
+  position: fixed;
+  z-index: 50;
+}
+
+.settings-provider-switch-dialog {
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-emphasis);
+  border-radius: 8px;
+  box-shadow: 0 24px 70px var(--color-shadow-strong);
+  max-height: calc(100vh - 40px);
+  max-width: 480px;
+  overflow-y: auto;
+  width: 100%;
+}
+
+.settings-provider-switch-heading {
+  align-items: center;
+  border-bottom: 1px solid var(--color-border-subtle);
+  display: flex;
+  gap: 12px;
+  padding: 20px 24px;
+}
+
+.settings-provider-switch-heading .material-symbols-outlined {
+  color: var(--color-accent);
+}
+
+.settings-provider-switch-heading h3 {
+  color: var(--color-text-primary);
+  font-size: 20px;
+  font-weight: var(--font-weight-bold);
+}
+
+.settings-provider-switch-content {
+  display: grid;
+  gap: 20px;
+  padding: 24px;
+}
+
+.settings-provider-switch-content strong {
+  color: var(--color-text-primary);
+  display: block;
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-copy);
+}
+
+.settings-provider-switch-content span {
+  color: var(--color-text-secondary);
+  display: block;
+  font-size: var(--font-size-caption);
+  line-height: var(--line-height-copy);
+  margin-top: 3px;
+}
+
+.settings-provider-switch-comparison {
+  align-items: center;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+}
+
+.settings-provider-switch-summary {
+  background: var(--color-background-console);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 6px;
+  padding: 12px;
+}
+
+.settings-provider-switch-direction {
+  align-items: center;
+  color: var(--color-accent);
+  display: flex;
+  justify-content: center;
+}
+
+.settings-provider-switch-direction .material-symbols-outlined {
+  font-size: 22px;
+}
+
+.settings-provider-switch-summary-heading {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.settings-provider-switch-summary-heading .material-symbols-outlined {
+  color: var(--color-accent);
+  font-size: 18px;
+}
+
+.settings-provider-switch-loading {
+  align-items: center;
+  display: flex;
+  gap: 14px;
+}
+
+.settings-provider-switch-loading > .material-symbols-outlined {
+  animation: settings-provider-switch-spin 900ms linear infinite;
+  color: var(--color-accent);
+  font-size: 28px;
+}
+
+.settings-provider-switch-warning {
+  background: var(--color-danger-glow);
+  border: 1px solid rgba(255, 180, 171, 0.26);
+  border-radius: 6px;
+  color: var(--color-danger);
+  font-size: var(--font-size-caption);
+  line-height: var(--line-height-copy);
+  margin: 0;
+  padding: 10px 12px;
+}
+
+.settings-provider-switch-error {
+  background: var(--color-danger-glow);
+  border: 1px solid rgba(255, 180, 171, 0.26);
+  border-radius: 6px;
+  color: var(--color-danger-text);
+  font-size: var(--font-size-caption);
+  line-height: var(--line-height-copy);
+  margin: 0;
+  padding: 10px 12px;
+}
+
+.settings-provider-switch-actions {
+  display: grid;
+  gap: 12px;
+}
+
+.settings-provider-switch-two-actions {
+  grid-template-columns: 1fr;
+}
+
+.settings-provider-switch-actions .chunk-button-primary {
+  background: var(--color-accent);
+  color: var(--color-text-on-accent);
+}
+
+.settings-provider-switch-actions .chunk-button-primary:hover:not(:disabled) {
+  background: var(--color-accent-strong);
+}
+
+.settings-provider-switch-actions .chunk-button-primary .chunk-button-label,
+.settings-provider-switch-actions .chunk-button-primary .material-symbols-outlined {
+  color: var(--color-text-on-accent);
+}
+
+@media (max-width: 720px) {
+  .settings-provider-switch-comparison {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-provider-switch-direction .material-symbols-outlined {
+    transform: rotate(90deg);
+  }
+}
+
+@keyframes settings-provider-switch-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

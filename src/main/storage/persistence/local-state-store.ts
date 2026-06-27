@@ -77,6 +77,10 @@ export function saveActiveSessionId(activeSessionId: string | null): Promise<Loc
   return saveLocalStateChanges({ activeSessionId })
 }
 
+export function saveLocalStateDirty(dirty: boolean): Promise<LocalState> {
+  return saveLocalStateChanges({ dirty })
+}
+
 export function savePlayer(player: Player): Promise<LocalState> {
   return saveLocalStateChanges({ player })
 }

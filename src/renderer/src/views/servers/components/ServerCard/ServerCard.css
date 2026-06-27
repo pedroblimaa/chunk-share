@@ -1,7 +1,6 @@
 .server-card {
   animation: server-card-enter 260ms ease-out both;
-  background:
-    linear-gradient(180deg, rgba(128, 220, 91, 0.08), transparent 42%), var(--color-surface-panel);
+  background: linear-gradient(180deg, rgba(128, 220, 91, 0.08), transparent 42%), var(--color-surface-panel);
   border: 1px solid var(--color-border-panel);
   border-radius: 8px;
   color: var(--color-text-primary);
@@ -85,12 +84,18 @@
   box-shadow: 0 0 12px var(--color-accent);
 }
 
-.server-status-pill-starting span {
+.server-status-pill-initializing span,
+.server-status-pill-starting span,
+.server-status-pill-recovering span {
   background: var(--color-warning);
 }
 
 .server-status-pill-stopping span {
   background: var(--color-warning);
+}
+
+.server-status-pill-recovery-required span {
+  background: var(--color-danger-text);
 }
 
 .server-status-pill-remote-transitioning span {

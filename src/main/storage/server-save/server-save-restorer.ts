@@ -7,20 +7,21 @@ import { renameWithRetry } from '../core/file-system-utils'
 import { saveLocalSaveVersion } from '../persistence/local-state-store'
 import { StorageError } from '../core/storage-error'
 import { localServerBackupsFolderPath, localServerFolderPath } from '../core/storage-paths'
+import type { RestoreServerSaveOptions } from './server-save-restorer.model'
 
 export async function restoreLatestServerSave(
-  storageSnapshot: ServerStorageSnapshot
+  storageSnapshot: ServerStorageSnapshot,
+  options: RestoreServerSaveOptions = {}
 ): Promise<void> {
   const { latestSave, localState } = storageSnapshot
+  const { allowDirtyLocalState = false } = options
 
   if (!latestSave) {
     throw new StorageError('Cannot restore server save because no shared save exists.')
   }
 
-  if (localState.dirty) {
-    throw new StorageError(
-      'Cannot update from cloud while the local server has unpublished changes.'
-    )
+  if (localState.dirty && !allowDirtyLocalState) {
+    throw new StorageError('Cannot update from cloud while the local server has unpublished changes.')
   }
 
   const zipFilePath = getTempZipFilePath(latestSave.saveVersion)

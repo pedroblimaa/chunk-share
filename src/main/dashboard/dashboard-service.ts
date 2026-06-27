@@ -7,7 +7,11 @@ import {
   type ServerStatus,
   type ServerStorageSnapshot
 } from '../../shared/domain'
-import { isServerActiveStatus, type ServerConnectionAddress } from '../../shared/server-runtime'
+import {
+  isServerActiveStatus,
+  isServerRuntimeBusyStatus,
+  type ServerConnectionAddress
+} from '../../shared/server-runtime'
 import { ServerSyncStatus } from '../../shared/server-sync'
 import { getServerRuntimeSnapshot } from '../server-runtime/server-runtime-service'
 import { getServerSyncSnapshot } from '../server-sync/server-sync-service'
@@ -72,7 +76,7 @@ function getDisplayServerStatus(
     return 'not-configured'
   }
 
-  if (isServerActiveStatus(runtimeStatus)) {
+  if (isServerRuntimeBusyStatus(runtimeStatus)) {
     return runtimeStatus
   }
 
@@ -84,12 +88,9 @@ function buildServerDisplayState(storageSnapshot: ServerStorageSnapshot): Server
   const { localState, serverSync } = storageSnapshot
   const signedInUser = getSignedInUserFromPlayer(localState.player)
   const serverConfigured = localState.serverSetup.status === 'ready'
-  const serverStatus = getDisplayServerStatus(
-    storageSnapshot,
-    runtimeSnapshot.status,
-    serverConfigured
-  )
-  const serverIsRunning = isServerActiveStatus(runtimeSnapshot.status)
+  const serverStatus = getDisplayServerStatus(storageSnapshot, runtimeSnapshot.status, serverConfigured)
+  const serverIsActive = isServerActiveStatus(runtimeSnapshot.status)
+  const serverIsRunning = runtimeSnapshot.status === 'running'
   const connectionAddresses = getSnapshotConnectionAddresses(
     storageSnapshot,
     runtimeSnapshot.connectionAddresses,
@@ -102,13 +103,14 @@ function buildServerDisplayState(storageSnapshot: ServerStorageSnapshot): Server
     serverStatus,
     serverType: formatServerType(localState.serverConfig.serverType),
     minecraftVersion: localState.serverConfig.minecraftVersion,
-    currentHost: getCurrentHost(storageSnapshot, signedInUser, serverIsRunning),
+    currentHost: getCurrentHost(storageSnapshot, signedInUser, serverIsActive),
     syncStatus: serverSync,
     connectionAddress: getPrimaryConnectionAddress(connectionAddresses),
     connectionAddresses,
     players: runtimeSnapshot.players,
     resources: runtimeSnapshot.resources,
     consoleLogs: runtimeSnapshot.logs,
+    recovery: runtimeSnapshot.recovery,
     allowedPlayers: signedInUser
       ? [
           {

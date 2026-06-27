@@ -17,6 +17,10 @@ export function getActiveRuntimeSessionId(): string | null {
   return activeRuntimeSessionId
 }
 
+export function restoreActiveRuntimeSessionId(sessionId: string): void {
+  activeRuntimeSessionId = sessionId
+}
+
 export async function createHostingLock(
   storageSnapshot: ServerStorageSnapshot,
   connectionAddresses: ServerConnectionAddress[]
@@ -57,9 +61,7 @@ export async function createHostingLock(
 }
 
 export async function markHostingLockRunning(sessionId: string): Promise<void> {
-  await updateHostingLockStatus(sessionId, ServerHostingStatus.Running, [
-    ServerHostingStatus.Starting
-  ])
+  await updateHostingLockStatus(sessionId, ServerHostingStatus.Running, [ServerHostingStatus.Starting])
 }
 
 export async function markHostingLockStopping(sessionId: string): Promise<void> {
@@ -69,10 +71,7 @@ export async function markHostingLockStopping(sessionId: string): Promise<void> 
   ])
 }
 
-export async function updateHostingLockSaveVersion(
-  sessionId: string,
-  saveVersion: number
-): Promise<void> {
+export async function updateHostingLockSaveVersion(sessionId: string, saveVersion: number): Promise<void> {
   const storageAdapter = await getActiveStorageAdapter()
   const serverLock = await storageAdapter.readServerLock()
 
@@ -132,14 +131,18 @@ async function assertHostingLockCanBeAcquired(): Promise<void> {
   )
 }
 
-export async function clearHostingLockAfterStartFailure(): Promise<void> {
-  if (!activeRuntimeSessionId) {
+export async function clearHostingLockAfterStartFailure(sessionId: string): Promise<void> {
+  if (activeRuntimeSessionId !== sessionId) {
     return
   }
 
   const storageAdapter = await getActiveStorageAdapter()
+  const serverLock = await storageAdapter.readServerLock()
 
-  await storageAdapter.writeServerLock({ status: ServerLockStatus.Unlocked })
+  if (serverLock.status === ServerLockStatus.Locked && serverLock.sessionId === sessionId) {
+    await storageAdapter.writeServerLock({ status: ServerLockStatus.Unlocked })
+  }
+
   await saveActiveSessionId(null)
 
   activeRuntimeSessionId = null

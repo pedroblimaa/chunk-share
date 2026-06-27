@@ -2,10 +2,13 @@ import type { ServerSyncSnapshot } from './server-sync'
 
 export type ServerStatus =
   | 'not-configured'
+  | 'initializing'
   | 'stopped'
   | 'starting'
   | 'running'
   | 'stopping'
+  | 'recovering'
+  | 'recovery-required'
   | 'crashed'
   | 'error'
 

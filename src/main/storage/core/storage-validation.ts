@@ -21,14 +21,11 @@ import type {
   ServerSetupState,
   ServerType
 } from '../../../shared/domain'
+import { isRecord } from '../../shared/main-helpers'
 
 type StorageRecord = Record<string, unknown>
 
 const SERVER_TYPES: ServerType[] = ['vanilla', 'paper', 'fabric', 'forge']
-
-function isRecord(value: unknown): value is StorageRecord {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
 
 function isString(value: unknown): value is string {
   return typeof value === 'string'

@@ -1,4 +1,4 @@
-import { ServerSetupError } from './server-setup-error'
+﻿import { ServerSetupError } from './server-setup-error'
 import type { VanillaMinecraftVersion } from '../../shared/server-setup'
 import {
   VANILLA_VERSION_MANIFEST_URL,
@@ -8,6 +8,7 @@ import {
   type VersionManifestVersion,
   type VersionMetadata
 } from './vanilla-version-model'
+import { isRecord } from '../shared/main-helpers'
 
 export async function listVanillaReleaseVersions(): Promise<VanillaMinecraftVersion[]> {
   const manifest = await fetchJson<VersionManifest>(VANILLA_VERSION_MANIFEST_URL, isVersionManifest)
@@ -24,8 +25,7 @@ export async function resolveVanillaServerDownload(
   minecraftVersion: string,
   metadataUrl?: string
 ): Promise<VanillaServerDownload> {
-  const versionMetadataUrl =
-    metadataUrl ?? (await resolveVanillaVersionMetadataUrl(minecraftVersion))
+  const versionMetadataUrl = metadataUrl ?? (await resolveVanillaVersionMetadataUrl(minecraftVersion))
   const versionMetadata = await fetchJson<VersionMetadata>(versionMetadataUrl, isVersionMetadata)
   const serverDownload = versionMetadata.downloads.server
 
@@ -65,9 +65,7 @@ async function fetchJson<T>(url: string, validate: (value: unknown) => value is 
   }
 
   if (!response.ok) {
-    throw new ServerSetupError(
-      `Unable to fetch Minecraft metadata. Received HTTP ${response.status}.`
-    )
+    throw new ServerSetupError(`Unable to fetch Minecraft metadata. Received HTTP ${response.status}.`)
   }
 
   const json: unknown = await response.json()
@@ -77,10 +75,6 @@ async function fetchJson<T>(url: string, validate: (value: unknown) => value is 
   }
 
   return json
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
 function isString(value: unknown): value is string {

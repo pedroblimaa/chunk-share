@@ -1,6 +1,7 @@
-import { ServerLockStatus } from '../../shared/domain'
+﻿import { ServerLockStatus } from '../../shared/domain'
 import type { ServerRuntimeLogLine, ServerRuntimeStatus } from '../../shared/server-runtime'
 import { getActiveStorageAdapter } from '../storage/adapters/storage-adapter-service'
+import { getErrorMessage } from '../shared/main-helpers'
 
 type RuntimeLogTone = ServerRuntimeLogLine['tone']
 
@@ -60,14 +61,6 @@ async function updateHostingHeartbeat({
     })
   } catch (error) {
     stopHeartbeat()
-    addLogLine(
-      'ChunkShare',
-      `Unable to update hosting heartbeat: ${getErrorMessage(error)}`,
-      'warning'
-    )
+    addLogLine('ChunkShare', `Unable to update hosting heartbeat: ${getErrorMessage(error)}`, 'warning')
   }
-}
-
-function getErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : 'Unknown error.'
 }

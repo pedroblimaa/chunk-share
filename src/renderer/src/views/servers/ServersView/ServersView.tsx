@@ -5,6 +5,7 @@ import type { ServerDisplayState } from '../../../../../shared/dashboard'
 import { ServerLockStatus } from '../../../../../shared/domain'
 import {
   isServerActiveStatus,
+  isServerRuntimeBusyStatus,
   type ServerRuntimeSnapshot
 } from '../../../../../shared/server-runtime'
 import { ServerSyncStatus } from '../../../../../shared/server-sync'
@@ -39,13 +40,11 @@ function getCardServerStatus(
   serverDisplayState: ServerDisplayState,
   runtimeSnapshot: ServerRuntimeSnapshot | null
 ): ServerCardSummary['status'] {
-  if (runtimeSnapshot && isServerActiveStatus(runtimeSnapshot.status)) {
+  if (runtimeSnapshot && isServerRuntimeBusyStatus(runtimeSnapshot.status)) {
     return runtimeSnapshot.status
   }
 
-  return serverDisplayState.serverStatus === 'not-configured'
-    ? 'stopped'
-    : serverDisplayState.serverStatus
+  return serverDisplayState.serverStatus === 'not-configured' ? 'stopped' : serverDisplayState.serverStatus
 }
 
 function createConfiguredServer(

@@ -20,7 +20,10 @@ function formatState(status: ServerDisplayState['serverStatus']): string {
     return 'Not Configured'
   }
 
-  return status[0].toUpperCase() + status.slice(1)
+  return status
+    .split('-')
+    .map((word) => word[0].toUpperCase() + word.slice(1))
+    .join(' ')
 }
 
 function ServerStatePanel({
@@ -38,10 +41,7 @@ function ServerStatePanel({
       : (snapshot.resources.memoryUsedMb / snapshot.resources.memoryTotalMb) * 100
 
   return (
-    <section
-      className={`server-state-panel server-state-panel-${snapshot.serverStatus}`}
-      aria-live="polite"
-    >
+    <section className={`server-state-panel server-state-panel-${snapshot.serverStatus}`} aria-live="polite">
       <div className="server-state-pattern" />
       <div className="server-state-content">
         <p className="panel-kicker">Current State</p>

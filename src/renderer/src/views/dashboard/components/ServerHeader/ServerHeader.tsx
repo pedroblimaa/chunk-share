@@ -35,6 +35,10 @@ function isServerRunning(status: ServerStatus): boolean {
 }
 
 function getToggleButtonLabel(status: ServerStatus): string {
+  if (status === 'initializing') {
+    return 'Initializing...'
+  }
+
   if (status === 'starting') {
     return 'Starting...'
   }
@@ -43,11 +47,24 @@ function getToggleButtonLabel(status: ServerStatus): string {
     return 'Stopping...'
   }
 
+  if (status === 'recovering') {
+    return 'Recovering...'
+  }
+
+  if (status === 'recovery-required') {
+    return 'Recovery Required'
+  }
+
   return isServerRunning(status) ? 'Stop Server' : 'Start Server'
 }
 
 function getToggleButtonIcon(status: ServerStatus): string {
-  if (status === 'starting' || status === 'stopping') {
+  if (
+    status === 'initializing' ||
+    status === 'starting' ||
+    status === 'stopping' ||
+    status === 'recovering'
+  ) {
     return 'sync'
   }
 
@@ -75,7 +92,8 @@ function ServerHeader({
   onToggleServer
 }: ServerHeaderProps): React.JSX.Element {
   const serverIsRunning = isServerRunning(status)
-  const serverIsBusy = status === 'starting' || status === 'stopping'
+  const serverIsBusy =
+    status === 'initializing' || status === 'starting' || status === 'stopping' || status === 'recovering'
   const toggleButtonLabel = toggleButtonLabelOverride ?? getToggleButtonLabel(status)
   const toggleButtonIcon = toggleButtonIconOverride ?? getToggleButtonIcon(status)
 

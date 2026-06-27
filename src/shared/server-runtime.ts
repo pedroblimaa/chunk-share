@@ -2,16 +2,22 @@ import type { ServerConnectionAddress, ServerStatus } from './domain'
 
 export type { ServerConnectionAddress } from './domain'
 
-export type ServerRuntimeStatus =
-  | 'stopped'
-  | 'starting'
-  | 'running'
-  | 'stopping'
-  | 'crashed'
-  | 'error'
+export type ServerRuntimeStatus = Exclude<ServerStatus, 'not-configured'>
+
+export type ServerRecoveryPhase = 'starting' | 'saving' | 'publishing' | 'restoring'
+
+export interface ServerRuntimeRecovery {
+  phase: ServerRecoveryPhase | null
+  attemptFailed: boolean
+  processIsRunning: boolean
+}
 
 export function isServerActiveStatus(status: ServerRuntimeStatus | ServerStatus): boolean {
-  return status === 'starting' || status === 'running' || status === 'stopping'
+  return status === 'starting' || status === 'running' || status === 'stopping' || status === 'recovering'
+}
+
+export function isServerRuntimeBusyStatus(status: ServerRuntimeStatus | ServerStatus): boolean {
+  return status === 'initializing' || isServerActiveStatus(status)
 }
 
 export interface ServerRuntimeLogLine {
@@ -41,6 +47,7 @@ export interface ServerRuntimeSnapshot {
   players: ServerRuntimePlayers
   resources: ServerRuntimeResources
   logs: ServerRuntimeLogLine[]
+  recovery: ServerRuntimeRecovery | null
 }
 
 export interface ServerRuntimeEvent {

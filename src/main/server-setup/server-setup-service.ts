@@ -1,6 +1,7 @@
 import { createHash } from 'crypto'
 import { createWriteStream } from 'fs'
 import { mkdir, readFile, rename, stat, unlink, writeFile } from 'fs/promises'
+import { getErrorMessage, isMissingFileError } from '../shared/main-helpers'
 import { Readable } from 'stream'
 import { pipeline } from 'stream/promises'
 import type { ReadableStream as NodeReadableStream } from 'stream/web'
@@ -10,10 +11,7 @@ import {
   type ServerSetupProgressEvent,
   type SetupVanillaServerInput
 } from '../../shared/server-setup'
-import {
-  saveServerSetupResult,
-  saveServerSetupState
-} from '../storage/persistence/local-state-store'
+import { saveServerSetupResult, saveServerSetupState } from '../storage/persistence/local-state-store'
 import {
   localServerEulaFilePath,
   localServerFolderPath,
@@ -105,10 +103,7 @@ function validateSetupInput(input: SetupVanillaServerInput): void {
     throw new ServerSetupError('Minecraft version is required.')
   }
 
-  if (
-    input.minecraftVersionMetadataUrl !== undefined &&
-    !input.minecraftVersionMetadataUrl.trim()
-  ) {
+  if (input.minecraftVersionMetadataUrl !== undefined && !input.minecraftVersionMetadataUrl.trim()) {
     throw new ServerSetupError('Minecraft version metadata URL cannot be empty.')
   }
 
@@ -127,9 +122,7 @@ async function downloadServerJar(serverJarUrl: string): Promise<void> {
   }
 
   if (!response.ok) {
-    throw new ServerSetupError(
-      `Unable to download Minecraft server jar. Received HTTP ${response.status}.`
-    )
+    throw new ServerSetupError(`Unable to download Minecraft server jar. Received HTTP ${response.status}.`)
   }
 
   if (!response.body) {
@@ -211,12 +204,4 @@ async function removeTempServerJar(): Promise<void> {
       throw error
     }
   }
-}
-
-function getErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : 'Unknown setup error.'
-}
-
-function isMissingFileError(error: unknown): boolean {
-  return error instanceof Error && 'code' in error && error.code === 'ENOENT'
 }

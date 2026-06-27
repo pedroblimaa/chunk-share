@@ -1,4 +1,4 @@
-import { ipcMain } from 'electron'
+﻿import { ipcMain } from 'electron'
 import type { ServerSetupProgressEvent, SetupVanillaServerInput } from '../../shared/server-setup'
 import {
   SERVER_SETUP_LIST_VANILLA_VERSIONS_CHANNEL,
@@ -9,6 +9,7 @@ import { setupVanillaServer } from '../server-setup/server-setup-service'
 import { listVanillaReleaseVersions } from '../server-setup/vanilla-version-resolver'
 import { StorageError } from '../storage/core/storage-error'
 import { getStorageSnapshot } from '../storage/core/storage-service'
+import { isRecord } from '../shared/main-helpers'
 
 export function registerServerSetupIpcHandlers(): void {
   ipcMain.handle(SERVER_SETUP_LIST_VANILLA_VERSIONS_CHANNEL, () => listVanillaReleaseVersions())
@@ -50,10 +51,6 @@ function isSetupVanillaServerInput(value: unknown): value is SetupVanillaServerI
     typeof value.port === 'number' &&
     typeof value.eulaAccepted === 'boolean'
   )
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
 function isString(value: unknown): value is string {

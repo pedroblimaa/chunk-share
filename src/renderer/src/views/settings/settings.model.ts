@@ -12,8 +12,7 @@ export enum StorageSettingsOperation {
   Load = 'load',
   PreviewProviderSwitch = 'preview-provider-switch',
   SetupGoogleDriveFolder = 'setup-google-drive-folder',
-  SwitchProvider = 'switch-provider',
-  ValidateGoogleDriveFolder = 'validate-google-drive-folder'
+  SwitchProvider = 'switch-provider'
 }
 
 export type ActiveStorageSettingsOperation = StorageSettingsOperation | null

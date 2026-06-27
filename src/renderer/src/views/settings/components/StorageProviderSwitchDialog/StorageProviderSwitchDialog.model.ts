@@ -4,8 +4,8 @@ import type {
 } from '../../../../../../shared/cloud-storage.model'
 import type { ActiveStorageSettingsOperation } from '../../settings.model'
 
-export interface StorageProviderSwitchPanelProps {
-  hasError: boolean
+export interface StorageProviderSwitchDialogProps {
+  errorMessage: string | null
   operation: ActiveStorageSettingsOperation
   preview: CloudStorageProviderSwitchPreview | null
   onActivateTarget: () => void
@@ -23,7 +23,6 @@ export interface StorageProviderSwitchChoiceProps {
 }
 
 export interface StorageProviderDataSummaryProps {
-  label: string
   summary: CloudStorageProviderDataSummary
 }
 

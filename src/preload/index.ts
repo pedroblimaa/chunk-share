@@ -13,6 +13,8 @@ import {
   AUTH_SIGN_OUT_CHANNEL,
   DASHBOARD_SNAPSHOT_CHANNEL,
   SERVER_RUNTIME_EVENTS_CHANNEL,
+  SERVER_RUNTIME_RECOVER_CHANNEL,
+  SERVER_RUNTIME_RESTORE_SHARED_SAVE_CHANNEL,
   SERVER_RUNTIME_SNAPSHOT_CHANNEL,
   SERVER_RUNTIME_START_CHANNEL,
   SERVER_RUNTIME_STOP_CHANNEL,
@@ -50,6 +52,9 @@ const chunkShareApi = {
     getSnapshot: (): Promise<ServerRuntimeSnapshot> => ipcRenderer.invoke(SERVER_RUNTIME_SNAPSHOT_CHANNEL),
     start: (): Promise<ServerRuntimeSnapshot> => ipcRenderer.invoke(SERVER_RUNTIME_START_CHANNEL),
     stop: (): Promise<ServerRuntimeSnapshot> => ipcRenderer.invoke(SERVER_RUNTIME_STOP_CHANNEL),
+    recover: (): Promise<ServerRuntimeSnapshot> => ipcRenderer.invoke(SERVER_RUNTIME_RECOVER_CHANNEL),
+    restoreSharedSave: (): Promise<ServerRuntimeSnapshot> =>
+      ipcRenderer.invoke(SERVER_RUNTIME_RESTORE_SHARED_SAVE_CHANNEL),
     onEvent: (listener: (event: ServerRuntimeEvent) => void): (() => void) => {
       const runtimeListener = (_: Electron.IpcRendererEvent, event: ServerRuntimeEvent): void => {
         listener(event)
