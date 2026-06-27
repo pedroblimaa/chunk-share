@@ -4,32 +4,56 @@ import { basename, join } from 'path'
 import type {
   CloudStorageProvider,
   CloudStorageProviderDataSummary,
-  CloudStorageProviderSwitchPreview
+  CloudStorageProviderSwitchPreview,
+  StorageProviderCopyProgress
 } from '../../../shared/cloud-storage.model'
+import { StorageProviderCopyPhase } from '../../../shared/cloud-storage.model'
 import type { StorageAdapter } from '../adapters/storage-adapter.model'
 import { StorageError } from './storage-error'
-import type { StorageProviderCopyTransaction, StorageProviderDataBackup } from './storage-provider-copy.model'
+import type {
+  StorageProviderCopyProgressListener,
+  StorageProviderCopyTransaction,
+  StorageProviderDataBackup
+} from './storage-provider-copy.model'
 
 export async function prepareStorageProviderCopy(
   sourceProvider: CloudStorageProvider,
   sourceAdapter: StorageAdapter,
   targetProvider: CloudStorageProvider,
-  targetAdapter: StorageAdapter
+  targetAdapter: StorageAdapter,
+  onProgress: StorageProviderCopyProgressListener
 ): Promise<StorageProviderCopyTransaction> {
   const tempFolderPath = await mkdtemp(join(tmpdir(), 'chunk-share-provider-copy-'))
 
   try {
-    const sourceBackup = await backupStorageProviderData(sourceAdapter, join(tempFolderPath, 'source'))
+    const sourceBackup = await backupStorageProviderData(
+      sourceAdapter,
+      join(tempFolderPath, 'source'),
+      StorageProviderCopyPhase.PreparingSource,
+      onProgress
+    )
     assertSourceBackupHasData(sourceBackup)
     assertSourceBackupIsConsistent(sourceBackup)
 
-    const targetBackup = await backupStorageProviderData(targetAdapter, join(tempFolderPath, 'target'))
+    const targetBackup = await backupStorageProviderData(
+      targetAdapter,
+      join(tempFolderPath, 'target'),
+      StorageProviderCopyPhase.PreparingTarget,
+      onProgress
+    )
     const preview = createSwitchPreview(sourceProvider, sourceBackup, targetProvider, targetBackup)
 
     return {
       preview,
-      replaceTarget: () => replaceStorageProviderData(targetAdapter, sourceBackup),
-      restoreTarget: () => replaceStorageProviderData(targetAdapter, targetBackup),
+      replaceTarget: () =>
+        replaceStorageProviderData(targetAdapter, sourceBackup, StorageProviderCopyPhase.Copying, onProgress),
+      restoreTarget: () =>
+        replaceStorageProviderData(
+          targetAdapter,
+          targetBackup,
+          StorageProviderCopyPhase.Restoring,
+          onProgress
+        ),
       dispose: () => rm(tempFolderPath, { recursive: true, force: true })
     }
   } catch (error) {
@@ -40,7 +64,9 @@ export async function prepareStorageProviderCopy(
 
 async function backupStorageProviderData(
   storageAdapter: StorageAdapter,
-  versionsFolderPath: string
+  versionsFolderPath: string,
+  phase: StorageProviderCopyPhase,
+  onProgress: StorageProviderCopyProgressListener
 ): Promise<StorageProviderDataBackup> {
   const [latestSave, versionFiles] = await Promise.all([
     storageAdapter.readLatestSave(),
@@ -48,13 +74,15 @@ async function backupStorageProviderData(
   ])
 
   await mkdir(versionsFolderPath, { recursive: true })
+  reportFileProgress(onProgress, phase, 0, versionFiles.length)
 
-  for (const versionFile of versionFiles) {
+  for (const [index, versionFile] of versionFiles.entries()) {
     assertSafeVersionFileName(versionFile.fileName)
     await storageAdapter.downloadServerSaveVersion(
       versionFile.fileName,
       join(versionsFolderPath, versionFile.fileName)
     )
+    reportFileProgress(onProgress, phase, index + 1, versionFiles.length)
   }
 
   return {
@@ -66,19 +94,38 @@ async function backupStorageProviderData(
 
 async function replaceStorageProviderData(
   storageAdapter: StorageAdapter,
-  backup: StorageProviderDataBackup
+  backup: StorageProviderDataBackup,
+  phase: StorageProviderCopyPhase,
+  onProgress: StorageProviderCopyProgressListener
 ): Promise<void> {
+  reportFileProgress(onProgress, phase, 0, backup.versionFiles.length)
   await storageAdapter.resetServerSaves()
 
-  for (const versionFile of backup.versionFiles) {
+  for (const [index, versionFile] of backup.versionFiles.entries()) {
     await storageAdapter.uploadServerSaveVersion(
       versionFile.fileName,
       join(backup.versionsFolderPath, versionFile.fileName)
     )
+    reportFileProgress(onProgress, phase, index + 1, backup.versionFiles.length)
   }
 
   await storageAdapter.writeLatestSave(backup.latestSave)
   await storageAdapter.resetServerLock()
+}
+
+function reportFileProgress(
+  onProgress: StorageProviderCopyProgressListener,
+  phase: StorageProviderCopyPhase,
+  completedFiles: number,
+  totalFiles: number
+): void {
+  const progress: StorageProviderCopyProgress = {
+    phase,
+    completedFiles,
+    totalFiles
+  }
+
+  onProgress(progress)
 }
 
 function createSwitchPreview(

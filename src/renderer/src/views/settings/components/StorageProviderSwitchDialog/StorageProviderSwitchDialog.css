@@ -154,6 +154,10 @@
   color: var(--color-text-on-accent);
 }
 
+.settings-provider-copy-loading .material-symbols-outlined {
+  animation: settings-provider-switch-spin 900ms linear infinite;
+}
+
 @media (max-width: 720px) {
   .settings-provider-switch-comparison {
     grid-template-columns: 1fr;

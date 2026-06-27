@@ -3,8 +3,10 @@ import './StorageProviderSwitchDialog.css'
 import { useEffect, useRef } from 'react'
 import {
   CloudStorageProvider,
+  StorageProviderCopyPhase,
   type CloudStorageProviderDataSummary,
-  type CloudStorageProviderSwitchPreview
+  type CloudStorageProviderSwitchPreview,
+  type StorageProviderCopyProgress
 } from '../../../../../../shared/cloud-storage.model'
 import Button from '../../../../components/shared/Button/Button'
 import MaterialIcon from '../../../../components/shared/MaterialIcon/MaterialIcon'
@@ -21,6 +23,7 @@ function StorageProviderSwitchDialog({
   errorMessage,
   operation,
   preview,
+  progress,
   onActivateTarget,
   onCancel,
   onCopyCurrentData,
@@ -38,6 +41,7 @@ function StorageProviderSwitchDialog({
         <StorageProviderSwitchChoice
           operation={operation}
           preview={preview}
+          progress={progress}
           onActivateTarget={onActivateTarget}
           onCancel={onCancel}
           onCopyCurrentData={onCopyCurrentData}
@@ -126,6 +130,7 @@ function StorageProviderSwitchDialog({
 function StorageProviderSwitchChoice({
   operation,
   preview,
+  progress,
   onActivateTarget,
   onCancel,
   onCopyCurrentData
@@ -150,15 +155,18 @@ function StorageProviderSwitchChoice({
       {operation === StorageSettingsOperation.SwitchProvider ? 'Switching...' : choiceCopy.activateLabel}
     </Button>
   )
+  const copyIsRunning = operation === StorageSettingsOperation.CopyProviderData
   const copyCurrentDataButton = sourceHasData ? (
     <Button
+      aria-busy={copyIsRunning}
+      className={copyIsRunning ? 'settings-provider-copy-loading' : undefined}
       disabled={isBusy}
       fullWidth
-      icon="content_copy"
+      icon={copyIsRunning ? 'progress_activity' : 'content_copy'}
       variant={copyReplacesTargetData ? 'danger' : undefined}
       onClick={onCopyCurrentData}
     >
-      {getCopyActionLabel(operation, copyReplacesTargetData, choiceCopy.copyLabel)}
+      {getCopyActionLabel(operation, progress, choiceCopy.copyLabel)}
     </Button>
   ) : null
 
@@ -257,14 +265,37 @@ function getStorageProviderSwitchChoiceCopy(
 
 function getCopyActionLabel(
   operation: ActiveStorageSettingsOperation,
-  replacesTargetData: boolean,
+  progress: StorageProviderCopyProgress | null,
   idleLabel: string
 ): string {
   if (operation !== StorageSettingsOperation.CopyProviderData) {
     return idleLabel
   }
 
-  return replacesTargetData ? 'Replacing...' : 'Copying...'
+  if (!progress) {
+    return 'Preparing...'
+  }
+
+  switch (progress.phase) {
+    case StorageProviderCopyPhase.PreparingSource:
+      return formatFileProgressLabel('Preparing current saves', progress)
+    case StorageProviderCopyPhase.PreparingTarget:
+      return formatFileProgressLabel('Backing up target saves', progress)
+    case StorageProviderCopyPhase.Copying:
+      return formatFileProgressLabel('Copying saves', progress)
+    case StorageProviderCopyPhase.Finalizing:
+      return 'Finalizing storage switch...'
+    case StorageProviderCopyPhase.Restoring:
+      return formatFileProgressLabel('Restoring previous saves', progress)
+  }
+}
+
+function formatFileProgressLabel(label: string, progress: StorageProviderCopyProgress): string {
+  if (progress.totalFiles === 0) {
+    return `${label}...`
+  }
+
+  return `${label}: ${progress.completedFiles} of ${progress.totalFiles}`
 }
 
 function storageProviderHasData(summary: CloudStorageProviderDataSummary): boolean {

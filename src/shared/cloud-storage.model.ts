@@ -8,6 +8,14 @@ export enum CloudStorageProviderSwitchDataMode {
   UseTargetAsIs = 'use-target-as-is'
 }
 
+export enum StorageProviderCopyPhase {
+  PreparingSource = 'preparing-source',
+  PreparingTarget = 'preparing-target',
+  Copying = 'copying',
+  Finalizing = 'finalizing',
+  Restoring = 'restoring'
+}
+
 export enum GoogleDriveSetupStatus {
   NotConfigured = 'not-configured',
   NeedsAuth = 'needs-auth',
@@ -43,6 +51,12 @@ export interface CloudStorageProviderDataSummary {
 export interface CloudStorageProviderSwitchPreview {
   source: CloudStorageProviderDataSummary
   target: CloudStorageProviderDataSummary
+}
+
+export interface StorageProviderCopyProgress {
+  phase: StorageProviderCopyPhase
+  completedFiles: number
+  totalFiles: number
 }
 
 export type CloudStorageProviderSwitchRequest =

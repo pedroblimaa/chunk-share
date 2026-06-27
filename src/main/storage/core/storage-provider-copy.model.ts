@@ -1,4 +1,7 @@
-import type { CloudStorageProviderSwitchPreview } from '../../../shared/cloud-storage.model'
+import type {
+  CloudStorageProviderSwitchPreview,
+  StorageProviderCopyProgress
+} from '../../../shared/cloud-storage.model'
 import type { LatestSave } from '../../../shared/domain'
 import type { ServerSaveVersionFile } from '../adapters/storage-adapter.model'
 
@@ -14,3 +17,5 @@ export interface StorageProviderCopyTransaction {
   restoreTarget(): Promise<void>
   dispose(): Promise<void>
 }
+
+export type StorageProviderCopyProgressListener = (progress: StorageProviderCopyProgress) => void

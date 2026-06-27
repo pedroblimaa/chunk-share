@@ -27,6 +27,7 @@ const CLOUD_SWITCH_NOTE =
 function StorageModeSettingsCard(): React.JSX.Element {
   const {
     storageErrorMessage,
+    storageProviderCopyProgress,
     storageProviderSwitchPreview,
     storageProviderSettings,
     activeStorageOperation,
@@ -310,6 +311,7 @@ function StorageModeSettingsCard(): React.JSX.Element {
           errorMessage={storageErrorMessage}
           operation={activeStorageOperation}
           preview={storageProviderSwitchPreview}
+          progress={storageProviderCopyProgress}
           onActivateTarget={activatePendingProvider}
           onCancel={cancelProviderSwitch}
           onCopyCurrentData={copyCurrentDataToPendingProvider}

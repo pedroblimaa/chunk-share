@@ -3,7 +3,8 @@ import {
   CloudStorageProvider,
   CloudStorageProviderSwitchDataMode,
   type CloudStorageProviderSwitchPreview,
-  type CloudStorageSettings
+  type CloudStorageSettings,
+  type StorageProviderCopyProgress
 } from '../../../../../shared/cloud-storage.model'
 import { getErrorMessage } from '../../../utils/error-message'
 import { StorageSettingsOperation, type ActiveStorageSettingsOperation } from '../settings.model'
@@ -12,6 +13,7 @@ export function useStorageProviderSettings(): {
   storageProviderSettings: CloudStorageSettings | null
   storageErrorMessage: string | null
   storageProviderSwitchPreview: CloudStorageProviderSwitchPreview | null
+  storageProviderCopyProgress: StorageProviderCopyProgress | null
   activeStorageOperation: ActiveStorageSettingsOperation
   storageIsBusy: boolean
   cancelStorageProviderSwitch: () => void
@@ -32,6 +34,8 @@ export function useStorageProviderSettings(): {
   const [storageErrorMessage, setStorageErrorMessage] = useState<string | null>(null)
   const [storageProviderSwitchPreview, setStorageProviderSwitchPreview] =
     useState<CloudStorageProviderSwitchPreview | null>(null)
+  const [storageProviderCopyProgress, setStorageProviderCopyProgress] =
+    useState<StorageProviderCopyProgress | null>(null)
   const storageIsBusy = activeStorageOperation !== null || storageProviderSettings === null
 
   const runStorageOperation = useCallback(
@@ -82,6 +86,10 @@ export function useStorageProviderSettings(): {
     }
   }, [])
 
+  useEffect(() => {
+    return window.chunkShare.storage.onProviderCopyProgress(setStorageProviderCopyProgress)
+  }, [])
+
   const setupDefaultGoogleDriveFolder = (): void => {
     void runStorageOperation(StorageSettingsOperation.SetupGoogleDriveFolder, () =>
       window.chunkShare.storage.setupGoogleDriveFolder()
@@ -102,6 +110,7 @@ export function useStorageProviderSettings(): {
     setActiveStorageOperation(StorageSettingsOperation.PreviewProviderSwitch)
     setStorageErrorMessage(null)
     setStorageProviderSwitchPreview(null)
+    setStorageProviderCopyProgress(null)
 
     try {
       const preview = await window.chunkShare.storage.getCloudStorageProviderSwitchPreview(provider)
@@ -132,6 +141,7 @@ export function useStorageProviderSettings(): {
         : StorageSettingsOperation.SwitchProvider
     )
     setStorageErrorMessage(null)
+    setStorageProviderCopyProgress(null)
 
     try {
       const nextSettings = await updateCloudStorageProvider(provider, dataMode, expectedPreview)
@@ -148,6 +158,7 @@ export function useStorageProviderSettings(): {
       return false
     } finally {
       setActiveStorageOperation(null)
+      setStorageProviderCopyProgress(null)
     }
   }
 
@@ -162,6 +173,7 @@ export function useStorageProviderSettings(): {
 
   const cancelStorageProviderSwitch = (): void => {
     setStorageProviderSwitchPreview(null)
+    setStorageProviderCopyProgress(null)
   }
 
   const dismissStorageError = (): void => {
@@ -172,6 +184,7 @@ export function useStorageProviderSettings(): {
     storageProviderSettings,
     storageErrorMessage,
     storageProviderSwitchPreview,
+    storageProviderCopyProgress,
     cancelStorageProviderSwitch,
     clearGoogleDriveFolder,
     dismissStorageError,

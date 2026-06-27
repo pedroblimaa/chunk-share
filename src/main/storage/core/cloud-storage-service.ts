@@ -2,11 +2,13 @@ import {
   CloudStorageProvider,
   CloudStorageProviderSwitchDataMode,
   GoogleDriveSetupStatus,
+  StorageProviderCopyPhase,
   type CloudStorageProviderDataSummary,
   type CloudStorageProviderSwitchRequest,
   type CloudStorageProviderSwitchPreview,
   type CloudStorageSettings,
-  type GoogleDriveFolderConfig
+  type GoogleDriveFolderConfig,
+  type StorageProviderCopyProgress
 } from '../../../shared/cloud-storage.model'
 import { ServerLockStatus } from '../../../shared/domain'
 import { isServerRuntimeBusyStatus } from '../../../shared/server-runtime'
@@ -26,7 +28,10 @@ import {
   writeCloudStorageSettings
 } from '../persistence/cloud-storage-settings-store'
 import { StorageError } from './storage-error'
-import type { StorageProviderCopyTransaction } from './storage-provider-copy.model'
+import type {
+  StorageProviderCopyProgressListener,
+  StorageProviderCopyTransaction
+} from './storage-provider-copy.model'
 import { prepareStorageProviderCopy } from './storage-provider-copy-service'
 
 export async function getCloudStorageSettings(): Promise<CloudStorageSettings> {
@@ -106,7 +111,8 @@ export async function clearGoogleDriveFolder(): Promise<CloudStorageSettings> {
 }
 
 export async function setCloudStorageProvider(
-  request: CloudStorageProviderSwitchRequest
+  request: CloudStorageProviderSwitchRequest,
+  onCopyProgress: StorageProviderCopyProgressListener = () => undefined
 ): Promise<CloudStorageSettings> {
   const settings = await readCloudStorageSettings()
   if (settings.activeProvider === request.provider) {
@@ -120,11 +126,24 @@ export async function setCloudStorageProvider(
     return activateCloudStorageProvider(validatedSettings, request.provider)
   }
 
+  const reportCopyProgress = (progress: StorageProviderCopyProgress): void => {
+    const visibleProgress = getVisibleProviderCopyProgress(
+      settings.activeProvider,
+      request.provider,
+      progress
+    )
+
+    if (visibleProgress) {
+      onCopyProgress(visibleProgress)
+    }
+  }
+
   return copyAndActivateCloudStorageProvider(
     settings,
     validatedSettings,
     request.provider,
-    request.expectedPreview
+    request.expectedPreview,
+    reportCopyProgress
   )
 }
 
@@ -132,7 +151,8 @@ async function copyAndActivateCloudStorageProvider(
   currentSettings: CloudStorageSettings,
   validatedSettings: CloudStorageSettings,
   targetProvider: CloudStorageProvider,
-  expectedPreview: CloudStorageProviderSwitchPreview
+  expectedPreview: CloudStorageProviderSwitchPreview,
+  onCopyProgress: StorageProviderCopyProgressListener
 ): Promise<CloudStorageSettings> {
   const sourceProvider = currentSettings.activeProvider
   const sourceAdapter = await getStorageAdapterForProvider(sourceProvider)
@@ -141,7 +161,8 @@ async function copyAndActivateCloudStorageProvider(
     sourceProvider,
     sourceAdapter,
     targetProvider,
-    targetAdapter
+    targetAdapter,
+    onCopyProgress
   )
 
   try {
@@ -151,7 +172,8 @@ async function copyAndActivateCloudStorageProvider(
     return await replaceTargetAndActivateCloudStorageProvider(
       copyTransaction,
       validatedSettings,
-      targetProvider
+      targetProvider,
+      onCopyProgress
     )
   } finally {
     await copyTransaction.dispose().catch(() => undefined)
@@ -161,14 +183,53 @@ async function copyAndActivateCloudStorageProvider(
 async function replaceTargetAndActivateCloudStorageProvider(
   copyTransaction: StorageProviderCopyTransaction,
   validatedSettings: CloudStorageSettings,
-  targetProvider: CloudStorageProvider
+  targetProvider: CloudStorageProvider,
+  onCopyProgress: StorageProviderCopyProgressListener
 ): Promise<CloudStorageSettings> {
   try {
     await copyTransaction.replaceTarget()
+    reportFinalizingCopy(onCopyProgress)
     return await activateCloudStorageProvider(validatedSettings, targetProvider)
   } catch (error) {
     await restoreTargetAfterFailedCopy(copyTransaction, error)
     throw error
+  }
+}
+
+function reportFinalizingCopy(onCopyProgress: StorageProviderCopyProgressListener): void {
+  const progress: StorageProviderCopyProgress = {
+    phase: StorageProviderCopyPhase.Finalizing,
+    completedFiles: 0,
+    totalFiles: 0
+  }
+
+  onCopyProgress(progress)
+}
+
+function getVisibleProviderCopyProgress(
+  sourceProvider: CloudStorageProvider,
+  targetProvider: CloudStorageProvider,
+  progress: StorageProviderCopyProgress
+): StorageProviderCopyProgress | null {
+  if (
+    progress.phase === StorageProviderCopyPhase.Finalizing ||
+    progress.phase === StorageProviderCopyPhase.Restoring
+  ) {
+    return progress
+  }
+
+  const visibleCopyPhase =
+    sourceProvider === CloudStorageProvider.GoogleDrive && targetProvider === CloudStorageProvider.Local
+      ? StorageProviderCopyPhase.PreparingSource
+      : StorageProviderCopyPhase.Copying
+
+  if (progress.phase !== visibleCopyPhase) {
+    return null
+  }
+
+  return {
+    ...progress,
+    phase: StorageProviderCopyPhase.Copying
   }
 }
 

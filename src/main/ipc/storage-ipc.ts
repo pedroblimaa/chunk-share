@@ -4,6 +4,7 @@ import {
   STORAGE_CLOUD_SETTINGS_CHANNEL,
   STORAGE_DELETE_SERVER_CHANNEL,
   STORAGE_GET_PROVIDER_SWITCH_PREVIEW_CHANNEL,
+  STORAGE_PROVIDER_COPY_PROGRESS_CHANNEL,
   STORAGE_RESET_SERVER_LOCK_CHANNEL,
   STORAGE_SAVE_SERVER_CONFIG_CHANNEL,
   STORAGE_SET_PROVIDER_CHANNEL,
@@ -51,12 +52,20 @@ export function registerStorageIpcHandlers(): void {
     return getStorageProviderSwitchPreview(provider)
   })
 
-  ipcMain.handle(STORAGE_SET_PROVIDER_CHANNEL, (_, request: unknown) => {
+  ipcMain.handle(STORAGE_SET_PROVIDER_CHANNEL, (event, request: unknown) => {
     if (!isValidProviderSwitchRequest(request)) {
       throw new StorageError('Invalid cloud storage provider switch payload.')
     }
 
-    return setCloudStorageProvider(request)
+    return setCloudStorageProvider(request, (progress) => {
+      try {
+        if (!event.sender.isDestroyed()) {
+          event.sender.send(STORAGE_PROVIDER_COPY_PROGRESS_CHANNEL, progress)
+        }
+      } catch {
+        // Progress reporting must not interrupt a storage copy already in flight.
+      }
+    })
   })
 
   ipcMain.handle(STORAGE_DELETE_SERVER_CHANNEL, () => deleteConfiguredServer())

@@ -1,6 +1,7 @@
 import type {
   CloudStorageProviderDataSummary,
-  CloudStorageProviderSwitchPreview
+  CloudStorageProviderSwitchPreview,
+  StorageProviderCopyProgress
 } from '../../../../../../shared/cloud-storage.model'
 import type { ActiveStorageSettingsOperation } from '../../settings.model'
 
@@ -8,6 +9,7 @@ export interface StorageProviderSwitchDialogProps {
   errorMessage: string | null
   operation: ActiveStorageSettingsOperation
   preview: CloudStorageProviderSwitchPreview | null
+  progress: StorageProviderCopyProgress | null
   onActivateTarget: () => void
   onCancel: () => void
   onCopyCurrentData: () => void
@@ -17,6 +19,7 @@ export interface StorageProviderSwitchDialogProps {
 export interface StorageProviderSwitchChoiceProps {
   operation: ActiveStorageSettingsOperation
   preview: CloudStorageProviderSwitchPreview
+  progress: StorageProviderCopyProgress | null
   onActivateTarget: () => void
   onCancel: () => void
   onCopyCurrentData: () => void
