@@ -17,7 +17,7 @@ export function useStorageProviderSettings(): {
   cancelStorageProviderSwitch: () => void
   clearGoogleDriveFolder: () => Promise<boolean>
   dismissStorageError: () => void
-  prepareStorageProviderSwitch: (provider: CloudStorageProvider) => void
+  loadStorageSwitchPreview: (provider: CloudStorageProvider) => void
   setupDefaultGoogleDriveFolder: () => void
   switchStorageProvider: (
     provider: CloudStorageProvider,
@@ -101,40 +101,20 @@ export function useStorageProviderSettings(): {
     )
   }
 
-  const prepareStorageProviderSwitch = (provider: CloudStorageProvider): void => {
-    void prepareStorageProviderSwitchAsync(provider)
+  const loadStorageSwitchPreview = (provider: CloudStorageProvider): void => {
+    void loadStorageSwitchPreviewAsync(provider)
   }
 
-  const prepareStorageProviderSwitchAsync = async (provider: CloudStorageProvider): Promise<void> => {
+  const loadStorageSwitchPreviewAsync = async (provider: CloudStorageProvider): Promise<void> => {
     setActiveStorageOperation(StorageSettingsOperation.PreviewProviderSwitch)
     setStorageErrorMessage(null)
     setStorageProviderSwitchPreview(null)
 
     try {
       const preview = await window.chunkShare.storage.getCloudStorageProviderSwitchPreview(provider)
-      const sourceHasData = storageProviderHasData(preview.source)
-      const targetHasData = storageProviderHasData(preview.target)
-
-      if (sourceHasData && targetHasData) {
-        setStorageProviderSwitchPreview(preview)
-        return
-      }
-
-      const dataMode = sourceHasData
-        ? CloudStorageProviderSwitchDataMode.CopyCurrentToTarget
-        : CloudStorageProviderSwitchDataMode.UseTargetAsIs
-
-      const nextOperation =
-        dataMode === CloudStorageProviderSwitchDataMode.CopyCurrentToTarget
-          ? StorageSettingsOperation.CopyProviderData
-          : StorageSettingsOperation.SwitchProvider
-
-      setActiveStorageOperation(nextOperation)
-
-      const nextSettings = await updateCloudStorageProvider(provider, dataMode, preview)
-      setStorageProviderSettings(nextSettings)
+      setStorageProviderSwitchPreview(preview)
     } catch (error: unknown) {
-      setStorageErrorMessage(getErrorMessage(error, 'Unable to switch storage provider.'))
+      setStorageErrorMessage(getErrorMessage(error, 'Unable to check storage provider data.'))
     } finally {
       setActiveStorageOperation(null)
     }
@@ -178,10 +158,7 @@ export function useStorageProviderSettings(): {
   const refreshStorageProviderSwitchPreview = async (provider: CloudStorageProvider): Promise<void> => {
     try {
       const preview = await window.chunkShare.storage.getCloudStorageProviderSwitchPreview(provider)
-
-      setStorageProviderSwitchPreview(
-        storageProviderHasData(preview.source) && storageProviderHasData(preview.target) ? preview : null
-      )
+      setStorageProviderSwitchPreview(preview)
     } catch {
       setStorageProviderSwitchPreview(null)
     }
@@ -204,7 +181,7 @@ export function useStorageProviderSettings(): {
     dismissStorageError,
     activeStorageOperation,
     storageIsBusy,
-    prepareStorageProviderSwitch,
+    loadStorageSwitchPreview,
     setupDefaultGoogleDriveFolder,
     switchStorageProvider,
     validateGoogleDriveFolder
@@ -232,8 +209,4 @@ async function updateCloudStorageProvider(
     provider,
     dataMode
   })
-}
-
-function storageProviderHasData(summary: CloudStorageProviderSwitchPreview['source']): boolean {
-  return summary.latestSaveVersion !== null || summary.versionCount > 0
 }

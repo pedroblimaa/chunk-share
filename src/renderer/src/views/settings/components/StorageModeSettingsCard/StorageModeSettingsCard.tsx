@@ -15,44 +15,46 @@ import Toast from '../../../../components/shared/Toast/Toast'
 import GoogleDriveDisconnectChoice from '../GoogleDriveDisconnectChoice/GoogleDriveDisconnectChoice'
 import StorageProviderSwitchPanel from '../StorageProviderSwitchPanel/StorageProviderSwitchPanel'
 import { StorageSettingsOperation, type ActiveStorageSettingsOperation } from '../../settings.model'
-import type { StorageModeProvider, StorageModeSettingsCardProps } from './StorageModeSettingsCard.model'
+import { useStorageProviderSettings } from '../../hooks/useStorageProviderSettings'
+import type { StorageModeProvider } from './StorageModeSettingsCard.model'
+import { GOOGLE_DRIVE_STATUS_VIEW } from './storage-mode-settings.constants'
 
 const STORAGE_MODE_INFO =
   'ChunkShare can store shared saves locally or in the configured Google Drive folder.'
 const CLOUD_SWITCH_NOTE =
   'Google Drive must be configured and validated before it can become the active storage provider.'
 
-function StorageModeSettingsCard({
-  storageErrorMessage,
-  storageProviderSwitchPreview,
-  storageProviderSettings,
-  activeStorageOperation,
-  storageIsBusy,
-  googleDriveStatusViewMap,
-  onCancelStorageProviderSwitch,
-  onClearGoogleDriveFolder,
-  onDismissStorageError,
-  onPrepareStorageProviderSwitch,
-  onSetupDefaultGoogleDriveFolder,
-  onSwitchStorageProvider,
-  onValidateGoogleDriveFolder
-}: StorageModeSettingsCardProps): React.JSX.Element {
+function StorageModeSettingsCard(): React.JSX.Element {
+  const {
+    storageErrorMessage,
+    storageProviderSwitchPreview,
+    storageProviderSettings,
+    activeStorageOperation,
+    storageIsBusy,
+    cancelStorageProviderSwitch,
+    clearGoogleDriveFolder,
+    dismissStorageError,
+    loadStorageSwitchPreview,
+    setupDefaultGoogleDriveFolder,
+    switchStorageProvider,
+    validateGoogleDriveFolder
+  } = useStorageProviderSettings()
   const activeProvider = storageProviderSettings?.activeProvider ?? CloudStorageProvider.Local
-  const [selectedProvider, setSelectedProvider] = useState<StorageModeProvider | null>(null)
+  const [selectedProvider, setNewSelectedProvider] = useState<StorageModeProvider | null>(null)
   const [pendingProvider, setPendingProvider] = useState<StorageModeProvider | null>(null)
   const [googleDriveDisconnectIsPending, setGoogleDriveDisconnectIsPending] = useState(false)
   const displayedProvider = selectedProvider ?? activeProvider
   const effectivePendingProvider = pendingProvider === activeProvider ? null : pendingProvider
   const googleDriveState = storageProviderSettings?.googleDrive
   const googleDriveStatus = googleDriveState?.status ?? GoogleDriveSetupStatus.NotConfigured
-  const googleDriveStatusView = googleDriveStatusViewMap[googleDriveStatus]
+  const googleDriveStatusView = GOOGLE_DRIVE_STATUS_VIEW[googleDriveStatus]
   const googleDriveIsValid = googleDriveStatus === GoogleDriveSetupStatus.Valid
   const localPanelIsSelected = displayedProvider === CloudStorageProvider.Local
   const googleDrivePanelIsSelected = displayedProvider === CloudStorageProvider.GoogleDrive
   const googleDriveCanBeCleared = Boolean(googleDriveState?.folder || googleDriveState?.errorMessage)
 
   const handleSelectProvider = (provider: StorageModeProvider): void => {
-    setSelectedProvider(provider)
+    setNewSelectedProvider(provider)
 
     if (provider === activeProvider) {
       cancelProviderSwitch()
@@ -65,23 +67,23 @@ function StorageModeSettingsCard({
     }
 
     setPendingProvider(provider)
-    onPrepareStorageProviderSwitch(provider)
+    loadStorageSwitchPreview(provider)
   }
 
-  const usePendingProviderData = (): void => {
+  const activatePendingProvider = (): void => {
     if (!pendingProvider) {
       return
     }
 
-    onSwitchStorageProvider(pendingProvider, CloudStorageProviderSwitchDataMode.UseTargetAsIs)
+    switchStorageProvider(pendingProvider, CloudStorageProviderSwitchDataMode.UseTargetAsIs)
   }
 
-  const replacePendingProviderData = (): void => {
+  const copyCurrentDataToPendingProvider = (): void => {
     if (!pendingProvider || !storageProviderSwitchPreview) {
       return
     }
 
-    onSwitchStorageProvider(
+    switchStorageProvider(
       pendingProvider,
       CloudStorageProviderSwitchDataMode.CopyCurrentToTarget,
       storageProviderSwitchPreview
@@ -90,17 +92,17 @@ function StorageModeSettingsCard({
 
   const cancelProviderSwitch = (): void => {
     setPendingProvider(null)
-    onCancelStorageProviderSwitch()
+    cancelStorageProviderSwitch()
   }
 
   const retryProviderSwitch = (): void => {
     if (pendingProvider) {
-      onPrepareStorageProviderSwitch(pendingProvider)
+      loadStorageSwitchPreview(pendingProvider)
     }
   }
 
   const disconnectGoogleDrive = (): void => {
-    void onClearGoogleDriveFolder().then((didDisconnect) => {
+    void clearGoogleDriveFolder().then((didDisconnect) => {
       if (didDisconnect) {
         setGoogleDriveDisconnectIsPending(false)
       }
@@ -114,7 +116,7 @@ function StorageModeSettingsCard({
           message={storageErrorMessage}
           title="Storage update failed"
           tone="error"
-          onClose={onDismissStorageError}
+          onClose={dismissStorageError}
         />
       ) : null}
 
@@ -183,10 +185,10 @@ function StorageModeSettingsCard({
               hasError={storageErrorMessage !== null}
               operation={activeStorageOperation}
               preview={storageProviderSwitchPreview}
+              onActivateTarget={activatePendingProvider}
               onCancel={cancelProviderSwitch}
-              onReplace={replacePendingProviderData}
+              onCopyCurrentData={copyCurrentDataToPendingProvider}
               onRetry={retryProviderSwitch}
-              onUseExisting={usePendingProviderData}
             />
           ) : null}
         </>
@@ -235,10 +237,10 @@ function StorageModeSettingsCard({
               hasError={storageErrorMessage !== null}
               operation={activeStorageOperation}
               preview={storageProviderSwitchPreview}
+              onActivateTarget={activatePendingProvider}
               onCancel={cancelProviderSwitch}
-              onReplace={replacePendingProviderData}
+              onCopyCurrentData={copyCurrentDataToPendingProvider}
               onRetry={retryProviderSwitch}
-              onUseExisting={usePendingProviderData}
             />
           ) : null}
 
@@ -256,7 +258,7 @@ function StorageModeSettingsCard({
                   fullWidth
                   disabled={storageIsBusy}
                   icon="create_new_folder"
-                  onClick={onSetupDefaultGoogleDriveFolder}
+                  onClick={setupDefaultGoogleDriveFolder}
                 >
                   {getStorageOperationLabel(
                     activeStorageOperation,
@@ -273,7 +275,7 @@ function StorageModeSettingsCard({
                         disabled={storageIsBusy}
                         icon="sync"
                         variant="secondary"
-                        onClick={onValidateGoogleDriveFolder}
+                        onClick={validateGoogleDriveFolder}
                       >
                         {getStorageOperationLabel(
                           activeStorageOperation,

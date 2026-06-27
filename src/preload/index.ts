@@ -22,10 +22,10 @@ import {
   STORAGE_CLEAR_GOOGLE_DRIVE_FOLDER_CHANNEL,
   STORAGE_CLOUD_SETTINGS_CHANNEL,
   STORAGE_DELETE_SERVER_CHANNEL,
-  STORAGE_GET_CLOUD_PROVIDER_SWITCH_PREVIEW_CHANNEL,
+  STORAGE_GET_PROVIDER_SWITCH_PREVIEW_CHANNEL,
   STORAGE_RESET_SERVER_LOCK_CHANNEL,
   STORAGE_SAVE_SERVER_CONFIG_CHANNEL,
-  STORAGE_SET_CLOUD_PROVIDER_CHANNEL,
+  STORAGE_SET_PROVIDER_CHANNEL,
   STORAGE_SETUP_GOOGLE_DRIVE_FOLDER_CHANNEL,
   STORAGE_SNAPSHOT_CHANNEL,
   STORAGE_VALIDATE_GOOGLE_DRIVE_FOLDER_CHANNEL
@@ -73,9 +73,9 @@ const chunkShareApi = {
     getCloudStorageProviderSwitchPreview: (
       provider: CloudStorageProvider
     ): Promise<CloudStorageProviderSwitchPreview> =>
-      ipcRenderer.invoke(STORAGE_GET_CLOUD_PROVIDER_SWITCH_PREVIEW_CHANNEL, provider),
+      ipcRenderer.invoke(STORAGE_GET_PROVIDER_SWITCH_PREVIEW_CHANNEL, provider),
     setCloudStorageProvider: (request: CloudStorageProviderSwitchRequest): Promise<CloudStorageSettings> =>
-      ipcRenderer.invoke(STORAGE_SET_CLOUD_PROVIDER_CHANNEL, request),
+      ipcRenderer.invoke(STORAGE_SET_PROVIDER_CHANNEL, request),
     deleteServer: (): Promise<ServerStorageSnapshot> => ipcRenderer.invoke(STORAGE_DELETE_SERVER_CHANNEL),
     resetServerLock: (): Promise<ServerStorageSnapshot> =>
       ipcRenderer.invoke(STORAGE_RESET_SERVER_LOCK_CHANNEL),
