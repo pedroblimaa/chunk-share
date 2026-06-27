@@ -42,14 +42,21 @@ function App(): React.JSX.Element {
     setErrorMessage
   })
 
-  const { completeServerSetup, deleteServer, openServerDashboard, refreshServerDisplayState } =
-    useServerActions({
-      canAutoRefresh: Boolean(serverDisplayState?.signedInUser),
-      handleStorageError,
-      setAppView,
-      setErrorMessage,
-      setServerDisplayState
-    })
+  const {
+    completeServerSetup,
+    deleteServer,
+    dismissServerDashboardError,
+    isServerDashboardLoading,
+    openServerDashboard,
+    refreshServerDisplayState,
+    serverDashboardErrorMessage
+  } = useServerActions({
+    canAutoRefresh: Boolean(serverDisplayState?.signedInUser),
+    handleStorageError,
+    setAppView,
+    setErrorMessage,
+    setServerDisplayState
+  })
 
   const shouldShowAuthView = isLoadingSession || !serverDisplayState?.signedInUser
 
@@ -68,7 +75,10 @@ function App(): React.JSX.Element {
       case 'server-detail':
         return (
           <DashboardView
+            initialLoadErrorMessage={serverDashboardErrorMessage}
+            isInitialSnapshotLoading={isServerDashboardLoading}
             serverDisplayState={serverDisplayState}
+            onDismissInitialLoadError={dismissServerDashboardError}
             onServerDisplayStateChange={setServerDisplayState}
             onNavigateToServers={() => setAppView('servers')}
             onOpenSettings={openSettings}

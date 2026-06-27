@@ -8,6 +8,7 @@ import { ServerSyncStatus } from '../../../../../shared/server-sync'
 import AppSidebar from '../../../components/shared/AppSidebar/AppSidebar'
 import Card from '../../../components/shared/Card/Card'
 import ConfirmationDialog from '../../../components/shared/ConfirmationDialog/ConfirmationDialog'
+import MaterialIcon from '../../../components/shared/MaterialIcon/MaterialIcon'
 import Toast from '../../../components/shared/Toast/Toast'
 import { getErrorMessage } from '../../../utils/error-message'
 import {
@@ -27,7 +28,10 @@ import ServerStatePanel from '../components/ServerStatePanel/ServerStatePanel'
 import TopBar from '../components/TopBar/TopBar'
 
 interface DashboardPreviewProps {
+  initialLoadErrorMessage: string | null
+  isInitialSnapshotLoading: boolean
   serverDisplayState: ServerDisplayState
+  onDismissInitialLoadError: () => void
   onServerDisplayStateChange: (serverDisplayState: ServerDisplayState) => void
   onNavigateToServers: () => void
   onOpenSettings: () => void
@@ -141,7 +145,10 @@ function getHeaderToggleButtonView({
 }
 
 function DashboardView({
+  initialLoadErrorMessage,
+  isInitialSnapshotLoading,
   serverDisplayState,
+  onDismissInitialLoadError,
   onServerDisplayStateChange,
   onNavigateToServers,
   onOpenSettings,
@@ -323,12 +330,14 @@ function DashboardView({
   }
 
   async function copyRuntimeError(): Promise<void> {
-    if (!runtimeErrorMessage) {
+    const errorMessage = initialLoadErrorMessage ?? runtimeErrorMessage
+
+    if (!errorMessage) {
       return
     }
 
     try {
-      await navigator.clipboard.writeText(runtimeErrorMessage)
+      await navigator.clipboard.writeText(errorMessage)
       setErrorCopyStatus('copied')
     } catch {
       setErrorCopyStatus('failed')
@@ -357,6 +366,7 @@ function DashboardView({
   }
 
   function closeRuntimeErrorToast(): void {
+    onDismissInitialLoadError()
     setRuntimeErrorMessage(null)
     setErrorCopyStatus('idle')
   }
@@ -388,7 +398,7 @@ function DashboardView({
     dashboardSnapshot.serverStatus === 'crashed' ||
     syncBlocksStart
 
-  const headerToggleDisabled = serverIsJoinable ? false : toggleDisabled
+  const headerToggleDisabled = isInitialSnapshotLoading || (serverIsJoinable ? false : toggleDisabled)
   const headerToggleButtonView = getHeaderToggleButtonView({
     dashboardSnapshot,
     serverIsJoinable,
@@ -406,6 +416,7 @@ function DashboardView({
   const lastActiveLabel = isServerActiveStatus(dashboardSnapshot.serverStatus)
     ? 'Active now'
     : latestSaveLabel
+  const displayedErrorMessage = initialLoadErrorMessage ?? runtimeErrorMessage
 
   return (
     <div
@@ -435,7 +446,7 @@ function DashboardView({
         />
 
         <main className="dashboard-content">
-          {runtimeErrorMessage ? (
+          {displayedErrorMessage ? (
             <Toast
               action={{
                 icon: COPY_STATUS_ICONS[errorCopyStatus],
@@ -443,7 +454,7 @@ function DashboardView({
                 onClick: copyRuntimeError
               }}
               icon="error"
-              message={runtimeErrorMessage}
+              message={displayedErrorMessage}
               title="Server action failed"
               tone="error"
               onClose={closeRuntimeErrorToast}
@@ -519,6 +530,15 @@ function DashboardView({
           </div>
 
           <ConsoleOutput logs={dashboardSnapshot.consoleLogs} />
+
+          {isInitialSnapshotLoading ? (
+            <div className="dashboard-loading-overlay" role="status" aria-live="polite">
+              <div className="dashboard-loading-indicator">
+                <MaterialIcon name="sync" />
+                <span>Syncing server data...</span>
+              </div>
+            </div>
+          ) : null}
         </main>
       </div>
 

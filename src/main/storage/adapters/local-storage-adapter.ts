@@ -12,7 +12,7 @@ import {
 } from '../core/storage-paths'
 import { isLatestSave, isServerLock } from '../core/storage-validation'
 import { readJsonFile, writeJsonFile } from '../persistence/json-file-store'
-import type { ServerSaveVersionFile, StorageAdapter } from './storage-adapter.model'
+import type { ServerSaveVersionFile, ServerSyncStorageData, StorageAdapter } from './storage-adapter.model'
 
 const SERVER_SAVE_FILE_PATTERN = /^server-v(\d+)\.zip$/
 
@@ -22,6 +22,7 @@ export const localStorageAdapter: StorageAdapter = {
   listServerSaveVersions,
   readLatestSave,
   readServerLock,
+  readServerSyncData,
   resetServerLock,
   resetServerSaves,
   serverSaveVersionExists,
@@ -35,6 +36,20 @@ export async function ensureLocalStorage(): Promise<void> {
   await mkdir(localStorageVersionsFolderPath, { recursive: true })
   await readLatestSave()
   await readServerLock()
+}
+
+async function readServerSyncData(): Promise<ServerSyncStorageData> {
+  const [latestSave, serverLock, versionFiles] = await Promise.all([
+    readLatestSave(),
+    readServerLock(),
+    listServerSaveVersions()
+  ])
+
+  return {
+    latestSave,
+    serverLock,
+    versionFiles
+  }
 }
 
 function readLatestSave(): Promise<LatestSave> {
@@ -110,10 +125,7 @@ async function uploadServerSaveVersion(fileName: string, localZipPath: string): 
   }
 }
 
-async function downloadServerSaveVersion(
-  fileName: string,
-  localDestinationPath: string
-): Promise<void> {
+async function downloadServerSaveVersion(fileName: string, localDestinationPath: string): Promise<void> {
   await mkdir(dirname(localDestinationPath), { recursive: true })
   await copyFile(getServerSaveVersionPath(fileName), localDestinationPath)
 }

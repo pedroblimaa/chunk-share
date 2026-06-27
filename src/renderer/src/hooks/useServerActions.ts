@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { getErrorMessage } from '../utils/error-message'
 import { loadServerDisplayState } from '../utils/server-display-state'
 import type { ServerActions, UseServerActionsInput } from './server.model'
@@ -10,6 +10,9 @@ export function useServerActions({
   setErrorMessage,
   setServerDisplayState
 }: UseServerActionsInput): ServerActions {
+  const [isServerDashboardLoading, setIsServerDashboardLoading] = useState(false)
+  const [serverDashboardErrorMessage, setServerDashboardErrorMessage] = useState<string | null>(null)
+
   const refreshServerDisplayState = useCallback(async (): Promise<void> => {
     const nextServerDisplayState = await loadServerDisplayState()
     setServerDisplayState(nextServerDisplayState)
@@ -31,18 +34,26 @@ export function useServerActions({
 
   const openServerDashboard = useCallback(async (): Promise<void> => {
     setErrorMessage(null)
+    setServerDashboardErrorMessage(null)
+    setIsServerDashboardLoading(true)
+    setAppView('server-detail')
 
     try {
       await refreshServerDisplayState()
-      setAppView('server-detail')
     } catch (error: unknown) {
       if (handleStorageError(error)) {
         return
       }
 
-      setErrorMessage(getErrorMessage(error, 'Unable to open server.'))
+      setServerDashboardErrorMessage(getErrorMessage(error, 'Unable to refresh server data.'))
+    } finally {
+      setIsServerDashboardLoading(false)
     }
   }, [handleStorageError, refreshServerDisplayState, setAppView, setErrorMessage])
+
+  const dismissServerDashboardError = useCallback((): void => {
+    setServerDashboardErrorMessage(null)
+  }, [])
 
   const deleteServer = useCallback(async (): Promise<void> => {
     if (typeof window.chunkShare.storage.deleteServer !== 'function') {
@@ -61,7 +72,10 @@ export function useServerActions({
   return {
     completeServerSetup,
     deleteServer,
+    dismissServerDashboardError,
+    isServerDashboardLoading,
     openServerDashboard,
-    refreshServerDisplayState
+    refreshServerDisplayState,
+    serverDashboardErrorMessage
   }
 }

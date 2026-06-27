@@ -5,7 +5,15 @@ export interface ServerSaveVersionFile {
   saveVersion: number
 }
 
+export interface ServerSyncStorageData {
+  latestSave: LatestSave
+  serverLock: ServerLock
+  versionFiles: ServerSaveVersionFile[]
+}
+
 export interface StorageAdapter {
+  readServerSyncData(): Promise<ServerSyncStorageData>
+
   readLatestSave(): Promise<LatestSave>
   writeLatestSave(latestSave: LatestSave): Promise<void>
 

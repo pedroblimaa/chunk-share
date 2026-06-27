@@ -13,6 +13,9 @@ export interface UseServerActionsInput {
 export interface ServerActions {
   completeServerSetup: () => Promise<void>
   deleteServer: () => Promise<void>
+  dismissServerDashboardError: () => void
+  isServerDashboardLoading: boolean
   openServerDashboard: () => Promise<void>
   refreshServerDisplayState: () => Promise<void>
+  serverDashboardErrorMessage: string | null
 }
