@@ -105,7 +105,11 @@ async function incompatibleRule({
   latestSave,
   localState
 }: ServerSyncRuleContext): Promise<ServerSyncDecision | null> {
-  if (!latestSave || isCompatibleWithLocalConfig(latestSave, localState)) {
+  if (
+    !latestSave ||
+    localState.serverSetup.status !== 'ready' ||
+    isCompatibleWithLocalConfig(latestSave, localState)
+  ) {
     return null
   }
 

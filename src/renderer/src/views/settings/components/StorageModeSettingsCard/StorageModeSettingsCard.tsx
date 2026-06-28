@@ -18,7 +18,7 @@ import GoogleDriveDisconnectChoice from '../GoogleDriveDisconnectChoice/GoogleDr
 import StorageProviderSwitchDialog from '../StorageProviderSwitchDialog/StorageProviderSwitchDialog'
 import { StorageSettingsOperation } from '../../settings.model'
 import { useStorageProviderSettings } from '../../hooks/useStorageProviderSettings'
-import type { StorageModeProvider } from './StorageModeSettingsCard.model'
+import type { StorageModeProvider, StorageModeSettingsCardProps } from './StorageModeSettingsCard.model'
 import { GOOGLE_DRIVE_STATUS_VIEW } from './storage-mode-settings.constants'
 
 const STORAGE_MODE_INFO =
@@ -26,7 +26,9 @@ const STORAGE_MODE_INFO =
 const CLOUD_SWITCH_NOTE =
   'Google Drive must be configured and validated before it can become the active storage provider.'
 
-function StorageModeSettingsCard(): React.JSX.Element {
+function StorageModeSettingsCard({
+  onStorageProviderChange
+}: StorageModeSettingsCardProps): React.JSX.Element {
   const {
     storageErrorMessage,
     storageProviderCopyProgress,
@@ -135,6 +137,7 @@ function StorageModeSettingsCard(): React.JSX.Element {
     setPendingProvider(null)
     setSelectedProvider(null)
     cancelStorageProviderSwitch()
+    void onStorageProviderChange()
   }
 
   const retryProviderSwitch = (): void => {
@@ -150,6 +153,7 @@ function StorageModeSettingsCard(): React.JSX.Element {
         setPendingProvider(null)
         setSelectedProvider(null)
         cancelStorageProviderSwitch()
+        void onStorageProviderChange()
       }
     })
   }

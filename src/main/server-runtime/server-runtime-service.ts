@@ -45,6 +45,7 @@ import { ServerRuntimeError } from './server-runtime-error'
 import { assertFileExists, assertFolderExists } from './server-runtime-file-checks'
 import {
   getConsoleTimestamp,
+  getDownloadSharedSaveErrorMessage,
   getPreStartPublishErrorMessage,
   getPreStartRestoreErrorMessage,
   getProcessStartErrorMessage,
@@ -429,6 +430,39 @@ class ServerRuntime {
       const message = getRecoveryErrorMessage(error)
       const processIsRunning = await this.getPersistedProcessIsRunning()
       this.enterRecoveryRequired(message, true, processIsRunning)
+      throw new ServerRuntimeError(message)
+    }
+  }
+
+  async downloadLatestSharedSave(): Promise<ServerRuntimeSnapshot> {
+    if (this.status !== 'stopped') {
+      throw new ServerRuntimeError('Stop the Minecraft server before downloading a shared save.')
+    }
+
+    const storageSnapshot = await getServerSyncSnapshot()
+
+    if (storageSnapshot.localState.serverSetup.status !== 'ready') {
+      throw new ServerRuntimeError('Set up this shared server on this device before downloading it.')
+    }
+
+    if (storageSnapshot.serverSync.status !== ServerSyncStatus.UpdateAvailable) {
+      throw new ServerRuntimeError('No newer shared save is available to download.')
+    }
+
+    this.errorMessage = null
+    this.addLogLine('ChunkShare', 'Downloading the latest shared save.')
+
+    try {
+      await restoreLatestServerSave(storageSnapshot)
+      this.addLogLine('ChunkShare', 'Local server updated from the shared save.', 'success')
+      this.emitRuntimeEvent()
+
+      return this.getSnapshot()
+    } catch (error) {
+      const message = getDownloadSharedSaveErrorMessage(error)
+      this.errorMessage = message
+      this.addLogLine('ChunkShare', message, 'error')
+      this.emitRuntimeEvent()
       throw new ServerRuntimeError(message)
     }
   }
@@ -1145,6 +1179,10 @@ export function stopMinecraftServer(): Promise<ServerRuntimeSnapshot> {
 
 export function recoverMinecraftServer(): Promise<ServerRuntimeSnapshot> {
   return serverRuntime.recover()
+}
+
+export function downloadLatestSharedSave(): Promise<ServerRuntimeSnapshot> {
+  return serverRuntime.downloadLatestSharedSave()
 }
 
 export function restoreSharedSaveAfterRecovery(): Promise<ServerRuntimeSnapshot> {

@@ -30,8 +30,8 @@ export const SERVER_SYNC_VIEW_BY_STATUS = {
   [ServerSyncStatus.UpdateAvailable]: {
     label: 'Cloud ahead',
     tone: ServerSyncTone.Warning,
-    actionLabel: 'Update and start',
-    message: 'Shared save is newer. ChunkShare will update this device before hosting.'
+    actionLabel: 'Download Update',
+    message: 'A newer shared save is available. Download it before hosting.'
   },
   [ServerSyncStatus.LockedByOther]: {
     label: 'Online with someone',

@@ -13,6 +13,7 @@ import {
   AUTH_SIGN_IN_WITH_GOOGLE_CHANNEL,
   AUTH_SIGN_OUT_CHANNEL,
   DASHBOARD_SNAPSHOT_CHANNEL,
+  SERVER_RUNTIME_DOWNLOAD_SHARED_SAVE_CHANNEL,
   SERVER_RUNTIME_EVENTS_CHANNEL,
   SERVER_RUNTIME_RECOVER_CHANNEL,
   SERVER_RUNTIME_RESTORE_SHARED_SAVE_CHANNEL,
@@ -20,6 +21,7 @@ import {
   SERVER_RUNTIME_START_CHANNEL,
   SERVER_RUNTIME_STOP_CHANNEL,
   SERVER_SETUP_LIST_VANILLA_VERSIONS_CHANNEL,
+  SERVER_SETUP_DOWNLOAD_SHARED_SERVER_CHANNEL,
   SERVER_SETUP_PROGRESS_CHANNEL,
   SERVER_SETUP_SETUP_VANILLA_SERVER_CHANNEL,
   STORAGE_CLEAR_GOOGLE_DRIVE_FOLDER_CHANNEL,
@@ -36,6 +38,7 @@ import {
 } from '../shared/ipc-channels'
 import type { ServerRuntimeEvent, ServerRuntimeSnapshot } from '../shared/server-runtime'
 import type {
+  DownloadSharedServerInput,
   ServerSetupProgressEvent,
   SetupVanillaServerInput,
   VanillaMinecraftVersion
@@ -55,6 +58,8 @@ const chunkShareApi = {
     start: (): Promise<ServerRuntimeSnapshot> => ipcRenderer.invoke(SERVER_RUNTIME_START_CHANNEL),
     stop: (): Promise<ServerRuntimeSnapshot> => ipcRenderer.invoke(SERVER_RUNTIME_STOP_CHANNEL),
     recover: (): Promise<ServerRuntimeSnapshot> => ipcRenderer.invoke(SERVER_RUNTIME_RECOVER_CHANNEL),
+    downloadSharedSave: (): Promise<ServerRuntimeSnapshot> =>
+      ipcRenderer.invoke(SERVER_RUNTIME_DOWNLOAD_SHARED_SAVE_CHANNEL),
     restoreSharedSave: (): Promise<ServerRuntimeSnapshot> =>
       ipcRenderer.invoke(SERVER_RUNTIME_RESTORE_SHARED_SAVE_CHANNEL),
     onEvent: (listener: (event: ServerRuntimeEvent) => void): (() => void) => {
@@ -106,6 +111,8 @@ const chunkShareApi = {
       ipcRenderer.invoke(SERVER_SETUP_LIST_VANILLA_VERSIONS_CHANNEL),
     setupVanillaServer: (input: SetupVanillaServerInput): Promise<ServerStorageSnapshot> =>
       ipcRenderer.invoke(SERVER_SETUP_SETUP_VANILLA_SERVER_CHANNEL, input),
+    downloadSharedServer: (input: DownloadSharedServerInput): Promise<ServerStorageSnapshot> =>
+      ipcRenderer.invoke(SERVER_SETUP_DOWNLOAD_SHARED_SERVER_CHANNEL, input),
     onProgress: (listener: (event: ServerSetupProgressEvent) => void): (() => void) => {
       const progressListener = (_: Electron.IpcRendererEvent, event: ServerSetupProgressEvent): void => {
         listener(event)

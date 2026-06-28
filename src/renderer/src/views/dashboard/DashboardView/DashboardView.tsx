@@ -1,7 +1,7 @@
 import './DashboardView.css'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { ServerDisplayState } from '../../../../../shared/dashboard'
+import { ServerAvailability, type ServerDisplayState } from '../../../../../shared/dashboard'
 import { ServerHostingStatus, ServerLockStatus } from '../../../../../shared/domain'
 import { isServerActiveStatus, type ServerRuntimeSnapshot } from '../../../../../shared/server-runtime'
 import { ServerSyncStatus } from '../../../../../shared/server-sync'
@@ -65,14 +65,27 @@ const DASHBOARD_REFRESH_INTERVAL_MS = 3_000
 
 function getHeaderToggleButtonView({
   dashboardSnapshot,
+  downloadEulaAccepted,
+  isDownloadingSharedSave,
   serverIsJoinable,
   syncBlocksStart
 }: {
   dashboardSnapshot: ServerDisplayState
+  downloadEulaAccepted: boolean
+  isDownloadingSharedSave: boolean
   serverIsJoinable: boolean
   syncBlocksStart: boolean
 }): HeaderToggleButtonView {
   const syncView = getServerSyncView(dashboardSnapshot.syncStatus)
+
+  if (isDownloadingSharedSave) {
+    return {
+      label: 'Downloading...',
+      icon: 'sync',
+      tone: 'sync',
+      tooltip: 'Downloading the latest shared save to this device.'
+    }
+  }
 
   if (dashboardSnapshot.serverStatus === 'initializing') {
     return {
@@ -118,6 +131,18 @@ function getHeaderToggleButtonView({
     }
   }
 
+  if (dashboardSnapshot.serverAvailability === ServerAvailability.RemoteAvailable) {
+    return {
+      label: 'Download Server',
+      icon: 'download',
+      tone: 'sync',
+      tooltip: downloadEulaAccepted
+        ? 'Download this shared server to this device.'
+        : 'Accept the Minecraft EULA below to download this server.',
+      ariaLabel: 'Download shared server'
+    }
+  }
+
   if (dashboardSnapshot.serverStatus !== 'stopped') {
     return { tone: 'default' }
   }
@@ -159,6 +184,8 @@ function DashboardView({
   const [errorCopyStatus, setErrorCopyStatus] = useState<CopyStatus>('idle')
   const [addressCopyStatus, setAddressCopyStatus] = useState<CopyStatus>('idle')
   const [isServerToggleAnimating, setIsServerToggleAnimating] = useState(false)
+  const [isDownloadingSharedSave, setIsDownloadingSharedSave] = useState(false)
+  const [downloadEulaAccepted, setDownloadEulaAccepted] = useState(false)
   const [connectionDetailsOpen, setConnectionDetailsOpen] = useState(false)
   const [restoreSharedSaveConfirmationOpen, setRestoreSharedSaveConfirmationOpen] = useState(false)
 
@@ -321,6 +348,39 @@ function DashboardView({
     }
   }
 
+  async function downloadSharedSave(): Promise<void> {
+    setRuntimeErrorMessage(null)
+    setIsDownloadingSharedSave(true)
+
+    try {
+      const nextRuntimeSnapshot = await window.chunkShare.serverRuntime.downloadSharedSave()
+      await refreshServerDisplayState(nextRuntimeSnapshot)
+    } catch (error: unknown) {
+      setRuntimeErrorMessage(getErrorMessage(error, 'Unable to download the shared save.'))
+    } finally {
+      setIsDownloadingSharedSave(false)
+    }
+  }
+
+  async function downloadRemoteServer(): Promise<void> {
+    if (!downloadEulaAccepted) {
+      return
+    }
+
+    setRuntimeErrorMessage(null)
+    setIsDownloadingSharedSave(true)
+
+    try {
+      await window.chunkShare.serverSetup.downloadSharedServer({ eulaAccepted: true })
+      updateServerDisplayState(await loadServerDisplayState())
+      setDownloadEulaAccepted(false)
+    } catch (error: unknown) {
+      setRuntimeErrorMessage(getErrorMessage(error, 'Unable to download the shared server.'))
+    } finally {
+      setIsDownloadingSharedSave(false)
+    }
+  }
+
   async function copyConnectionAddress(): Promise<void> {
     if (!dashboardSnapshot.connectionAddress) {
       return
@@ -377,6 +437,16 @@ function DashboardView({
       return
     }
 
+    if (dashboardSnapshot.serverAvailability === ServerAvailability.RemoteAvailable) {
+      void downloadRemoteServer()
+      return
+    }
+
+    if (dashboardSnapshot.syncStatus.status === ServerSyncStatus.UpdateAvailable) {
+      void downloadSharedSave()
+      return
+    }
+
     void handleServerToggle()
   }
 
@@ -388,6 +458,10 @@ function DashboardView({
     Boolean(dashboardSnapshot.connectionAddress)
   const syncBlocksStart =
     dashboardSnapshot.serverStatus !== 'running' && !dashboardSnapshot.syncStatus.isStartAllowed
+  const remoteDownloadIsAvailable =
+    dashboardSnapshot.serverAvailability === ServerAvailability.RemoteAvailable &&
+    !serverIsJoinable &&
+    !syncBlocksStart
   const toggleDisabled =
     dashboardSnapshot.serverStatus === 'not-configured' ||
     dashboardSnapshot.serverStatus === 'initializing' ||
@@ -398,9 +472,15 @@ function DashboardView({
     dashboardSnapshot.serverStatus === 'crashed' ||
     syncBlocksStart
 
-  const headerToggleDisabled = isInitialSnapshotLoading || (serverIsJoinable ? false : toggleDisabled)
+  const headerToggleDisabled =
+    isInitialSnapshotLoading ||
+    isDownloadingSharedSave ||
+    (remoteDownloadIsAvailable && !downloadEulaAccepted) ||
+    (serverIsJoinable ? false : toggleDisabled)
   const headerToggleButtonView = getHeaderToggleButtonView({
     dashboardSnapshot,
+    downloadEulaAccepted,
+    isDownloadingSharedSave,
     serverIsJoinable,
     syncBlocksStart
   })
@@ -467,7 +547,10 @@ function DashboardView({
             connectionAddress={dashboardSnapshot.connectionAddress}
             connectionAddressDetails={connectionAddressDetails}
             connectionDetailsOpen={connectionDetailsOpen}
-            isAnimating={isServerToggleAnimating}
+            isAnimating={isServerToggleAnimating || isDownloadingSharedSave}
+            isLoading={isDownloadingSharedSave}
+            downloadEulaAccepted={downloadEulaAccepted}
+            showDownloadEula={remoteDownloadIsAvailable}
             toggleDisabled={headerToggleDisabled}
             toggleButtonTooltip={headerToggleButtonView.tooltip}
             toggleButtonLabel={headerToggleButtonView.label}
@@ -478,6 +561,7 @@ function DashboardView({
             onCopyConnectionAddress={copyConnectionAddress}
             onCopyConnectionAddressDetails={copyConnectionAddressDetails}
             onCloseConnectionDetails={closeConnectionDetails}
+            onDownloadEulaChange={setDownloadEulaAccepted}
             onToggleConnectionDetails={toggleConnectionDetails}
             onToggleServer={handleHeaderServerAction}
           />

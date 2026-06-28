@@ -25,3 +25,4 @@ cloudStorageSettings.test.json
 serverRuntimeState.json
 serverRuntimeState.test.json
 .aider*
+.server.extract*

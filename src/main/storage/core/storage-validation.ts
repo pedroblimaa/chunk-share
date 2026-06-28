@@ -31,6 +31,10 @@ function isString(value: unknown): value is string {
   return typeof value === 'string'
 }
 
+function isOptionalString(value: unknown): value is string | undefined {
+  return value === undefined || isString(value)
+}
+
 function isNullableString(value: unknown): value is string | null {
   return value === null || isString(value)
 }
@@ -191,6 +195,7 @@ export function isLatestSave(value: unknown): value is LatestSave {
     isString(value.fileName) &&
     isString(value.uploadedAt) &&
     isPlayer(value.uploadedBy) &&
+    isOptionalString(value.serverName) &&
     isString(value.minecraftVersion) &&
     isServerType(value.serverType)
   )

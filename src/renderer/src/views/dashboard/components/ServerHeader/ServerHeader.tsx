@@ -12,6 +12,9 @@ interface ServerHeaderProps {
   connectionAddressDetails?: string
   connectionDetailsOpen?: boolean
   isAnimating: boolean
+  isLoading?: boolean
+  downloadEulaAccepted?: boolean
+  showDownloadEula?: boolean
   toggleDisabled?: boolean
   toggleButtonTooltip?: string
   toggleButtonLabel?: string
@@ -23,6 +26,7 @@ interface ServerHeaderProps {
   onCopyConnectionAddressDetails?: () => void
   onCloseConnectionDetails?: () => void
   onToggleConnectionDetails?: () => void
+  onDownloadEulaChange?: (accepted: boolean) => void
   onToggleServer: () => void
 }
 
@@ -78,6 +82,9 @@ function ServerHeader({
   connectionAddressDetails,
   connectionDetailsOpen = false,
   isAnimating,
+  isLoading = false,
+  downloadEulaAccepted = false,
+  showDownloadEula = false,
   toggleDisabled = false,
   toggleButtonTooltip,
   toggleButtonLabel: toggleButtonLabelOverride,
@@ -89,6 +96,7 @@ function ServerHeader({
   onCopyConnectionAddressDetails,
   onCloseConnectionDetails,
   onToggleConnectionDetails,
+  onDownloadEulaChange,
   onToggleServer
 }: ServerHeaderProps): React.JSX.Element {
   const serverIsRunning = isServerRunning(status)
@@ -143,20 +151,40 @@ function ServerHeader({
       </div>
 
       <div className="server-actions">
-        <Tooltip content={toggleButtonTooltip}>
-          <button
-            aria-label={toggleButtonLabel}
-            className={`server-toggle-button is-${serverIsRunning ? 'running' : 'stopped'} is-tone-${toggleButtonTone}${
-              isAnimating ? ' is-animating' : ''
-            }${serverIsBusy ? ' is-busy' : ''}`}
-            disabled={toggleDisabled}
-            type="button"
-            onClick={onToggleServer}
-          >
-            <MaterialIcon name={toggleButtonIcon} filled />
-            <span>{toggleButtonLabel}</span>
-          </button>
-        </Tooltip>
+        <div className="server-primary-action">
+          <Tooltip content={toggleButtonTooltip}>
+            <button
+              aria-label={toggleButtonLabel}
+              aria-busy={isLoading}
+              className={`server-toggle-button is-${serverIsRunning ? 'running' : 'stopped'} is-tone-${toggleButtonTone}${
+                isAnimating ? ' is-animating' : ''
+              }${serverIsBusy ? ' is-busy' : ''}${isLoading ? ' is-loading' : ''}`}
+              disabled={toggleDisabled}
+              type="button"
+              onClick={onToggleServer}
+            >
+              <MaterialIcon name={toggleButtonIcon} filled />
+              <span>{toggleButtonLabel}</span>
+            </button>
+          </Tooltip>
+
+          {showDownloadEula ? (
+            <label className="server-download-eula">
+              <input
+                checked={downloadEulaAccepted}
+                disabled={isLoading}
+                type="checkbox"
+                onChange={(event) => onDownloadEulaChange?.(event.target.checked)}
+              />
+              <span>
+                I agree to the{' '}
+                <a href="https://www.minecraft.net/en-us/eula" rel="noreferrer" target="_blank">
+                  Minecraft EULA
+                </a>
+              </span>
+            </label>
+          ) : null}
+        </div>
         <button className="overflow-button" type="button" aria-label="More server actions">
           <MaterialIcon name="more_vert" />
         </button>

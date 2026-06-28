@@ -38,6 +38,7 @@ export async function publishServerSave(): Promise<PublishServerSaveResult> {
       fileName,
       uploadedAt: new Date().toISOString(),
       uploadedBy: getUploadedBy(localState),
+      serverName: localState.serverConfig.name,
       minecraftVersion: localState.serverConfig.minecraftVersion,
       serverType: localState.serverConfig.serverType
     }
@@ -82,9 +83,7 @@ async function pruneOldServerSaveVersions(
 
     return null
   } catch (error) {
-    return error instanceof Error
-      ? error
-      : new Error('Unable to clean up old server save versions.')
+    return error instanceof Error ? error : new Error('Unable to clean up old server save versions.')
   }
 }
 

@@ -4,6 +4,7 @@ import type { KeyboardEvent } from 'react'
 import type { ServerStatus } from '../../../../../../shared/dashboard'
 import { ServerHostingStatus, ServerLockStatus, type ServerLock } from '../../../../../../shared/domain'
 import { ServerSyncStatus, type ServerSyncSnapshot } from '../../../../../../shared/server-sync'
+import Badge from '../../../../components/shared/Badge/Badge'
 import Button from '../../../../components/shared/Button/Button'
 import MaterialIcon from '../../../../components/shared/MaterialIcon/MaterialIcon'
 import Tooltip from '../../../../components/shared/Tooltip/Tooltip'
@@ -18,6 +19,10 @@ export interface ServerCardSummary {
   latestSaveLabel: string
   syncStatus: ServerSyncSnapshot
   currentHost: string | null
+  availability: {
+    cloud: boolean
+    device: boolean
+  }
   players: {
     online: number
     max: number
@@ -117,8 +122,9 @@ function ServerCard({
 }: ServerCardProps): React.JSX.Element {
   const syncView = getServerSyncView(server.syncStatus)
   const serverIsJoinable = isRemoteHostRunning(server.syncStatus)
-  const openButtonLabel = serverIsJoinable ? 'Join' : 'Manage'
-  const openButtonIcon = serverIsJoinable ? 'login' : 'settings'
+  const serverNeedsSetup = !server.availability.device
+  const openButtonLabel = serverIsJoinable ? 'Join' : serverNeedsSetup ? 'Download' : 'Manage'
+  const openButtonIcon = serverIsJoinable ? 'login' : serverNeedsSetup ? 'download' : 'settings'
 
   function openFromKeyboard(event: KeyboardEvent): void {
     if (!isOpenKey(event)) {
@@ -165,6 +171,15 @@ function ServerCard({
             <strong>{server.players.online}</strong>
             <span>/ {server.players.max}</span>
           </div>
+        </div>
+
+        <div className="server-card-availability" aria-label="World availability">
+          <Badge icon="hard_drive" size="small" tone={server.availability.device ? 'success' : 'disabled'}>
+            {server.availability.device ? 'This device' : 'Not on this device'}
+          </Badge>
+          <Badge icon="cloud" size="small" tone={server.availability.cloud ? 'info' : 'disabled'}>
+            {server.availability.cloud ? 'Cloud' : 'Not in cloud'}
+          </Badge>
         </div>
 
         <dl className="server-card-stats">

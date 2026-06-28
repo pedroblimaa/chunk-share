@@ -24,6 +24,12 @@ export function getPreStartRestoreErrorMessage(error: unknown): string {
     : 'Unable to update local server from shared save before start.'
 }
 
+export function getDownloadSharedSaveErrorMessage(error: unknown): string {
+  return error instanceof Error
+    ? `Unable to download the shared save: ${error.message}`
+    : 'Unable to download the shared save.'
+}
+
 export function getRecoveryErrorMessage(error: unknown): string {
   return error instanceof Error
     ? `Unable to recover Minecraft server: ${error.message}`
