@@ -184,9 +184,13 @@ function StorageProviderSwitchChoice({
         <StorageProviderDataSummary summary={preview.target} />
       </div>
       {copyReplacesTargetData ? (
-        <p className="settings-provider-switch-warning">
-          Replacing {targetLabel} removes its current ChunkShare save history.
-        </p>
+        <div
+          aria-hidden={copyIsRunning}
+          className={`settings-provider-switch-warning${copyIsRunning ? ' is-hiding' : ''}`}
+        >
+          <MaterialIcon name="warning" />
+          <span>{targetLabel} save history will be permanently replaced.</span>
+        </div>
       ) : null}
       <div
         className={`settings-provider-switch-actions${

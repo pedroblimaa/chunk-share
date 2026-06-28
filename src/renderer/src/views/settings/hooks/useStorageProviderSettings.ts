@@ -19,7 +19,9 @@ export function useStorageProviderSettings(): {
   cancelStorageProviderSwitch: () => void
   clearGoogleDriveFolder: () => Promise<boolean>
   dismissStorageError: () => void
-  loadStorageSwitchPreview: (provider: CloudStorageProvider) => void
+  loadStorageSwitchPreview: (
+    provider: CloudStorageProvider
+  ) => Promise<CloudStorageProviderSwitchPreview | null>
   setupDefaultGoogleDriveFolder: () => void
   switchStorageProvider: (
     provider: CloudStorageProvider,
@@ -102,11 +104,9 @@ export function useStorageProviderSettings(): {
     )
   }
 
-  const loadStorageSwitchPreview = (provider: CloudStorageProvider): void => {
-    void loadStorageSwitchPreviewAsync(provider)
-  }
-
-  const loadStorageSwitchPreviewAsync = async (provider: CloudStorageProvider): Promise<void> => {
+  const loadStorageSwitchPreview = async (
+    provider: CloudStorageProvider
+  ): Promise<CloudStorageProviderSwitchPreview | null> => {
     setActiveStorageOperation(StorageSettingsOperation.PreviewProviderSwitch)
     setStorageErrorMessage(null)
     setStorageProviderSwitchPreview(null)
@@ -115,8 +115,10 @@ export function useStorageProviderSettings(): {
     try {
       const preview = await window.chunkShare.storage.getCloudStorageProviderSwitchPreview(provider)
       setStorageProviderSwitchPreview(preview)
+      return preview
     } catch (error: unknown) {
       setStorageErrorMessage(getErrorMessage(error, 'Unable to check storage provider data.'))
+      return null
     } finally {
       setActiveStorageOperation(null)
     }

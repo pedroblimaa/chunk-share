@@ -110,14 +110,44 @@
 }
 
 .settings-provider-switch-warning {
-  background: var(--color-danger-glow);
-  border: 1px solid rgba(255, 180, 171, 0.26);
+  align-items: center;
+  background: rgba(251, 188, 5, 0.1);
+  border: 1px solid rgba(251, 188, 5, 0.3);
   border-radius: 6px;
-  color: var(--color-danger);
+  display: flex;
+  gap: 10px;
+  max-height: 64px;
+  overflow: hidden;
+  padding: 10px 12px;
+  transition:
+    border-width 180ms ease,
+    margin-bottom 180ms ease,
+    max-height 180ms ease,
+    opacity 140ms ease,
+    padding 180ms ease,
+    transform 180ms ease;
+}
+
+.settings-provider-switch-warning.is-hiding {
+  border-width: 0;
+  margin-bottom: -20px;
+  max-height: 0;
+  opacity: 0;
+  padding-block: 0;
+  transform: translateY(-4px);
+}
+
+.settings-provider-switch-warning > .material-symbols-outlined {
+  color: var(--color-warning);
+  flex: 0 0 auto;
+  font-size: 20px;
+}
+
+.settings-provider-switch-warning > span {
+  color: var(--color-text-secondary);
   font-size: var(--font-size-caption);
   line-height: var(--line-height-copy);
   margin: 0;
-  padding: 10px 12px;
 }
 
 .settings-provider-switch-error {

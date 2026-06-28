@@ -4,7 +4,9 @@ import { useState } from 'react'
 import {
   CloudStorageProvider,
   CloudStorageProviderSwitchDataMode,
-  GoogleDriveSetupStatus
+  GoogleDriveSetupStatus,
+  type CloudStorageProviderDataSummary,
+  type CloudStorageProviderSwitchPreview
 } from '../../../../../../shared/cloud-storage.model'
 import Badge from '../../../../components/shared/Badge/Badge'
 import Button from '../../../../components/shared/Button/Button'
@@ -14,7 +16,7 @@ import Tooltip from '../../../../components/shared/Tooltip/Tooltip'
 import Toast from '../../../../components/shared/Toast/Toast'
 import GoogleDriveDisconnectChoice from '../GoogleDriveDisconnectChoice/GoogleDriveDisconnectChoice'
 import StorageProviderSwitchDialog from '../StorageProviderSwitchDialog/StorageProviderSwitchDialog'
-import { StorageSettingsOperation, type ActiveStorageSettingsOperation } from '../../settings.model'
+import { StorageSettingsOperation } from '../../settings.model'
 import { useStorageProviderSettings } from '../../hooks/useStorageProviderSettings'
 import type { StorageModeProvider } from './StorageModeSettingsCard.model'
 import { GOOGLE_DRIVE_STATUS_VIEW } from './storage-mode-settings.constants'
@@ -65,15 +67,36 @@ function StorageModeSettingsCard(): React.JSX.Element {
   const googleDrivePrimaryOperation = googleDriveCanBeActivated
     ? StorageSettingsOperation.PreviewProviderSwitch
     : StorageSettingsOperation.SetupGoogleDriveFolder
+  const providerActivationIsRunning =
+    activeStorageOperation === StorageSettingsOperation.PreviewProviderSwitch ||
+    activeStorageOperation === StorageSettingsOperation.SwitchProvider
+  const googleDrivePrimaryIsRunning =
+    activeStorageOperation === googleDrivePrimaryOperation ||
+    (googleDriveCanBeActivated && providerActivationIsRunning)
 
   const handleSelectProvider = (provider: StorageModeProvider): void => {
     setSelectedProvider(provider)
     cancelProviderSwitch()
   }
 
-  const beginProviderActivation = (provider: StorageModeProvider): void => {
+  const beginProviderActivation = async (provider: StorageModeProvider): Promise<void> => {
+    const preview = await loadStorageSwitchPreview(provider)
+
+    if (!preview) {
+      setPendingProvider(provider)
+      return
+    }
+
+    if (targetCanBeActivatedWithoutChoice(preview)) {
+      const didSwitch = await switchStorageProvider(
+        provider,
+        CloudStorageProviderSwitchDataMode.UseTargetAsIs
+      )
+      finishProviderSwitch(didSwitch)
+      return
+    }
+
     setPendingProvider(provider)
-    loadStorageSwitchPreview(provider)
   }
 
   const activatePendingProvider = (): void => {
@@ -116,7 +139,7 @@ function StorageModeSettingsCard(): React.JSX.Element {
 
   const retryProviderSwitch = (): void => {
     if (pendingProvider) {
-      loadStorageSwitchPreview(pendingProvider)
+      void loadStorageSwitchPreview(pendingProvider)
     }
   }
 
@@ -133,7 +156,7 @@ function StorageModeSettingsCard(): React.JSX.Element {
 
   const runGoogleDrivePrimaryAction = (): void => {
     if (googleDriveCanBeActivated) {
-      beginProviderActivation(CloudStorageProvider.GoogleDrive)
+      void beginProviderActivation(CloudStorageProvider.GoogleDrive)
       return
     }
 
@@ -216,12 +239,14 @@ function StorageModeSettingsCard(): React.JSX.Element {
           {activeProvider !== CloudStorageProvider.Local ? (
             <div className="settings-storage-actions">
               <Button
+                aria-busy={providerActivationIsRunning}
+                className={providerActivationIsRunning ? 'settings-storage-button-loading' : undefined}
                 fullWidth
                 disabled={storageIsBusy}
-                icon="swap_horiz"
-                onClick={() => beginProviderActivation(CloudStorageProvider.Local)}
+                icon={providerActivationIsRunning ? 'progress_activity' : 'swap_horiz'}
+                onClick={() => void beginProviderActivation(CloudStorageProvider.Local)}
               >
-                Activate Local Storage
+                {providerActivationIsRunning ? 'Working...' : 'Activate Local Storage'}
               </Button>
             </div>
           ) : null}
@@ -277,16 +302,14 @@ function StorageModeSettingsCard(): React.JSX.Element {
             ) : (
               <>
                 <Button
+                  aria-busy={googleDrivePrimaryIsRunning}
+                  className={googleDrivePrimaryIsRunning ? 'settings-storage-button-loading' : undefined}
                   fullWidth
                   disabled={storageIsBusy}
-                  icon={googleDrivePrimaryButtonIcon}
+                  icon={googleDrivePrimaryIsRunning ? 'progress_activity' : googleDrivePrimaryButtonIcon}
                   onClick={runGoogleDrivePrimaryAction}
                 >
-                  {getStorageOperationLabel(
-                    activeStorageOperation,
-                    googleDrivePrimaryOperation,
-                    googleDrivePrimaryButtonLabel
-                  )}
+                  {googleDrivePrimaryIsRunning ? 'Working...' : googleDrivePrimaryButtonLabel}
                 </Button>
 
                 {googleDriveCanBeCleared ? (
@@ -336,14 +359,6 @@ function getStorageSegmentClassName(
     .join(' ')
 }
 
-function getStorageOperationLabel(
-  currentOperation: ActiveStorageSettingsOperation,
-  targetOperation: StorageSettingsOperation,
-  idleLabel: string
-): string {
-  return currentOperation === targetOperation ? 'Working...' : idleLabel
-}
-
 function getGoogleDrivePrimaryButtonLabel(
   isActive: boolean,
   canBeActivated: boolean,
@@ -377,6 +392,14 @@ function formatNullableDate(value: string | null): string {
     dateStyle: 'medium',
     timeStyle: 'short'
   }).format(new Date(value))
+}
+
+function targetCanBeActivatedWithoutChoice(preview: CloudStorageProviderSwitchPreview): boolean {
+  return !storageProviderHasData(preview.source) && storageProviderHasData(preview.target)
+}
+
+function storageProviderHasData(summary: CloudStorageProviderDataSummary): boolean {
+  return summary.latestSaveVersion !== null || summary.versionCount > 0
 }
 
 export default StorageModeSettingsCard
