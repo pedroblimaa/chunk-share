@@ -4,6 +4,12 @@ import type { ServerSyncSnapshot } from './server-sync'
 
 export type { ServerStatus } from './domain'
 
+export enum ServerAvailability {
+  LocalReady = 'local-ready',
+  None = 'none',
+  RemoteAvailable = 'remote-available'
+}
+
 export interface SignedInUser {
   id: string
   name: string
@@ -40,6 +46,7 @@ export interface ConsoleLogLine {
 
 export interface ServerDisplayState {
   signedInUser: SignedInUser | null
+  serverAvailability: ServerAvailability
   serverName: string
   serverStatus: ServerStatus
   serverType: string

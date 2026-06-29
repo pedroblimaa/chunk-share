@@ -1,35 +1,12 @@
 import { useState } from 'react'
-import type { SetupVanillaServerInput, VanillaMinecraftVersion } from '../../../../../../shared/server-setup'
 import Button from '../../../../components/shared/Button/Button'
 import Card from '../../../../components/shared/Card/Card'
-
-interface SetupFormProps {
-  disabled: boolean
-  onCancel: () => void
-  onRetryVersions: () => void
-  onSubmit: (input: SetupVanillaServerInput) => void
-  versions: VanillaMinecraftVersion[]
-  versionsErrorMessage: string | null
-  versionsLoading: boolean
-}
-
-interface SetupFormState {
-  eulaAccepted: boolean
-  minecraftVersion: string
-  name: string
-  port: string
-  serverType: string
-}
-
-type SetupFieldName = keyof SetupFormState
-
-const INITIAL_FORM_STATE: SetupFormState = {
-  eulaAccepted: false,
-  minecraftVersion: '',
-  name: '',
-  port: '25565',
-  serverType: 'Vanilla'
-}
+import {
+  DEFAULT_SETUP_FORM_STATE,
+  type SetupFieldName,
+  type SetupFormProps,
+  type SetupFormState
+} from './SetupForm.model'
 
 function isValidPort(port: string): boolean {
   const portNumber = Number(port)
@@ -70,7 +47,7 @@ function SetupForm({
   versionsErrorMessage,
   versionsLoading
 }: SetupFormProps): React.JSX.Element {
-  const [formState, setFormState] = useState<SetupFormState>(INITIAL_FORM_STATE)
+  const [formState, setFormState] = useState<SetupFormState>(DEFAULT_SETUP_FORM_STATE)
   const [touchedFields, setTouchedFields] = useState<Partial<Record<SetupFieldName, boolean>>>({})
   const [submitAttempted, setSubmitAttempted] = useState(false)
   const selectedMinecraftVersion = formState.minecraftVersion || versions[0]?.id || ''

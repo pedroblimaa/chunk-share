@@ -6,4 +6,5 @@ export interface SettingsViewProps {
   onNavigateToServers: () => void
   onOpenSettings: () => void
   onSignOut: () => void
+  onStorageProviderChange: () => Promise<void>
 }

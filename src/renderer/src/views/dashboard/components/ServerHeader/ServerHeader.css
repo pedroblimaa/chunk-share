@@ -156,10 +156,39 @@
 }
 
 .server-actions {
+  align-items: flex-start;
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
   justify-content: flex-end;
+}
+
+.server-primary-action {
+  display: grid;
+  gap: 8px;
+}
+
+.server-download-eula {
+  align-items: center;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  display: flex;
+  font-size: var(--font-size-caption);
+  gap: 8px;
+  justify-content: center;
+}
+
+.server-download-eula input {
+  accent-color: var(--color-accent);
+  cursor: pointer;
+}
+
+.server-download-eula a {
+  color: var(--color-accent);
+}
+
+.server-download-eula a:hover {
+  color: var(--color-accent-strong);
 }
 
 .server-toggle-button,

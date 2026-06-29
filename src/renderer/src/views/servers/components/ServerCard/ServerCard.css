@@ -144,6 +144,13 @@
   line-height: var(--line-height-compact);
 }
 
+.server-card-availability {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .server-card-body p {
   color: var(--color-text-secondary);
   font-size: var(--font-size-small);

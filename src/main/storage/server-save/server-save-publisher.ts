@@ -38,6 +38,7 @@ export async function publishServerSave(): Promise<PublishServerSaveResult> {
       fileName,
       uploadedAt: new Date().toISOString(),
       uploadedBy: getUploadedBy(localState),
+      serverName: localState.serverConfig.name,
       minecraftVersion: localState.serverConfig.minecraftVersion,
       serverType: localState.serverConfig.serverType
     }

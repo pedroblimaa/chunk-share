@@ -1,7 +1,7 @@
 import './ServersView.css'
 
 import { useEffect, useState } from 'react'
-import type { ServerDisplayState } from '../../../../../shared/dashboard'
+import { ServerAvailability, type ServerDisplayState } from '../../../../../shared/dashboard'
 import { ServerLockStatus } from '../../../../../shared/domain'
 import { isServerActiveStatus, type ServerRuntimeSnapshot } from '../../../../../shared/server-runtime'
 import { ServerSyncStatus } from '../../../../../shared/server-sync'
@@ -48,7 +48,7 @@ function createConfiguredServer(
   runtimeSnapshot: ServerRuntimeSnapshot | null,
   signedInUserName: string | null
 ): ServerCardSummary[] {
-  if (serverDisplayState.serverStatus === 'not-configured') {
+  if (serverDisplayState.serverAvailability === ServerAvailability.None) {
     return []
   }
 
@@ -70,6 +70,10 @@ function createConfiguredServer(
       currentHost: serverIsActive
         ? (signedInUserName ?? 'You')
         : (syncLockedHost ?? serverDisplayState.currentHost),
+      availability: {
+        cloud: serverDisplayState.syncStatus.cloudSaveVersion !== null,
+        device: serverDisplayState.serverAvailability === ServerAvailability.LocalReady
+      },
       players: {
         online: serverIsActive ? (runtimeSnapshot?.players.online ?? 0) : 0,
         max: runtimeSnapshot?.players.max ?? serverDisplayState.players.max
@@ -174,10 +178,13 @@ function ServersView({
   const copyButtonLabel =
     copyStatus === 'copied' ? 'Copied' : copyStatus === 'failed' ? 'Copy Failed' : 'Copy Error'
   const copyButtonStateClass = copyStatus === 'idle' ? '' : ` is-${copyStatus}`
-  const deleteDisabled = isDeletingServer || isServerLocked(serverDisplayState)
+  const serverIsRemoteOnly = serverDisplayState.serverAvailability === ServerAvailability.RemoteAvailable
+  const deleteDisabled = isDeletingServer || isServerLocked(serverDisplayState) || serverIsRemoteOnly
   const deleteDisabledReason = isServerLocked(serverDisplayState)
     ? 'Stop the hosted server before deleting it.'
-    : undefined
+    : serverIsRemoteOnly
+      ? 'Set up this server locally before deleting it.'
+      : undefined
 
   return (
     <div className="dashboard-screen servers-screen">

@@ -17,7 +17,8 @@ function SettingsView({
   onCreateServer,
   onNavigateToServers,
   onOpenSettings,
-  onSignOut
+  onSignOut,
+  onStorageProviderChange
 }: SettingsViewProps): React.JSX.Element {
   const serverIsConfigured = serverDisplayState.serverStatus !== 'not-configured'
   const signedInUser = serverDisplayState.signedInUser
@@ -86,7 +87,7 @@ function SettingsView({
             </Card>
 
             <StorageProviderSettingsProvider>
-              <StorageModeSettingsCard />
+              <StorageModeSettingsCard onStorageProviderChange={onStorageProviderChange} />
             </StorageProviderSettingsProvider>
           </section>
         </main>

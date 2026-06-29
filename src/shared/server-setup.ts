@@ -11,6 +11,10 @@ export interface SetupVanillaServerInput {
   eulaAccepted: boolean
 }
 
+export interface DownloadSharedServerInput {
+  eulaAccepted: boolean
+}
+
 export enum ServerSetupProgressStep {
   CreatingFolder = 'creating-folder',
   ResolvingVersion = 'resolving-version',

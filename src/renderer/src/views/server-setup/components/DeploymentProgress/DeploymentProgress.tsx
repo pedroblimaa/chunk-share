@@ -113,7 +113,7 @@ function DeploymentProgress({
 
       {deploymentStatus === 'complete' && (
         <div className="setup-progress-actions">
-          <p>Server setup preview completed.</p>
+          <p>Server setup completed.</p>
           <Button icon="dashboard" onClick={onOpenDashboard}>
             Open Dashboard
           </Button>

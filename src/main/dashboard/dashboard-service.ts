@@ -1,4 +1,4 @@
-import type { SignedInUser, ServerDisplayState } from '../../shared/dashboard'
+import { ServerAvailability, type SignedInUser, type ServerDisplayState } from '../../shared/dashboard'
 import {
   ServerHostingStatus,
   ServerLockStatus,
@@ -66,9 +66,9 @@ function getRemoteHostingStatus(storageSnapshot: ServerStorageSnapshot): ServerS
 function getDisplayServerStatus(
   storageSnapshot: ServerStorageSnapshot,
   runtimeStatus: ServerStatus,
-  serverConfigured: boolean
+  serverAvailability: ServerAvailability
 ): ServerStatus {
-  if (!serverConfigured) {
+  if (serverAvailability === ServerAvailability.None) {
     return 'not-configured'
   }
 
@@ -79,12 +79,22 @@ function getDisplayServerStatus(
   return getRemoteHostingStatus(storageSnapshot) ?? runtimeStatus
 }
 
+function getServerAvailability(storageSnapshot: ServerStorageSnapshot): ServerAvailability {
+  if (storageSnapshot.localState.serverSetup.status === 'ready') {
+    return ServerAvailability.LocalReady
+  }
+
+  return storageSnapshot.latestSave ? ServerAvailability.RemoteAvailable : ServerAvailability.None
+}
+
 function buildServerDisplayState(storageSnapshot: ServerStorageSnapshot): ServerDisplayState {
   const runtimeSnapshot = getServerRuntimeSnapshot()
   const { localState, serverSync } = storageSnapshot
   const signedInUser = getSignedInUserFromPlayer(localState.player)
-  const serverConfigured = localState.serverSetup.status === 'ready'
-  const serverStatus = getDisplayServerStatus(storageSnapshot, runtimeSnapshot.status, serverConfigured)
+  const serverAvailability = getServerAvailability(storageSnapshot)
+  const remoteSave =
+    serverAvailability === ServerAvailability.RemoteAvailable ? storageSnapshot.latestSave : null
+  const serverStatus = getDisplayServerStatus(storageSnapshot, runtimeSnapshot.status, serverAvailability)
   const serverIsRunning = isServerActiveStatus(runtimeSnapshot.status)
   const connectionAddresses = getSnapshotConnectionAddresses(
     storageSnapshot,
@@ -94,10 +104,11 @@ function buildServerDisplayState(storageSnapshot: ServerStorageSnapshot): Server
 
   return {
     signedInUser,
-    serverName: localState.serverConfig.name,
+    serverAvailability,
+    serverName: remoteSave?.serverName ?? localState.serverConfig.name,
     serverStatus,
-    serverType: formatServerType(localState.serverConfig.serverType),
-    minecraftVersion: localState.serverConfig.minecraftVersion,
+    serverType: formatServerType(remoteSave?.serverType ?? localState.serverConfig.serverType),
+    minecraftVersion: remoteSave?.minecraftVersion ?? localState.serverConfig.minecraftVersion,
     currentHost: getCurrentHost(storageSnapshot, signedInUser, serverIsRunning),
     syncStatus: serverSync,
     connectionAddress: getPrimaryConnectionAddress(connectionAddresses),
