@@ -6,7 +6,7 @@ import {
   type CloudStorageProviderSwitchPreview
 } from '../../../../../../shared/cloud-storage.model'
 import Button from '../../../../components/shared/Button/Button'
-import { StorageSettingsOperation, type ActiveStorageSettingsOperation } from '../../settings.model'
+import { StorageSettingsOperation } from '../../settings.model'
 import {
   StorageProviderSwitchScenario,
   type StorageProviderDataSummaryProps,
@@ -21,7 +21,6 @@ function StorageProviderSwitchPanel({
   preview,
   onActivateTarget,
   onCancel,
-  onCopyCurrentData,
   onRetry
 }: StorageProviderSwitchPanelProps): React.JSX.Element | null {
   if (preview) {
@@ -31,7 +30,6 @@ function StorageProviderSwitchPanel({
         preview={preview}
         onActivateTarget={onActivateTarget}
         onCancel={onCancel}
-        onCopyCurrentData={onCopyCurrentData}
       />
     )
   }
@@ -73,41 +71,18 @@ function StorageProviderSwitchChoice({
   operation,
   preview,
   onActivateTarget,
-  onCancel,
-  onCopyCurrentData
+  onCancel
 }: StorageProviderSwitchChoiceProps): React.JSX.Element {
   const sourceLabel = getStorageProviderLabel(preview.source.provider)
   const targetLabel = getStorageProviderLabel(preview.target.provider)
   const scenario = getStorageProviderSwitchScenario(preview)
   const choiceCopy = getStorageProviderSwitchChoiceCopy(scenario, targetLabel)
-  const sourceHasData = storageProviderHasData(preview.source)
-  const copyReplacesTargetData = scenario === StorageProviderSwitchScenario.BothHaveData
-  const copyIsRecommended = scenario === StorageProviderSwitchScenario.SourceOnly
-  const isBusy =
-    operation === StorageSettingsOperation.CopyProviderData ||
-    operation === StorageSettingsOperation.SwitchProvider
+  const isBusy = operation === StorageSettingsOperation.SwitchProvider
   const activateTargetButton = (
-    <Button
-      disabled={isBusy}
-      fullWidth
-      icon="swap_horiz"
-      variant={copyIsRecommended ? 'secondary' : undefined}
-      onClick={onActivateTarget}
-    >
+    <Button disabled={isBusy} fullWidth icon="swap_horiz" onClick={onActivateTarget}>
       {operation === StorageSettingsOperation.SwitchProvider ? 'Switching...' : choiceCopy.activateLabel}
     </Button>
   )
-  const copyCurrentDataButton = sourceHasData ? (
-    <Button
-      disabled={isBusy}
-      fullWidth
-      icon="content_copy"
-      variant={copyReplacesTargetData ? 'danger' : undefined}
-      onClick={onCopyCurrentData}
-    >
-      {getCopyActionLabel(operation, copyReplacesTargetData, choiceCopy.copyLabel)}
-    </Button>
-  ) : null
 
   return (
     <div className="settings-provider-switch-panel" role="group" aria-label="Switch storage mode">
@@ -119,18 +94,8 @@ function StorageProviderSwitchChoice({
         <StorageProviderDataSummary label={`Current - ${sourceLabel}`} summary={preview.source} />
         <StorageProviderDataSummary label={`Target - ${targetLabel}`} summary={preview.target} />
       </div>
-      {copyReplacesTargetData ? (
-        <p className="settings-provider-switch-warning">
-          Replacing {targetLabel} removes its current ChunkShare save history.
-        </p>
-      ) : null}
-      <div
-        className={`settings-provider-switch-actions${
-          sourceHasData ? '' : ' settings-provider-switch-two-actions'
-        }`}
-      >
-        {copyIsRecommended ? copyCurrentDataButton : activateTargetButton}
-        {copyIsRecommended ? activateTargetButton : copyCurrentDataButton}
+      <div className="settings-provider-switch-actions settings-provider-switch-two-actions">
+        {activateTargetButton}
         <Button disabled={isBusy} fullWidth variant="ghost" onClick={onCancel}>
           Cancel
         </Button>
@@ -168,17 +133,15 @@ function getStorageProviderSwitchChoiceCopy(
     return {
       title: 'Both providers contain saves',
       description: 'Choose which save history ChunkShare should use.',
-      activateLabel: `Use ${targetLabel} data (Recommended)`,
-      copyLabel: `Replace ${targetLabel} with current data`
+      activateLabel: `Use ${targetLabel} data`
     }
   }
 
   if (scenario === StorageProviderSwitchScenario.SourceOnly) {
     return {
       title: 'Only the current provider contains saves',
-      description: `Copy the current save history or activate an empty ${targetLabel}.`,
-      activateLabel: `Activate empty ${targetLabel}`,
-      copyLabel: `Copy saves and activate ${targetLabel} (Recommended)`
+      description: `Activate ${targetLabel} without copying current saves.`,
+      activateLabel: `Activate empty ${targetLabel}`
     }
   }
 
@@ -186,29 +149,15 @@ function getStorageProviderSwitchChoiceCopy(
     return {
       title: `${targetLabel} contains saves`,
       description: 'Activate this provider to use its existing save history.',
-      activateLabel: `Activate ${targetLabel} data`,
-      copyLabel: ''
+      activateLabel: `Activate ${targetLabel} data`
     }
   }
 
   return {
     title: 'No saves found',
     description: 'Neither provider contains save history yet.',
-    activateLabel: `Activate ${targetLabel}`,
-    copyLabel: ''
+    activateLabel: `Activate ${targetLabel}`
   }
-}
-
-function getCopyActionLabel(
-  operation: ActiveStorageSettingsOperation,
-  replacesTargetData: boolean,
-  idleLabel: string
-): string {
-  if (operation !== StorageSettingsOperation.CopyProviderData) {
-    return idleLabel
-  }
-
-  return replacesTargetData ? 'Replacing...' : 'Copying...'
 }
 
 function storageProviderHasData(summary: CloudStorageProviderDataSummary): boolean {
@@ -231,13 +180,9 @@ function StorageProviderDataSummary({ label, summary }: StorageProviderDataSumma
   )
 }
 
-function getProviderSwitchProgressLabel(operation: ActiveStorageSettingsOperation): string | null {
+function getProviderSwitchProgressLabel(operation: StorageSettingsOperation): string | null {
   if (operation === StorageSettingsOperation.PreviewProviderSwitch) {
     return 'Checking storage data...'
-  }
-
-  if (operation === StorageSettingsOperation.CopyProviderData) {
-    return 'Copying saves to the selected provider...'
   }
 
   if (operation === StorageSettingsOperation.SwitchProvider) {

@@ -3,10 +3,7 @@ import './DashboardView.css'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ServerDisplayState } from '../../../../../shared/dashboard'
 import { ServerHostingStatus, ServerLockStatus } from '../../../../../shared/domain'
-import {
-  isServerActiveStatus,
-  type ServerRuntimeSnapshot
-} from '../../../../../shared/server-runtime'
+import { isServerActiveStatus, type ServerRuntimeSnapshot } from '../../../../../shared/server-runtime'
 import { ServerSyncStatus } from '../../../../../shared/server-sync'
 import AppSidebar from '../../../components/shared/AppSidebar/AppSidebar'
 import Card from '../../../components/shared/Card/Card'
@@ -449,8 +446,7 @@ function DashboardView({
                 <Card className="compact-stat-card" padding="compact">
                   <p>Players</p>
                   <strong>
-                    {dashboardSnapshot.players.online}{' '}
-                    <span>/ {dashboardSnapshot.players.max}</span>
+                    {dashboardSnapshot.players.online} <span>/ {dashboardSnapshot.players.max}</span>
                   </strong>
                 </Card>
               </div>

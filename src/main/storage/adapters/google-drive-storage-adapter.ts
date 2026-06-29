@@ -94,10 +94,7 @@ async function uploadServerSaveVersion(fileName: string, localZipPath: string): 
   await uploadDriveFileMedia(oauthClient, fileId, createReadStream(localZipPath), ZIP_MIME_TYPE)
 }
 
-async function downloadServerSaveVersion(
-  fileName: string,
-  localDestinationPath: string
-): Promise<void> {
+async function downloadServerSaveVersion(fileName: string, localDestinationPath: string): Promise<void> {
   const oauthClient = await createAuthenticatedDriveClient()
   const versionsFolderId = await ensureVersionsFolder(oauthClient)
   const file = await findFileInFolder(oauthClient, versionsFolderId, fileName)
@@ -173,15 +170,9 @@ async function writeJsonDriveFile(fileName: string, value: unknown): Promise<voi
   const storageFolderId = await getConfiguredDriveFolderId()
   const existingFile = await findFileInFolder(oauthClient, storageFolderId, fileName)
   const fileId =
-    existingFile?.id ??
-    (await createDriveFile(oauthClient, storageFolderId, fileName, JSON_MIME_TYPE))
+    existingFile?.id ?? (await createDriveFile(oauthClient, storageFolderId, fileName, JSON_MIME_TYPE))
 
-  await uploadDriveFileMedia(
-    oauthClient,
-    fileId,
-    `${JSON.stringify(value, null, 2)}\n`,
-    JSON_MIME_TYPE
-  )
+  await uploadDriveFileMedia(oauthClient, fileId, `${JSON.stringify(value, null, 2)}\n`, JSON_MIME_TYPE)
 }
 
 async function ensureVersionsFolder(oauthClient: OAuth2Client): Promise<string> {
@@ -192,12 +183,7 @@ async function ensureVersionsFolder(oauthClient: OAuth2Client): Promise<string> 
     return existingFolder.id
   }
 
-  return createDriveFile(
-    oauthClient,
-    storageFolderId,
-    VERSIONS_FOLDER_NAME,
-    GOOGLE_DRIVE_FOLDER_MIME_TYPE
-  )
+  return createDriveFile(oauthClient, storageFolderId, VERSIONS_FOLDER_NAME, GOOGLE_DRIVE_FOLDER_MIME_TYPE)
 }
 
 async function createAuthenticatedDriveClient(): Promise<OAuth2Client> {
@@ -211,10 +197,7 @@ async function getConfiguredDriveFolderId(): Promise<string> {
   const folderId = settings.googleDrive.folder?.folderId
 
   if (!folderId) {
-    throw new GoogleDriveError(
-      'Google Drive folder is not configured.',
-      GoogleDriveErrorCode.FolderNotFound
-    )
+    throw new GoogleDriveError('Google Drive folder is not configured.', GoogleDriveErrorCode.FolderNotFound)
   }
 
   return folderId
@@ -235,10 +218,7 @@ async function listFilesInFolder(
   parentFolderId: string,
   fileName?: string
 ): Promise<GoogleDriveFileResponse[]> {
-  const queryParts = [
-    `'${escapeGoogleDriveQueryValue(parentFolderId)}' in parents`,
-    'trashed = false'
-  ]
+  const queryParts = [`'${escapeGoogleDriveQueryValue(parentFolderId)}' in parents`, 'trashed = false']
 
   if (fileName) {
     queryParts.push(`name = '${escapeGoogleDriveQueryValue(fileName)}'`)
@@ -293,9 +273,7 @@ async function uploadDriveFileMedia(
       'Content-Type': mimeType
     },
     method: 'PATCH',
-    url: `https://www.googleapis.com/upload/drive/v3/files/${encodeURIComponent(
-      fileId
-    )}?uploadType=media`
+    url: `https://www.googleapis.com/upload/drive/v3/files/${encodeURIComponent(fileId)}?uploadType=media`
   })
 }
 

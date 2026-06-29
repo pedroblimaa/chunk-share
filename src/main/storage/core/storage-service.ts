@@ -1,8 +1,4 @@
-import {
-  ServerLockStatus,
-  type ServerConfig,
-  type ServerStorageSnapshot
-} from '../../../shared/domain'
+import { ServerLockStatus, type ServerConfig, type ServerStorageSnapshot } from '../../../shared/domain'
 import { getServerSyncSnapshot } from '../../server-sync/server-sync-service'
 import { getActiveStorageAdapter } from '../adapters/storage-adapter-service'
 import { resetConfiguredServer, saveServerConfig } from '../persistence/local-state-store'
@@ -14,9 +10,7 @@ export async function getStorageSnapshot(): Promise<ServerStorageSnapshot> {
   return getServerSyncSnapshot()
 }
 
-export async function updateServerConfig(
-  serverConfig: ServerConfig
-): Promise<ServerStorageSnapshot> {
+export async function updateServerConfig(serverConfig: ServerConfig): Promise<ServerStorageSnapshot> {
   await saveServerConfig(serverConfig)
 
   return getStorageSnapshot()

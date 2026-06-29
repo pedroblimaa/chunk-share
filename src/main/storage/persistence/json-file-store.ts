@@ -6,11 +6,7 @@ import { StorageError } from '../core/storage-error'
 
 type Validator<T> = (value: unknown) => value is T
 
-export async function readJsonFile<T>(
-  filePath: string,
-  defaultValue: T,
-  validate: Validator<T>
-): Promise<T> {
+export async function readJsonFile<T>(filePath: string, defaultValue: T, validate: Validator<T>): Promise<T> {
   await mkdir(dirname(filePath), { recursive: true })
 
   try {
@@ -36,11 +32,7 @@ export async function readJsonFile<T>(
   }
 }
 
-export async function writeJsonFile<T>(
-  filePath: string,
-  value: T,
-  validate?: Validator<T>
-): Promise<void> {
+export async function writeJsonFile<T>(filePath: string, value: T, validate?: Validator<T>): Promise<void> {
   if (validate && !validate(value)) {
     throw new StorageError(`Refusing to write invalid data shape to ${filePath}`)
   }

@@ -1,6 +1,5 @@
 import {
   CloudStorageProvider,
-  CloudStorageProviderSwitchDataMode,
   GoogleDriveSetupStatus,
   type CloudStorageProviderDataSummary,
   type CloudStorageProviderSwitchRequest,
@@ -26,8 +25,6 @@ import {
   writeCloudStorageSettings
 } from '../persistence/cloud-storage-settings-store'
 import { StorageError } from './storage-error'
-import type { StorageProviderCopyTransaction } from './storage-provider-copy.model'
-import { prepareStorageProviderCopy } from './storage-provider-copy-service'
 
 export async function getCloudStorageSettings(): Promise<CloudStorageSettings> {
   return readCloudStorageSettings()
@@ -116,74 +113,7 @@ export async function setCloudStorageProvider(
   await assertCloudStorageProviderCanSwitch(settings.activeProvider, request.provider)
   const validatedSettings = await validateTargetProvider(request.provider)
 
-  if (request.dataMode === CloudStorageProviderSwitchDataMode.UseTargetAsIs) {
-    return activateCloudStorageProvider(validatedSettings, request.provider)
-  }
-
-  return copyAndActivateCloudStorageProvider(
-    settings,
-    validatedSettings,
-    request.provider,
-    request.expectedPreview
-  )
-}
-
-async function copyAndActivateCloudStorageProvider(
-  currentSettings: CloudStorageSettings,
-  validatedSettings: CloudStorageSettings,
-  targetProvider: CloudStorageProvider,
-  expectedPreview: CloudStorageProviderSwitchPreview
-): Promise<CloudStorageSettings> {
-  const sourceProvider = currentSettings.activeProvider
-  const sourceAdapter = await getStorageAdapterForProvider(sourceProvider)
-  const targetAdapter = await getStorageAdapterForProvider(targetProvider)
-  const copyTransaction = await prepareStorageProviderCopy(
-    sourceProvider,
-    sourceAdapter,
-    targetProvider,
-    targetAdapter
-  )
-
-  try {
-    assertSwitchPreviewIsCurrent(expectedPreview, copyTransaction.preview)
-    await assertCloudStorageProviderCanSwitch(sourceProvider, targetProvider)
-
-    return await replaceTargetAndActivateCloudStorageProvider(
-      copyTransaction,
-      validatedSettings,
-      targetProvider
-    )
-  } finally {
-    await copyTransaction.dispose().catch(() => undefined)
-  }
-}
-
-async function replaceTargetAndActivateCloudStorageProvider(
-  copyTransaction: StorageProviderCopyTransaction,
-  validatedSettings: CloudStorageSettings,
-  targetProvider: CloudStorageProvider
-): Promise<CloudStorageSettings> {
-  try {
-    await copyTransaction.replaceTarget()
-    return await activateCloudStorageProvider(validatedSettings, targetProvider)
-  } catch (error) {
-    await restoreTargetAfterFailedCopy(copyTransaction, error)
-    throw error
-  }
-}
-
-async function restoreTargetAfterFailedCopy(
-  copyTransaction: StorageProviderCopyTransaction,
-  copyError: unknown
-): Promise<void> {
-  try {
-    await copyTransaction.restoreTarget()
-  } catch (rollbackError) {
-    throw new StorageError(
-      `Unable to replace storage data: ${getCloudStorageErrorMessage(copyError)} ` +
-        `Restoring the previous target data also failed: ${getCloudStorageErrorMessage(rollbackError)}`
-    )
-  }
+  return activateCloudStorageProvider(validatedSettings, request.provider)
 }
 
 function activateCloudStorageProvider(
@@ -271,30 +201,6 @@ async function createCloudStorageProviderDataSummary(
     latestSaveUploadedAt: latestSave?.uploadedAt ?? null,
     versionCount: versionFiles.length
   }
-}
-
-function assertSwitchPreviewIsCurrent(
-  expected: CloudStorageProviderSwitchPreview,
-  current: CloudStorageProviderSwitchPreview
-): void {
-  if (
-    !cloudStorageProviderDataSummariesMatch(expected.source, current.source) ||
-    !cloudStorageProviderDataSummariesMatch(expected.target, current.target)
-  ) {
-    throw new StorageError('Storage data changed. Review the provider switch again.')
-  }
-}
-
-function cloudStorageProviderDataSummariesMatch(
-  expected: CloudStorageProviderDataSummary,
-  current: CloudStorageProviderDataSummary
-): boolean {
-  return (
-    expected.provider === current.provider &&
-    expected.latestSaveVersion === current.latestSaveVersion &&
-    expected.latestSaveUploadedAt === current.latestSaveUploadedAt &&
-    expected.versionCount === current.versionCount
-  )
 }
 
 function assertStorageSettingsCanChange(): void {

@@ -4,7 +4,6 @@ export enum CloudStorageProvider {
 }
 
 export enum CloudStorageProviderSwitchDataMode {
-  CopyCurrentToTarget = 'copy-current-to-target',
   UseTargetAsIs = 'use-target-as-is'
 }
 
@@ -45,13 +44,7 @@ export interface CloudStorageProviderSwitchPreview {
   target: CloudStorageProviderDataSummary
 }
 
-export type CloudStorageProviderSwitchRequest =
-  | {
-      provider: CloudStorageProvider
-      dataMode: CloudStorageProviderSwitchDataMode.UseTargetAsIs
-    }
-  | {
-      provider: CloudStorageProvider
-      dataMode: CloudStorageProviderSwitchDataMode.CopyCurrentToTarget
-      expectedPreview: CloudStorageProviderSwitchPreview
-    }
+export interface CloudStorageProviderSwitchRequest {
+  provider: CloudStorageProvider
+  dataMode: CloudStorageProviderSwitchDataMode.UseTargetAsIs
+}

@@ -117,10 +117,7 @@ function getRedirectUri(callbackServer: GoogleCallbackServer): string {
   const address = callbackServer.server.address()
 
   if (!address || typeof address === 'string') {
-    throw new AuthError(
-      'Unable to start Google sign-in callback server.',
-      AuthErrorCode.InvalidCallback
-    )
+    throw new AuthError('Unable to start Google sign-in callback server.', AuthErrorCode.InvalidCallback)
   }
 
   return `http://127.0.0.1:${address.port}${GOOGLE_CALLBACK_PATH}`
@@ -161,11 +158,7 @@ function respondNotFound(response: ServerResponse): void {
   response.end()
 }
 
-function respondWithCallbackPage(
-  response: ServerResponse,
-  pageTitle: string,
-  pageMessage: string
-): void {
+function respondWithCallbackPage(response: ServerResponse, pageTitle: string, pageMessage: string): void {
   response.shouldKeepAlive = false
   response.writeHead(200, {
     Connection: 'close',

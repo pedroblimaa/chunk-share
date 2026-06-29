@@ -1,11 +1,7 @@
 import './StorageModeSettingsCard.css'
 
 import { useState } from 'react'
-import {
-  CloudStorageProvider,
-  CloudStorageProviderSwitchDataMode,
-  GoogleDriveSetupStatus
-} from '../../../../../../shared/cloud-storage.model'
+import { CloudStorageProvider, GoogleDriveSetupStatus } from '../../../../../../shared/cloud-storage.model'
 import Badge from '../../../../components/shared/Badge/Badge'
 import Button from '../../../../components/shared/Button/Button'
 import Card from '../../../../components/shared/Card/Card'
@@ -14,7 +10,7 @@ import Tooltip from '../../../../components/shared/Tooltip/Tooltip'
 import Toast from '../../../../components/shared/Toast/Toast'
 import GoogleDriveDisconnectChoice from '../GoogleDriveDisconnectChoice/GoogleDriveDisconnectChoice'
 import StorageProviderSwitchPanel from '../StorageProviderSwitchPanel/StorageProviderSwitchPanel'
-import { StorageSettingsOperation, type ActiveStorageSettingsOperation } from '../../settings.model'
+import { StorageSettingsOperation } from '../../settings.model'
 import { useStorageProviderSettings } from '../../hooks/useStorageProviderSettings'
 import type { StorageModeProvider } from './StorageModeSettingsCard.model'
 import { GOOGLE_DRIVE_STATUS_VIEW } from './storage-mode-settings.constants'
@@ -32,7 +28,6 @@ function StorageModeSettingsCard(): React.JSX.Element {
     activeStorageOperation,
     storageIsBusy,
     cancelStorageProviderSwitch,
-    clearGoogleDriveFolder,
     dismissStorageError,
     loadStorageSwitchPreview,
     setupDefaultGoogleDriveFolder,
@@ -75,19 +70,7 @@ function StorageModeSettingsCard(): React.JSX.Element {
       return
     }
 
-    switchStorageProvider(pendingProvider, CloudStorageProviderSwitchDataMode.UseTargetAsIs)
-  }
-
-  const copyCurrentDataToPendingProvider = (): void => {
-    if (!pendingProvider || !storageProviderSwitchPreview) {
-      return
-    }
-
-    switchStorageProvider(
-      pendingProvider,
-      CloudStorageProviderSwitchDataMode.CopyCurrentToTarget,
-      storageProviderSwitchPreview
-    )
+    switchStorageProvider(pendingProvider)
   }
 
   const cancelProviderSwitch = (): void => {
@@ -99,14 +82,6 @@ function StorageModeSettingsCard(): React.JSX.Element {
     if (pendingProvider) {
       loadStorageSwitchPreview(pendingProvider)
     }
-  }
-
-  const disconnectGoogleDrive = (): void => {
-    void clearGoogleDriveFolder().then((didDisconnect) => {
-      if (didDisconnect) {
-        setGoogleDriveDisconnectIsPending(false)
-      }
-    })
   }
 
   return (
@@ -187,7 +162,6 @@ function StorageModeSettingsCard(): React.JSX.Element {
               preview={storageProviderSwitchPreview}
               onActivateTarget={activatePendingProvider}
               onCancel={cancelProviderSwitch}
-              onCopyCurrentData={copyCurrentDataToPendingProvider}
               onRetry={retryProviderSwitch}
             />
           ) : null}
@@ -239,19 +213,13 @@ function StorageModeSettingsCard(): React.JSX.Element {
               preview={storageProviderSwitchPreview}
               onActivateTarget={activatePendingProvider}
               onCancel={cancelProviderSwitch}
-              onCopyCurrentData={copyCurrentDataToPendingProvider}
               onRetry={retryProviderSwitch}
             />
           ) : null}
 
           <div className="settings-drive-actions">
             {googleDriveDisconnectIsPending ? (
-              <GoogleDriveDisconnectChoice
-                isBusy={activeStorageOperation === StorageSettingsOperation.ClearGoogleDriveFolder}
-                switchesToLocal={activeProvider === CloudStorageProvider.GoogleDrive}
-                onCancel={() => setGoogleDriveDisconnectIsPending(false)}
-                onConfirm={disconnectGoogleDrive}
-              />
+              <GoogleDriveDisconnectChoice onCancel={() => setGoogleDriveDisconnectIsPending(false)} />
             ) : (
               <>
                 <Button
@@ -322,7 +290,7 @@ function getStorageSegmentClassName(
 }
 
 function getStorageOperationLabel(
-  currentOperation: ActiveStorageSettingsOperation,
+  currentOperation: StorageSettingsOperation,
   targetOperation: StorageSettingsOperation,
   idleLabel: string
 ): string {

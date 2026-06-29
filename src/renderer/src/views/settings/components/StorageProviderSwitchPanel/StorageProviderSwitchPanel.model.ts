@@ -2,24 +2,22 @@ import type {
   CloudStorageProviderDataSummary,
   CloudStorageProviderSwitchPreview
 } from '../../../../../../shared/cloud-storage.model'
-import type { ActiveStorageSettingsOperation } from '../../settings.model'
+import type { StorageSettingsOperation } from '../../settings.model'
 
 export interface StorageProviderSwitchPanelProps {
   hasError: boolean
-  operation: ActiveStorageSettingsOperation
+  operation: StorageSettingsOperation
   preview: CloudStorageProviderSwitchPreview | null
   onActivateTarget: () => void
   onCancel: () => void
-  onCopyCurrentData: () => void
   onRetry: () => void
 }
 
 export interface StorageProviderSwitchChoiceProps {
-  operation: ActiveStorageSettingsOperation
+  operation: StorageSettingsOperation
   preview: CloudStorageProviderSwitchPreview
   onActivateTarget: () => void
   onCancel: () => void
-  onCopyCurrentData: () => void
 }
 
 export interface StorageProviderDataSummaryProps {
@@ -31,7 +29,6 @@ export interface StorageProviderSwitchChoiceCopy {
   title: string
   description: string
   activateLabel: string
-  copyLabel: string
 }
 
 export enum StorageProviderSwitchScenario {

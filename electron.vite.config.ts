@@ -9,9 +9,7 @@ export default defineConfig(({ mode }) => {
   return {
     main: {
       define: {
-        'process.env.CHUNKSHARE_GOOGLE_CLIENT_ID': JSON.stringify(
-          env.CHUNKSHARE_GOOGLE_CLIENT_ID ?? ''
-        ),
+        'process.env.CHUNKSHARE_GOOGLE_CLIENT_ID': JSON.stringify(env.CHUNKSHARE_GOOGLE_CLIENT_ID ?? ''),
         'process.env.CHUNKSHARE_GOOGLE_CLIENT_SECRET': JSON.stringify(
           env.CHUNKSHARE_GOOGLE_CLIENT_SECRET ?? ''
         )

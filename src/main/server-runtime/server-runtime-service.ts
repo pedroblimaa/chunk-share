@@ -29,11 +29,7 @@ import {
 import { startHeartbeat, stopHeartbeat } from './server-heartbeat-manager'
 import { startPlayerPolling, stopPlayerPolling } from './server-player-poller'
 import { getConnectionAddresses } from './server-network-addresses'
-import {
-  assertFileExists,
-  assertFolderExists,
-  isMissingFileError
-} from './server-runtime-file-checks'
+import { assertFileExists, assertFolderExists, isMissingFileError } from './server-runtime-file-checks'
 import { ServerRuntimeError } from './server-runtime-error'
 
 type ServerRuntimeListener = (event: ServerRuntimeEvent) => void
@@ -136,10 +132,7 @@ class ServerRuntime {
       this.assertServerSyncAllowsStart(serverSync)
     }
 
-    this.addLogLine(
-      'ChunkShare',
-      `Starting Minecraft server with ${JAVA_COMMAND} ${JAVA_ARGS.join(' ')}`
-    )
+    this.addLogLine('ChunkShare', `Starting Minecraft server with ${JAVA_COMMAND} ${JAVA_ARGS.join(' ')}`)
 
     this.serverProcess = spawn(JAVA_COMMAND, JAVA_ARGS, {
       cwd: serverFolderPath,
@@ -177,9 +170,7 @@ class ServerRuntime {
     }
   }
 
-  private async publishLocalNewerSaveBeforeStart(
-    sessionId: string
-  ): Promise<ServerStorageSnapshot> {
+  private async publishLocalNewerSaveBeforeStart(sessionId: string): Promise<ServerStorageSnapshot> {
     this.addLogLine('ChunkShare', 'Publishing newer local save before start.')
 
     try {
@@ -325,9 +316,7 @@ class ServerRuntime {
     this.userRequestedStop = false
     this.status = exitCode === 0 ? 'stopped' : 'crashed'
     this.errorMessage =
-      this.status === 'stopped'
-        ? null
-        : `Minecraft server exited with code ${exitCode ?? 'unknown'}.`
+      this.status === 'stopped' ? null : `Minecraft server exited with code ${exitCode ?? 'unknown'}.`
 
     this.emitRuntimeEvent()
   }
@@ -420,11 +409,7 @@ class ServerRuntime {
     this.stderrBuffer = ''
   }
 
-  private handleMinecraftOutputEvent(
-    event: MinecraftOutputEvent,
-    source: string,
-    sessionId: string
-  ): void {
+  private handleMinecraftOutputEvent(event: MinecraftOutputEvent, source: string, sessionId: string): void {
     if (event.type === 'players') {
       this.updatePlayers(event.players)
       return
@@ -583,9 +568,7 @@ export function stopMinecraftServer(): Promise<ServerRuntimeSnapshot> {
 }
 
 async function readMaxPlayers(serverFolderPath: string): Promise<number> {
-  const properties = await readFile(join(serverFolderPath, 'server.properties'), 'utf8').catch(
-    () => ''
-  )
+  const properties = await readFile(join(serverFolderPath, 'server.properties'), 'utf8').catch(() => '')
   const match = properties.match(/^max-players=(\d+)$/m)
 
   return match ? Number(match[1]) : DEFAULT_PLAYER_LIMIT

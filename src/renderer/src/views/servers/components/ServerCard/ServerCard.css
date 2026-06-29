@@ -1,7 +1,6 @@
 .server-card {
   animation: server-card-enter 260ms ease-out both;
-  background:
-    linear-gradient(180deg, rgba(128, 220, 91, 0.08), transparent 42%), var(--color-surface-panel);
+  background: linear-gradient(180deg, rgba(128, 220, 91, 0.08), transparent 42%), var(--color-surface-panel);
   border: 1px solid var(--color-border-panel);
   border-radius: 8px;
   color: var(--color-text-primary);

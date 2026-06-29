@@ -11,19 +11,14 @@ export async function getActiveStorageAdapter(): Promise<StorageAdapter> {
   return getStorageAdapterForProvider(settings.activeProvider)
 }
 
-export async function getStorageAdapterForProvider(
-  provider: CloudStorageProvider
-): Promise<StorageAdapter> {
+export async function getStorageAdapterForProvider(provider: CloudStorageProvider): Promise<StorageAdapter> {
   if (provider === CloudStorageProvider.Local) {
     return localStorageAdapter
   }
 
   const settings = await readCloudStorageSettings()
 
-  if (
-    settings.googleDrive.status !== GoogleDriveSetupStatus.Valid ||
-    !settings.googleDrive.folder
-  ) {
+  if (settings.googleDrive.status !== GoogleDriveSetupStatus.Valid || !settings.googleDrive.folder) {
     throw new StorageError(
       'Google Drive storage is selected, but the Drive folder is not configured or valid.'
     )
