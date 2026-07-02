@@ -103,7 +103,10 @@ export async function fetchGoogleUserProfile(tokens: GoogleAuthTokens): Promise<
   )
 
   if (response.status < 200 || response.status >= 300) {
-    throw new AuthError('Unable to read Google profile. Sign in again.', AuthErrorCode.GoogleRequestFailed)
+    throw new AuthError(
+      'Unable to read Google profile. Sign in again.',
+      AuthErrorCode.GoogleRequestFailed
+    )
   }
 
   const userInfo = response.data
@@ -132,7 +135,10 @@ function createGoogleAuthTokens(
   fallbackScopes: string[]
 ): GoogleAuthTokens {
   if (!credentials.access_token || !credentials.expiry_date) {
-    throw new AuthError('Google did not return usable auth tokens.', AuthErrorCode.GoogleRequestFailed)
+    throw new AuthError(
+      'Google did not return usable auth tokens.',
+      AuthErrorCode.GoogleRequestFailed
+    )
   }
 
   return {

@@ -57,7 +57,9 @@ export async function createHostingLock(
 }
 
 export async function markHostingLockRunning(sessionId: string): Promise<void> {
-  await updateHostingLockStatus(sessionId, ServerHostingStatus.Running, [ServerHostingStatus.Starting])
+  await updateHostingLockStatus(sessionId, ServerHostingStatus.Running, [
+    ServerHostingStatus.Starting
+  ])
 }
 
 export async function markHostingLockStopping(sessionId: string): Promise<void> {
@@ -67,7 +69,10 @@ export async function markHostingLockStopping(sessionId: string): Promise<void> 
   ])
 }
 
-export async function updateHostingLockSaveVersion(sessionId: string, saveVersion: number): Promise<void> {
+export async function updateHostingLockSaveVersion(
+  sessionId: string,
+  saveVersion: number
+): Promise<void> {
   const storageAdapter = await getActiveStorageAdapter()
   const serverLock = await storageAdapter.readServerLock()
 

@@ -1,7 +1,10 @@
 import './StorageModeSettingsCard.css'
 
 import { useState } from 'react'
-import { CloudStorageProvider, GoogleDriveSetupStatus } from '../../../../../../shared/cloud-storage.model'
+import {
+  CloudStorageProvider,
+  GoogleDriveSetupStatus
+} from '../../../../../../shared/cloud-storage.model'
 import Badge from '../../../../components/shared/Badge/Badge'
 import Button from '../../../../components/shared/Button/Button'
 import Card from '../../../../components/shared/Card/Card'
@@ -46,7 +49,9 @@ function StorageModeSettingsCard(): React.JSX.Element {
   const googleDriveIsValid = googleDriveStatus === GoogleDriveSetupStatus.Valid
   const localPanelIsSelected = displayedProvider === CloudStorageProvider.Local
   const googleDrivePanelIsSelected = displayedProvider === CloudStorageProvider.GoogleDrive
-  const googleDriveCanBeCleared = Boolean(googleDriveState?.folder || googleDriveState?.errorMessage)
+  const googleDriveCanBeCleared = Boolean(
+    googleDriveState?.folder || googleDriveState?.errorMessage
+  )
 
   const handleSelectProvider = (provider: StorageModeProvider): void => {
     setNewSelectedProvider(provider)
@@ -219,7 +224,9 @@ function StorageModeSettingsCard(): React.JSX.Element {
 
           <div className="settings-drive-actions">
             {googleDriveDisconnectIsPending ? (
-              <GoogleDriveDisconnectChoice onCancel={() => setGoogleDriveDisconnectIsPending(false)} />
+              <GoogleDriveDisconnectChoice
+                onCancel={() => setGoogleDriveDisconnectIsPending(false)}
+              />
             ) : (
               <>
                 <Button

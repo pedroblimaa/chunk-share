@@ -1,5 +1,8 @@
 import { useState } from 'react'
-import type { SetupVanillaServerInput, VanillaMinecraftVersion } from '../../../../../../shared/server-setup'
+import type {
+  SetupVanillaServerInput,
+  VanillaMinecraftVersion
+} from '../../../../../../shared/server-setup'
 import Button from '../../../../components/shared/Button/Button'
 import Card from '../../../../components/shared/Card/Card'
 
@@ -162,7 +165,9 @@ function SetupForm({
               disabled={formIsDisabled || versions.length === 0}
               onChange={(event) => updateField('minecraftVersion', event.target.value)}
             >
-              <option value="">{versionsLoading ? 'Loading versions...' : 'Select a version'}</option>
+              <option value="">
+                {versionsLoading ? 'Loading versions...' : 'Select a version'}
+              </option>
               {versions.map((minecraftVersion) => (
                 <option key={minecraftVersion.id} value={minecraftVersion.id}>
                   {minecraftVersion.id}

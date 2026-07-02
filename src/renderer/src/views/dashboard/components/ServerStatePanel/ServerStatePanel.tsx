@@ -38,7 +38,10 @@ function ServerStatePanel({
       : (snapshot.resources.memoryUsedMb / snapshot.resources.memoryTotalMb) * 100
 
   return (
-    <section className={`server-state-panel server-state-panel-${snapshot.serverStatus}`} aria-live="polite">
+    <section
+      className={`server-state-panel server-state-panel-${snapshot.serverStatus}`}
+      aria-live="polite"
+    >
       <div className="server-state-pattern" />
       <div className="server-state-content">
         <p className="panel-kicker">Current State</p>

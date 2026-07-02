@@ -7,7 +7,12 @@ import {
   readStoredGoogleAuthTokens,
   writeStoredGoogleAuthTokens
 } from './auth-token-store'
-import { AuthErrorCode, type AuthSession, type GoogleAuthTokens, type GoogleUserProfile } from './auth-model'
+import {
+  AuthErrorCode,
+  type AuthSession,
+  type GoogleAuthTokens,
+  type GoogleUserProfile
+} from './auth-model'
 import {
   createGoogleAuthorizationUrl,
   exchangeAuthorizationCode,
@@ -35,7 +40,11 @@ export async function ensureGoogleDriveAuthSession(): Promise<AuthSession> {
     return currentSession
   }
 
-  return signInWithGoogleScopes(GOOGLE_DRIVE_OAUTH_SCOPES, currentSession?.tokens.refreshToken ?? null, true)
+  return signInWithGoogleScopes(
+    GOOGLE_DRIVE_OAUTH_SCOPES,
+    currentSession?.tokens.refreshToken ?? null,
+    true
+  )
 }
 
 export function googleTokensIncludeScope(tokens: GoogleAuthTokens, scope: string): boolean {
@@ -123,7 +132,10 @@ async function clearAuthSession(): Promise<void> {
   await clearPlayer()
 }
 
-async function saveAuthSession(tokens: GoogleAuthTokens, profile: GoogleUserProfile): Promise<AuthSession> {
+async function saveAuthSession(
+  tokens: GoogleAuthTokens,
+  profile: GoogleUserProfile
+): Promise<AuthSession> {
   const player = toPlayer(profile)
 
   await writeStoredGoogleAuthTokens(tokens)
@@ -141,7 +153,10 @@ function shouldRefreshTokens(tokens: GoogleAuthTokens): boolean {
 
 function getSessionRestoreError(error: unknown): AuthError {
   if (!(error instanceof AuthError)) {
-    return new AuthError('Unable to restore Google session. Sign in again.', AuthErrorCode.ExpiredSession)
+    return new AuthError(
+      'Unable to restore Google session. Sign in again.',
+      AuthErrorCode.ExpiredSession
+    )
   }
 
   if (
@@ -149,7 +164,10 @@ function getSessionRestoreError(error: unknown): AuthError {
     error.code === AuthErrorCode.ExpiredSession ||
     error.code === AuthErrorCode.MissingRefreshToken
   ) {
-    return new AuthError('Your Google session expired. Sign in again.', AuthErrorCode.ExpiredSession)
+    return new AuthError(
+      'Your Google session expired. Sign in again.',
+      AuthErrorCode.ExpiredSession
+    )
   }
 
   return error

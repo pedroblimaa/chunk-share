@@ -6,7 +6,9 @@ import { StorageSettingsOperation } from '../../settings.model'
 import { useStorageProviderSettings } from '../../hooks/useStorageProviderSettings'
 import type { GoogleDriveDisconnectChoiceProps } from './GoogleDriveDisconnectChoice.model'
 
-function GoogleDriveDisconnectChoice({ onCancel }: GoogleDriveDisconnectChoiceProps): React.JSX.Element {
+function GoogleDriveDisconnectChoice({
+  onCancel
+}: GoogleDriveDisconnectChoiceProps): React.JSX.Element {
   const { activeStorageOperation, clearGoogleDriveFolder, storageProviderSettings } =
     useStorageProviderSettings()
   const isBusy = activeStorageOperation === StorageSettingsOperation.ClearGoogleDriveFolder
@@ -23,7 +25,11 @@ function GoogleDriveDisconnectChoice({ onCancel }: GoogleDriveDisconnectChoicePr
   }
 
   return (
-    <div className="settings-drive-disconnect-choice" role="group" aria-label="Disconnect Google Drive">
+    <div
+      className="settings-drive-disconnect-choice"
+      role="group"
+      aria-label="Disconnect Google Drive"
+    >
       <div>
         <strong>Disconnect Google Drive?</strong>
         <span>
@@ -34,7 +40,13 @@ function GoogleDriveDisconnectChoice({ onCancel }: GoogleDriveDisconnectChoicePr
         <span>Your files will remain unchanged in Google Drive.</span>
       </div>
       <div className="settings-drive-disconnect-actions">
-        <Button disabled={isBusy} fullWidth icon="link_off" variant="danger" onClick={handleConfirm}>
+        <Button
+          disabled={isBusy}
+          fullWidth
+          icon="link_off"
+          variant="danger"
+          onClick={handleConfirm}
+        >
           {isBusy ? 'Disconnecting...' : 'Disconnect Google Drive'}
         </Button>
         <Button disabled={isBusy} fullWidth variant="ghost" onClick={onCancel}>

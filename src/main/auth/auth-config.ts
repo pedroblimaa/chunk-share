@@ -1,4 +1,7 @@
-import { GOOGLE_OAUTH_CLIENT_ID_ENV_KEY, GOOGLE_OAUTH_CLIENT_SECRET_ENV_KEY } from './auth-constants'
+import {
+  GOOGLE_OAUTH_CLIENT_ID_ENV_KEY,
+  GOOGLE_OAUTH_CLIENT_SECRET_ENV_KEY
+} from './auth-constants'
 import { AuthError } from './auth-error'
 import { AuthErrorCode, type GoogleOAuthConfig } from './auth-model'
 

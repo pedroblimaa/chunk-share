@@ -97,7 +97,10 @@ function DeploymentProgress({
 
           return (
             <li className={`setup-progress-step setup-progress-step-${stepStatus}`} key={step.id}>
-              <MaterialIcon name={getDeploymentStepIconName(stepStatus)} filled={stepStatus === 'complete'} />
+              <MaterialIcon
+                name={getDeploymentStepIconName(stepStatus)}
+                filled={stepStatus === 'complete'}
+              />
               <span>{step.label}</span>
             </li>
           )

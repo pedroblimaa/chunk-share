@@ -5,7 +5,11 @@ import {
   type ServerLock,
   type ServerStorageSnapshot
 } from '../../shared/domain'
-import { STALE_LOCK_THRESHOLD_MS, ServerSyncStatus, type ServerSyncSnapshot } from '../../shared/server-sync'
+import {
+  STALE_LOCK_THRESHOLD_MS,
+  ServerSyncStatus,
+  type ServerSyncSnapshot
+} from '../../shared/server-sync'
 import { getActiveStorageAdapter } from '../storage/adapters/storage-adapter-service'
 import type { StorageAdapter } from '../storage/adapters/storage-adapter.model'
 import { readLocalState } from '../storage/persistence/local-state-store'
@@ -92,15 +96,23 @@ async function getSyncDecision(context: ServerSyncContext): Promise<ServerSyncDe
   return createDecision(ServerSyncStatus.Ready, true)
 }
 
-async function lockedByOtherRule({ lockState }: ServerSyncRuleContext): Promise<ServerSyncDecision | null> {
+async function lockedByOtherRule({
+  lockState
+}: ServerSyncRuleContext): Promise<ServerSyncDecision | null> {
   return lockState.blocksCurrentUser ? createDecision(ServerSyncStatus.LockedByOther, false) : null
 }
 
-async function staleLockRule({ lockState }: ServerSyncRuleContext): Promise<ServerSyncDecision | null> {
-  return lockState.isStale ? createDecision(ServerSyncStatus.StaleLock, true, { isStaleLock: true }) : null
+async function staleLockRule({
+  lockState
+}: ServerSyncRuleContext): Promise<ServerSyncDecision | null> {
+  return lockState.isStale
+    ? createDecision(ServerSyncStatus.StaleLock, true, { isStaleLock: true })
+    : null
 }
 
-async function noCloudSaveRule({ latestSave }: ServerSyncRuleContext): Promise<ServerSyncDecision | null> {
+async function noCloudSaveRule({
+  latestSave
+}: ServerSyncRuleContext): Promise<ServerSyncDecision | null> {
   return latestSave ? null : createDecision(ServerSyncStatus.NoCloudSave, true)
 }
 
@@ -169,7 +181,8 @@ function createSyncSnapshot(input: ServerSyncContext & ServerSyncDecision): Serv
     serverLock: input.serverLock,
     localSaveVersion: input.localState.localSaveVersion,
     cloudSaveVersion: input.latestSave?.saveVersion ?? null,
-    lockedBy: input.serverLock.status === ServerLockStatus.Locked ? input.serverLock.lockedBy : null,
+    lockedBy:
+      input.serverLock.status === ServerLockStatus.Locked ? input.serverLock.lockedBy : null,
     isStaleLock: input.isStaleLock,
     isStartAllowed: input.isStartAllowed
   }
@@ -190,7 +203,10 @@ function getLockState(serverLock: ServerLock): LockState {
   }
 }
 
-function isCompatibleWithLocalConfig(latestSave: NonNullable<LatestSave>, localState: LocalState): boolean {
+function isCompatibleWithLocalConfig(
+  latestSave: NonNullable<LatestSave>,
+  localState: LocalState
+): boolean {
   return (
     latestSave.minecraftVersion === localState.serverConfig.minecraftVersion &&
     latestSave.serverType === localState.serverConfig.serverType

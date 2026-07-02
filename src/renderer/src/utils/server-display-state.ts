@@ -40,8 +40,13 @@ export function applyRuntimeSnapshotToServerDisplayState(
   }
 }
 
-function getCurrentHost(serverDisplayState: ServerDisplayState, serverIsActive: boolean): string | null {
-  return serverIsActive ? (serverDisplayState.signedInUser?.name ?? 'You') : serverDisplayState.currentHost
+function getCurrentHost(
+  serverDisplayState: ServerDisplayState,
+  serverIsActive: boolean
+): string | null {
+  return serverIsActive
+    ? (serverDisplayState.signedInUser?.name ?? 'You')
+    : serverDisplayState.currentHost
 }
 
 function getPrimaryConnectionAddress(addresses: ServerConnectionAddress[]): string | null {

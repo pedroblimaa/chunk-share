@@ -10,7 +10,10 @@ import {
   type ServerSetupProgressEvent,
   type SetupVanillaServerInput
 } from '../../shared/server-setup'
-import { saveServerSetupResult, saveServerSetupState } from '../storage/persistence/local-state-store'
+import {
+  saveServerSetupResult,
+  saveServerSetupState
+} from '../storage/persistence/local-state-store'
 import {
   localServerEulaFilePath,
   localServerFolderPath,
@@ -102,7 +105,10 @@ function validateSetupInput(input: SetupVanillaServerInput): void {
     throw new ServerSetupError('Minecraft version is required.')
   }
 
-  if (input.minecraftVersionMetadataUrl !== undefined && !input.minecraftVersionMetadataUrl.trim()) {
+  if (
+    input.minecraftVersionMetadataUrl !== undefined &&
+    !input.minecraftVersionMetadataUrl.trim()
+  ) {
     throw new ServerSetupError('Minecraft version metadata URL cannot be empty.')
   }
 
@@ -121,7 +127,9 @@ async function downloadServerJar(serverJarUrl: string): Promise<void> {
   }
 
   if (!response.ok) {
-    throw new ServerSetupError(`Unable to download Minecraft server jar. Received HTTP ${response.status}.`)
+    throw new ServerSetupError(
+      `Unable to download Minecraft server jar. Received HTTP ${response.status}.`
+    )
   }
 
   if (!response.body) {

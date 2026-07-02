@@ -118,7 +118,9 @@ function ServerSetupView({
 
       if (storageSnapshot.localState.serverSetup.status === 'error') {
         setDeploymentStatus('error')
-        setSetupErrorMessage(storageSnapshot.localState.serverSetup.errorMessage ?? 'Server setup failed.')
+        setSetupErrorMessage(
+          storageSnapshot.localState.serverSetup.errorMessage ?? 'Server setup failed.'
+        )
         return
       }
 

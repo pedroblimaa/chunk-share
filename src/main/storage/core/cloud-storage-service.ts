@@ -85,7 +85,10 @@ export async function clearGoogleDriveFolder(): Promise<CloudStorageSettings> {
   const settings = await readCloudStorageSettings()
 
   if (settings.activeProvider === CloudStorageProvider.GoogleDrive) {
-    await assertCloudStorageProviderCanSwitch(CloudStorageProvider.GoogleDrive, CloudStorageProvider.Local)
+    await assertCloudStorageProviderCanSwitch(
+      CloudStorageProvider.GoogleDrive,
+      CloudStorageProvider.Local
+    )
     await ensureLocalStorage()
   } else {
     assertStorageSettingsCanChange()
@@ -231,7 +234,9 @@ async function assertStorageProviderIsUnlocked(provider: CloudStorageProvider): 
   }
 }
 
-async function validateTargetProvider(provider: CloudStorageProvider): Promise<CloudStorageSettings> {
+async function validateTargetProvider(
+  provider: CloudStorageProvider
+): Promise<CloudStorageSettings> {
   const settings = await readCloudStorageSettings()
 
   if (provider === CloudStorageProvider.Local) {
@@ -239,8 +244,12 @@ async function validateTargetProvider(provider: CloudStorageProvider): Promise<C
     return settings
   }
 
-  if (settings.googleDrive.status !== GoogleDriveSetupStatus.Valid || !settings.googleDrive.folder) {
-    const invalidMessage = 'Google Drive storage cannot be activated until the Drive folder is valid.'
+  if (
+    settings.googleDrive.status !== GoogleDriveSetupStatus.Valid ||
+    !settings.googleDrive.folder
+  ) {
+    const invalidMessage =
+      'Google Drive storage cannot be activated until the Drive folder is valid.'
     throw new StorageError(settings.googleDrive.errorMessage ?? invalidMessage)
   }
 

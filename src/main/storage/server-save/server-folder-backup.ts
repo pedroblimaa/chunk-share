@@ -3,7 +3,10 @@ import { join } from 'path'
 import { renameWithRetry } from '../core/file-system-utils'
 import { localServerBackupsFolderPath } from '../core/storage-paths'
 
-export async function backupServerFolder(serverFolderPath: string, serverName: string): Promise<void> {
+export async function backupServerFolder(
+  serverFolderPath: string,
+  serverName: string
+): Promise<void> {
   if (!(await folderExists(serverFolderPath))) {
     return
   }
@@ -12,7 +15,10 @@ export async function backupServerFolder(serverFolderPath: string, serverName: s
 
   await renameWithRetry(
     serverFolderPath,
-    join(localServerBackupsFolderPath, `${createBackupNameSlug(serverName)}-${createBackupTimestamp()}`)
+    join(
+      localServerBackupsFolderPath,
+      `${createBackupNameSlug(serverName)}-${createBackupTimestamp()}`
+    )
   )
 }
 

@@ -110,7 +110,10 @@ async function uploadServerSaveVersion(fileName: string, localZipPath: string): 
   }
 }
 
-async function downloadServerSaveVersion(fileName: string, localDestinationPath: string): Promise<void> {
+async function downloadServerSaveVersion(
+  fileName: string,
+  localDestinationPath: string
+): Promise<void> {
   await mkdir(dirname(localDestinationPath), { recursive: true })
   await copyFile(getServerSaveVersionPath(fileName), localDestinationPath)
 }

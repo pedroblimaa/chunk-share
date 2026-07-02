@@ -2,7 +2,11 @@ import './ServerCard.css'
 
 import type { KeyboardEvent } from 'react'
 import type { ServerStatus } from '../../../../../../shared/dashboard'
-import { ServerHostingStatus, ServerLockStatus, type ServerLock } from '../../../../../../shared/domain'
+import {
+  ServerHostingStatus,
+  ServerLockStatus,
+  type ServerLock
+} from '../../../../../../shared/domain'
 import { ServerSyncStatus, type ServerSyncSnapshot } from '../../../../../../shared/server-sync'
 import Button from '../../../../components/shared/Button/Button'
 import MaterialIcon from '../../../../components/shared/MaterialIcon/MaterialIcon'
@@ -77,11 +81,17 @@ function isRemoteLocked(syncStatus: ServerSyncSnapshot): syncStatus is LockedSer
 }
 
 function isRemoteHostRunning(syncStatus: ServerSyncSnapshot): boolean {
-  return isRemoteLocked(syncStatus) && syncStatus.serverLock.hostingStatus === ServerHostingStatus.Running
+  return (
+    isRemoteLocked(syncStatus) &&
+    syncStatus.serverLock.hostingStatus === ServerHostingStatus.Running
+  )
 }
 
 function isRemoteHostTransitioning(syncStatus: ServerSyncSnapshot): boolean {
-  return isRemoteLocked(syncStatus) && syncStatus.serverLock.hostingStatus !== ServerHostingStatus.Running
+  return (
+    isRemoteLocked(syncStatus) &&
+    syncStatus.serverLock.hostingStatus !== ServerHostingStatus.Running
+  )
 }
 
 function getStatusPillClassName(server: ServerCardSummary): string {

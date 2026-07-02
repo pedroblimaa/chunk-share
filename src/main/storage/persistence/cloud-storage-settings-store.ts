@@ -5,7 +5,11 @@ import { isCloudStorageSettings } from '../core/storage-validation'
 import { readJsonFile, writeJsonFile } from './json-file-store'
 
 export async function readCloudStorageSettings(): Promise<CloudStorageSettings> {
-  return readJsonFile(cloudStorageSettingsFilePath, DEFAULT_CLOUD_STORAGE_SETTINGS, isCloudStorageSettings)
+  return readJsonFile(
+    cloudStorageSettingsFilePath,
+    DEFAULT_CLOUD_STORAGE_SETTINGS,
+    isCloudStorageSettings
+  )
 }
 
 export async function writeCloudStorageSettings(settings: CloudStorageSettings): Promise<void> {

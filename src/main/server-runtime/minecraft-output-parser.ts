@@ -24,7 +24,10 @@ export type MinecraftOutputEvent =
       currentJavaVersion: number
     }
 
-export function parseMinecraftOutput(output: string, fallbackTone: RuntimeLogTone): MinecraftOutputEvent[] {
+export function parseMinecraftOutput(
+  output: string,
+  fallbackTone: RuntimeLogTone
+): MinecraftOutputEvent[] {
   return output
     .split(/\r?\n/)
     .map((line) => line.trim())
@@ -32,7 +35,10 @@ export function parseMinecraftOutput(output: string, fallbackTone: RuntimeLogTon
     .flatMap((line) => parseMinecraftOutputLine(line, fallbackTone))
 }
 
-function parseMinecraftOutputLine(line: string, fallbackTone: RuntimeLogTone): MinecraftOutputEvent[] {
+function parseMinecraftOutputLine(
+  line: string,
+  fallbackTone: RuntimeLogTone
+): MinecraftOutputEvent[] {
   const players = parsePlayers(line)
 
   if (players) {

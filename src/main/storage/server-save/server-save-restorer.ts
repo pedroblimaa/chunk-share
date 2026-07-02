@@ -8,7 +8,9 @@ import { saveLocalSaveVersion } from '../persistence/local-state-store'
 import { StorageError } from '../core/storage-error'
 import { localServerBackupsFolderPath, localServerFolderPath } from '../core/storage-paths'
 
-export async function restoreLatestServerSave(storageSnapshot: ServerStorageSnapshot): Promise<void> {
+export async function restoreLatestServerSave(
+  storageSnapshot: ServerStorageSnapshot
+): Promise<void> {
   const { latestSave, localState } = storageSnapshot
 
   if (!latestSave) {
@@ -16,7 +18,9 @@ export async function restoreLatestServerSave(storageSnapshot: ServerStorageSnap
   }
 
   if (localState.dirty) {
-    throw new StorageError('Cannot update from cloud while the local server has unpublished changes.')
+    throw new StorageError(
+      'Cannot update from cloud while the local server has unpublished changes.'
+    )
   }
 
   const zipFilePath = getTempZipFilePath(latestSave.saveVersion)

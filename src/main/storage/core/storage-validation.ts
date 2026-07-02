@@ -228,7 +228,9 @@ export function isCloudStorageSettings(value: unknown): value is CloudStorageSet
     return false
   }
 
-  return isCloudStorageProvider(value.activeProvider) && isGoogleDriveStorageState(value.googleDrive)
+  return (
+    isCloudStorageProvider(value.activeProvider) && isGoogleDriveStorageState(value.googleDrive)
+  )
 }
 
 export function isCloudStorageProviderSwitchRequest(

@@ -24,7 +24,8 @@ export async function resolveVanillaServerDownload(
   minecraftVersion: string,
   metadataUrl?: string
 ): Promise<VanillaServerDownload> {
-  const versionMetadataUrl = metadataUrl ?? (await resolveVanillaVersionMetadataUrl(minecraftVersion))
+  const versionMetadataUrl =
+    metadataUrl ?? (await resolveVanillaVersionMetadataUrl(minecraftVersion))
   const versionMetadata = await fetchJson<VersionMetadata>(versionMetadataUrl, isVersionMetadata)
   const serverDownload = versionMetadata.downloads.server
 
@@ -64,7 +65,9 @@ async function fetchJson<T>(url: string, validate: (value: unknown) => value is 
   }
 
   if (!response.ok) {
-    throw new ServerSetupError(`Unable to fetch Minecraft metadata. Received HTTP ${response.status}.`)
+    throw new ServerSetupError(
+      `Unable to fetch Minecraft metadata. Received HTTP ${response.status}.`
+    )
   }
 
   const json: unknown = await response.json()

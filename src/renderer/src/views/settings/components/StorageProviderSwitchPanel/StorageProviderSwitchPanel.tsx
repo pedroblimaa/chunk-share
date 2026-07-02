@@ -47,7 +47,11 @@ function StorageProviderSwitchPanel({
 
   if (hasError) {
     return (
-      <div className="settings-provider-switch-panel" role="group" aria-label="Retry storage switch">
+      <div
+        className="settings-provider-switch-panel"
+        role="group"
+        aria-label="Retry storage switch"
+      >
         <div>
           <strong>Unable to check storage data</strong>
           <span>Retry the check or cancel this provider switch.</span>
@@ -80,7 +84,9 @@ function StorageProviderSwitchChoice({
   const isBusy = operation === StorageSettingsOperation.SwitchProvider
   const activateTargetButton = (
     <Button disabled={isBusy} fullWidth icon="swap_horiz" onClick={onActivateTarget}>
-      {operation === StorageSettingsOperation.SwitchProvider ? 'Switching...' : choiceCopy.activateLabel}
+      {operation === StorageSettingsOperation.SwitchProvider
+        ? 'Switching...'
+        : choiceCopy.activateLabel}
     </Button>
   )
 
@@ -164,7 +170,10 @@ function storageProviderHasData(summary: CloudStorageProviderDataSummary): boole
   return summary.latestSaveVersion !== null || summary.versionCount > 0
 }
 
-function StorageProviderDataSummary({ label, summary }: StorageProviderDataSummaryProps): React.JSX.Element {
+function StorageProviderDataSummary({
+  label,
+  summary
+}: StorageProviderDataSummaryProps): React.JSX.Element {
   return (
     <div>
       <strong>{label}</strong>

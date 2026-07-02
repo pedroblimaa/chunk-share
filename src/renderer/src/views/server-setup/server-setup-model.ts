@@ -13,7 +13,10 @@ export const DEPLOYMENT_STEPS: DeploymentStep[] = [
   {
     id: 'preparing-files',
     label: 'Preparing server files',
-    progressSteps: [ServerSetupProgressStep.CreatingFolder, ServerSetupProgressStep.ResolvingVersion]
+    progressSteps: [
+      ServerSetupProgressStep.CreatingFolder,
+      ServerSetupProgressStep.ResolvingVersion
+    ]
   },
   {
     id: 'downloading-server',

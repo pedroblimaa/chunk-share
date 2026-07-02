@@ -9,7 +9,8 @@ import { getErrorMessage } from '../../../utils/error-message'
 import { StorageSettingsOperation, type StorageProviderSettingsController } from '../settings.model'
 
 export function useStorageProviderSettings(): StorageProviderSettingsController {
-  const [storageProviderSettings, setStorageProviderSettings] = useState<CloudStorageSettings | null>(null)
+  const [storageProviderSettings, setStorageProviderSettings] =
+    useState<CloudStorageSettings | null>(null)
   const [activeStorageOperation, setActiveStorageOperation] = useState<StorageSettingsOperation>(
     StorageSettingsOperation.Load
   )
@@ -123,7 +124,9 @@ export function useStorageProviderSettings(): StorageProviderSettingsController 
   }
 }
 
-async function updateCloudStorageProvider(provider: CloudStorageProvider): Promise<CloudStorageSettings> {
+async function updateCloudStorageProvider(
+  provider: CloudStorageProvider
+): Promise<CloudStorageSettings> {
   return window.chunkShare.storage.setCloudStorageProvider({
     provider,
     dataMode: CloudStorageProviderSwitchDataMode.UseTargetAsIs
