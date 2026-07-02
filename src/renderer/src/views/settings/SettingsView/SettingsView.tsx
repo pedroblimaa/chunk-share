@@ -7,6 +7,7 @@ import Card from '../../../components/shared/Card/Card'
 import MaterialIcon from '../../../components/shared/MaterialIcon/MaterialIcon'
 import TopBar from '../../dashboard/components/TopBar/TopBar'
 import StorageModeSettingsCard from '../components/StorageModeSettingsCard/StorageModeSettingsCard'
+import StorageProviderSettingsProvider from '../StorageProviderSettingsProvider/StorageProviderSettingsProvider'
 import type { SettingsViewProps } from './SettingsView.model'
 
 const SINGLE_SERVER_DISABLED_REASON = 'Only one server is supported in the MVP.'
@@ -87,7 +88,9 @@ function SettingsView({
               </div>
             </Card>
 
-            <StorageModeSettingsCard />
+            <StorageProviderSettingsProvider>
+              <StorageModeSettingsCard />
+            </StorageProviderSettingsProvider>
           </section>
         </main>
       </div>

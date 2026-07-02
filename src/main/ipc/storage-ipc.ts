@@ -11,6 +11,8 @@ import {
   STORAGE_SNAPSHOT_CHANNEL,
   STORAGE_VALIDATE_GOOGLE_DRIVE_FOLDER_CHANNEL
 } from '../../shared/ipc-channels'
+// TODO: Standardize service imports across auth, dashboard, server-runtime, server-setup,
+// cloud-storage, and storage IPC handlers with namespace imports such as `* as storageService`.
 import {
   clearGoogleDriveFolder,
   getCloudStorageSettings,

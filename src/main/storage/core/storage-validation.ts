@@ -127,6 +127,15 @@ function isGoogleDriveStorageState(value: unknown): value is GoogleDriveStorageS
   )
 }
 
+export function hasValidGoogleDriveFolder(
+  value: GoogleDriveStorageState
+): value is GoogleDriveStorageState & {
+  status: GoogleDriveSetupStatus.Valid
+  folder: GoogleDriveFolderConfig
+} {
+  return value.status === GoogleDriveSetupStatus.Valid && value.folder !== null
+}
+
 export function isServerConfig(value: unknown): value is ServerConfig {
   if (!isRecord(value)) {
     return false

@@ -5,17 +5,15 @@ import {
   type CloudStorageProviderSwitchRequest,
   type CloudStorageProviderSwitchPreview,
   type CloudStorageSettings,
-  type GoogleDriveFolderConfig
+  type GoogleDriveFolderConfig,
+  CloudStorageProviderSwitchDataMode
 } from '../../../shared/cloud-storage.model'
 import { ServerLockStatus } from '../../../shared/domain'
 import { isServerActiveStatus } from '../../../shared/server-runtime'
 import { AuthError } from '../../auth/auth-error'
 import { AuthErrorCode } from '../../auth/auth-model'
 import { GoogleDriveError } from '../../cloud-storage/google-drive-error'
-import {
-  createOrReuseDefaultGoogleDriveFolder,
-  validateGoogleDriveFolderAccess
-} from '../../cloud-storage/google-drive-service'
+import { ensureGoogleDriveFolder } from '../../cloud-storage/google-drive-service'
 import { getServerRuntimeSnapshot } from '../../server-runtime/server-runtime-service'
 import { getStorageAdapterForProvider } from '../adapters/storage-adapter-service'
 import { ensureLocalStorage } from '../adapters/local-storage-adapter'
@@ -24,7 +22,9 @@ import {
   readCloudStorageSettings,
   writeCloudStorageSettings
 } from '../persistence/cloud-storage-settings-store'
+import { hasValidGoogleDriveFolder } from './storage-validation'
 import { StorageError } from './storage-error'
+import { GOOGLE_DRIVE_NOT_READY_ERROR_MESSAGE } from './cloud-storage-messages'
 
 export async function getCloudStorageSettings(): Promise<CloudStorageSettings> {
   return readCloudStorageSettings()
@@ -52,19 +52,15 @@ export async function getCloudStorageProviderSwitchPreview(
 
 export async function setupGoogleDriveFolder(): Promise<CloudStorageSettings> {
   const settings = await readCloudStorageSettings()
-  assertStorageSettingsCanChange()
+  assertServerIsNotActive()
   const folderId = settings.googleDrive.folder?.folderId
 
-  const loadFolderConfig = folderId
-    ? () => validateGoogleDriveFolderAccess(folderId)
-    : () => createOrReuseDefaultGoogleDriveFolder()
-
-  return validateAndSaveGoogleDriveFolder(settings, loadFolderConfig)
+  return ensureAndSaveGoogleDriveFolder(settings, folderId)
 }
 
 export async function validateGoogleDriveFolder(): Promise<CloudStorageSettings> {
   const settings = await readCloudStorageSettings()
-  assertStorageSettingsCanChange()
+  assertServerIsNotActive()
   const folderId = settings.googleDrive.folder?.folderId
 
   if (!folderId) {
@@ -78,25 +74,22 @@ export async function validateGoogleDriveFolder(): Promise<CloudStorageSettings>
     })
   }
 
-  return validateAndSaveGoogleDriveFolder(settings, () => validateGoogleDriveFolderAccess(folderId))
+  return ensureAndSaveGoogleDriveFolder(settings, folderId)
 }
 
 export async function clearGoogleDriveFolder(): Promise<CloudStorageSettings> {
   const settings = await readCloudStorageSettings()
 
   if (settings.activeProvider === CloudStorageProvider.GoogleDrive) {
-    await assertCloudStorageProviderCanSwitch(
-      CloudStorageProvider.GoogleDrive,
-      CloudStorageProvider.Local
-    )
-    await ensureLocalStorage()
+    const provider = CloudStorageProvider.Local
+    const dataMode = CloudStorageProviderSwitchDataMode.UseTargetAsIs
+    await setCloudStorageProvider({ provider, dataMode })
   } else {
-    assertStorageSettingsCanChange()
+    assertServerIsNotActive()
   }
 
   return writeAndReturnCloudStorageSettings({
     ...settings,
-    activeProvider: CloudStorageProvider.Local,
     googleDrive: {
       status: GoogleDriveSetupStatus.NotConfigured,
       folder: null,
@@ -129,19 +122,16 @@ function activateCloudStorageProvider(
   })
 }
 
-async function validateAndSaveGoogleDriveFolder(
+async function ensureAndSaveGoogleDriveFolder(
   settings: CloudStorageSettings,
-  loadFolderConfig: () => Promise<GoogleDriveFolderConfig>
+  folderId?: string
 ): Promise<CloudStorageSettings> {
-  let validatedFolder: GoogleDriveFolderConfig
-
   try {
-    validatedFolder = await loadFolderConfig()
+    const validatedFolder = await ensureGoogleDriveFolder(folderId)
+    return saveValidGoogleDriveFolder(settings, validatedFolder)
   } catch (error) {
     return handleGoogleDriveFolderOperationFailure(settings, error)
   }
-
-  return saveValidGoogleDriveFolder(settings, validatedFolder)
 }
 
 function saveValidGoogleDriveFolder(
@@ -164,8 +154,7 @@ function handleGoogleDriveFolderOperationFailure(
 ): Promise<CloudStorageSettings> {
   const hasActiveValidGoogleDriveFolder =
     settings.activeProvider === CloudStorageProvider.GoogleDrive &&
-    settings.googleDrive.status === GoogleDriveSetupStatus.Valid &&
-    settings.googleDrive.folder !== null
+    hasValidGoogleDriveFolder(settings.googleDrive)
 
   if (hasActiveValidGoogleDriveFolder) {
     throw new StorageError(getCloudStorageErrorMessage(error))
@@ -206,7 +195,7 @@ async function createCloudStorageProviderDataSummary(
   }
 }
 
-function assertStorageSettingsCanChange(): void {
+function assertServerIsNotActive(): void {
   const runtimeSnapshot = getServerRuntimeSnapshot()
 
   if (isServerActiveStatus(runtimeSnapshot.status)) {
@@ -218,7 +207,7 @@ async function assertCloudStorageProviderCanSwitch(
   activeProvider: CloudStorageProvider,
   newProvider: CloudStorageProvider
 ): Promise<void> {
-  assertStorageSettingsCanChange()
+  assertServerIsNotActive()
   await assertStorageProviderIsUnlocked(activeProvider)
   await assertStorageProviderIsUnlocked(newProvider)
 }
@@ -244,19 +233,16 @@ async function validateTargetProvider(
     return settings
   }
 
-  if (
-    settings.googleDrive.status !== GoogleDriveSetupStatus.Valid ||
-    !settings.googleDrive.folder
-  ) {
-    const invalidMessage =
-      'Google Drive storage cannot be activated until the Drive folder is valid.'
-    throw new StorageError(settings.googleDrive.errorMessage ?? invalidMessage)
+  if (!hasValidGoogleDriveFolder(settings.googleDrive)) {
+    throw new StorageError(
+      settings.googleDrive.errorMessage ?? GOOGLE_DRIVE_NOT_READY_ERROR_MESSAGE
+    )
   }
 
   let validatedFolder: GoogleDriveFolderConfig
 
   try {
-    validatedFolder = await validateGoogleDriveFolderAccess(settings.googleDrive.folder.folderId)
+    validatedFolder = await ensureGoogleDriveFolder(settings.googleDrive.folder?.folderId)
   } catch (error) {
     throw new StorageError(getCloudStorageErrorMessage(error))
   }

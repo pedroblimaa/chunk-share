@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import type {
   CloudStorageProvider,
   CloudStorageProviderSwitchPreview,
@@ -23,17 +24,26 @@ export enum StorageSettingsOperation {
 
 export type GoogleDriveStatusViewMap = Record<GoogleDriveSetupStatus, GoogleDriveStatusView>
 
+export interface StorageProviderOperationState {
+  errorMessage: string | null
+  isBusy: boolean
+  operation: StorageSettingsOperation
+}
+
 export interface StorageProviderSettingsController {
   storageProviderSettings: CloudStorageSettings | null
-  storageErrorMessage: string | null
   storageProviderSwitchPreview: CloudStorageProviderSwitchPreview | null
-  activeStorageOperation: StorageSettingsOperation
-  storageIsBusy: boolean
-  cancelStorageProviderSwitch: () => void
-  clearGoogleDriveFolder: () => Promise<boolean>
+  activeStorageProvider: CloudStorageProvider
+  operationState: StorageProviderOperationState
   dismissStorageError: () => void
-  loadStorageSwitchPreview: (provider: CloudStorageProvider) => void
-  setupDefaultGoogleDriveFolder: () => void
-  switchStorageProvider: (provider: CloudStorageProvider) => void
-  validateGoogleDriveFolder: () => void
+  requestGoogleDriveDisconnect: () => Promise<boolean>
+  requestGoogleDriveSetup: () => void
+  requestGoogleDriveValidation: () => void
+  requestStorageProviderSwitch: (provider: CloudStorageProvider) => void
+  requestStorageProviderSwitchPreview: (provider: CloudStorageProvider) => void
+  resetStorageProviderSwitchPreview: () => void
+}
+
+export interface StorageProviderSettingsProviderProps {
+  children: ReactNode
 }

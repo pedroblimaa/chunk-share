@@ -278,7 +278,7 @@ async function createDriveFile(
     }
   )
 
-  return assertGoogleDriveFileId(response.data, fileName)
+  return resolveGoogleDriveFileId(response.data, fileName)
 }
 
 async function uploadDriveFileMedia(
@@ -316,7 +316,7 @@ function parseServerSaveVersionFile(fileName: string): ServerSaveVersionFile | n
   }
 }
 
-function assertGoogleDriveFileId(file: GoogleDriveFileResponse, fileName: string): string {
+function resolveGoogleDriveFileId(file: GoogleDriveFileResponse, fileName: string): string {
   if (!file.id) {
     throw new GoogleDriveError(
       `Google Drive did not return a file ID for ${fileName}.`,

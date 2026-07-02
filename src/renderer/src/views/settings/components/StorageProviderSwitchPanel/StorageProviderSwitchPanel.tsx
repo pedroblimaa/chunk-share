@@ -10,10 +10,10 @@ import { StorageSettingsOperation } from '../../settings.model'
 import {
   StorageProviderSwitchScenario,
   type StorageProviderDataSummaryProps,
-  type StorageProviderSwitchChoiceCopy,
   type StorageProviderSwitchChoiceProps,
   type StorageProviderSwitchPanelProps
 } from './StorageProviderSwitchPanel.model'
+import { getStorageProviderSwitchChoiceLabels } from './storage-provider-switch-labels'
 
 function StorageProviderSwitchPanel({
   hasError,
@@ -80,28 +80,29 @@ function StorageProviderSwitchChoice({
   const sourceLabel = getStorageProviderLabel(preview.source.provider)
   const targetLabel = getStorageProviderLabel(preview.target.provider)
   const scenario = getStorageProviderSwitchScenario(preview)
-  const choiceCopy = getStorageProviderSwitchChoiceCopy(scenario, targetLabel)
+  const choiceLabels = getStorageProviderSwitchChoiceLabels(scenario, targetLabel)
   const isBusy = operation === StorageSettingsOperation.SwitchProvider
-  const activateTargetButton = (
-    <Button disabled={isBusy} fullWidth icon="swap_horiz" onClick={onActivateTarget}>
-      {operation === StorageSettingsOperation.SwitchProvider
-        ? 'Switching...'
-        : choiceCopy.activateLabel}
-    </Button>
-  )
+  const activateTargetLabel = isBusy ? 'Switching...' : choiceLabels.activateLabel
 
   return (
     <div className="settings-provider-switch-panel" role="group" aria-label="Switch storage mode">
       <div>
-        <strong>{choiceCopy.title}</strong>
-        <span>{choiceCopy.description}</span>
+        <strong>{choiceLabels.title}</strong>
+        <span>{choiceLabels.description}</span>
       </div>
       <div className="settings-provider-switch-comparison">
         <StorageProviderDataSummary label={`Current - ${sourceLabel}`} summary={preview.source} />
         <StorageProviderDataSummary label={`Target - ${targetLabel}`} summary={preview.target} />
       </div>
       <div className="settings-provider-switch-actions settings-provider-switch-two-actions">
-        {activateTargetButton}
+        <Button
+          disabled={isBusy}
+          fullWidth
+          icon="swap_horiz"
+          onClick={() => onActivateTarget(preview.target.provider)}
+        >
+          {activateTargetLabel}
+        </Button>
         <Button disabled={isBusy} fullWidth variant="ghost" onClick={onCancel}>
           Cancel
         </Button>
@@ -129,41 +130,6 @@ function getStorageProviderSwitchScenario(
   }
 
   return StorageProviderSwitchScenario.BothEmpty
-}
-
-function getStorageProviderSwitchChoiceCopy(
-  scenario: StorageProviderSwitchScenario,
-  targetLabel: string
-): StorageProviderSwitchChoiceCopy {
-  if (scenario === StorageProviderSwitchScenario.BothHaveData) {
-    return {
-      title: 'Both providers contain saves',
-      description: 'Choose which save history ChunkShare should use.',
-      activateLabel: `Use ${targetLabel} data`
-    }
-  }
-
-  if (scenario === StorageProviderSwitchScenario.SourceOnly) {
-    return {
-      title: 'Only the current provider contains saves',
-      description: `Activate ${targetLabel} without copying current saves.`,
-      activateLabel: `Activate empty ${targetLabel}`
-    }
-  }
-
-  if (scenario === StorageProviderSwitchScenario.TargetOnly) {
-    return {
-      title: `${targetLabel} contains saves`,
-      description: 'Activate this provider to use its existing save history.',
-      activateLabel: `Activate ${targetLabel} data`
-    }
-  }
-
-  return {
-    title: 'No saves found',
-    description: 'Neither provider contains save history yet.',
-    activateLabel: `Activate ${targetLabel}`
-  }
 }
 
 function storageProviderHasData(summary: CloudStorageProviderDataSummary): boolean {

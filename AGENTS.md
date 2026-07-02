@@ -33,6 +33,10 @@ Keep interfaces, types, and constants out of implementation files by default. Pu
 
 Avoid prefixing promise calls with the `void` operator unless explicit fire-and-forget behavior is necessary for correctness or required by linting. Prefer the cleaner direct call when the promise handles its own errors and its result is intentionally unused.
 
+Name boolean variables after the positive state they represent, such as `hasValidGoogleDriveFolder` or `isActive`. Avoid encoding a negated decision or intended action in names such as `cannotActivate` or `canStart`; apply negation at the conditional where the decision is made.
+
+In React JSX, use boolean `&&` conditional rendering instead of `condition ? element : null` or `condition ? element : undefined`. Ensure the left operand is explicitly boolean when the original value could be a number, string, or other renderable value.
+
 Formatting is controlled by `.editorconfig` and Prettier: 2-space indentation, LF line endings, single quotes, no semicolons, 100-column print width, and no trailing commas. Run `pnpm lint` and `pnpm format` before handoff.
 
 ## Testing Guidelines

@@ -9,15 +9,13 @@ import type { GoogleDriveDisconnectChoiceProps } from './GoogleDriveDisconnectCh
 function GoogleDriveDisconnectChoice({
   onCancel
 }: GoogleDriveDisconnectChoiceProps): React.JSX.Element {
-  const { activeStorageOperation, clearGoogleDriveFolder, storageProviderSettings } =
-    useStorageProviderSettings()
-  const isBusy = activeStorageOperation === StorageSettingsOperation.ClearGoogleDriveFolder
-  const switchesToLocal =
-    (storageProviderSettings?.activeProvider ?? CloudStorageProvider.Local) ===
-    CloudStorageProvider.GoogleDrive
+  const storage = useStorageProviderSettings()
+  const isBusy =
+    storage.operationState.operation === StorageSettingsOperation.ClearGoogleDriveFolder
+  const isGoogleDriveActive = storage.activeStorageProvider === CloudStorageProvider.GoogleDrive
 
   const handleConfirm = (): void => {
-    void clearGoogleDriveFolder().then((didDisconnect) => {
+    storage.requestGoogleDriveDisconnect().then((didDisconnect) => {
       if (didDisconnect) {
         onCancel()
       }
@@ -33,7 +31,7 @@ function GoogleDriveDisconnectChoice({
       <div>
         <strong>Disconnect Google Drive?</strong>
         <span>
-          {switchesToLocal
+          {isGoogleDriveActive
             ? 'ChunkShare will switch to the saves already stored locally.'
             : 'ChunkShare will remove this Google Drive folder from its local settings.'}
         </span>

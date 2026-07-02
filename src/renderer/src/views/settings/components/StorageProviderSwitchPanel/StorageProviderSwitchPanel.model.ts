@@ -1,4 +1,5 @@
 import type {
+  CloudStorageProvider,
   CloudStorageProviderDataSummary,
   CloudStorageProviderSwitchPreview
 } from '../../../../../../shared/cloud-storage.model'
@@ -8,7 +9,7 @@ export interface StorageProviderSwitchPanelProps {
   hasError: boolean
   operation: StorageSettingsOperation
   preview: CloudStorageProviderSwitchPreview | null
-  onActivateTarget: () => void
+  onActivateTarget: (provider: CloudStorageProvider) => void
   onCancel: () => void
   onRetry: () => void
 }
@@ -16,7 +17,7 @@ export interface StorageProviderSwitchPanelProps {
 export interface StorageProviderSwitchChoiceProps {
   operation: StorageSettingsOperation
   preview: CloudStorageProviderSwitchPreview
-  onActivateTarget: () => void
+  onActivateTarget: (provider: CloudStorageProvider) => void
   onCancel: () => void
 }
 
@@ -25,7 +26,7 @@ export interface StorageProviderDataSummaryProps {
   summary: CloudStorageProviderDataSummary
 }
 
-export interface StorageProviderSwitchChoiceCopy {
+export interface StorageProviderSwitchChoiceLabels {
   title: string
   description: string
   activateLabel: string
