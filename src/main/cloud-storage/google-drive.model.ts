@@ -11,6 +11,7 @@ export const GOOGLE_DRIVE_FOLDER_MIME_TYPE = 'application/vnd.google-apps.folder
 export const GOOGLE_DRIVE_TEMP_FOLDER_PREFIX = 'ChunkShare access check'
 
 export interface GoogleDriveFileResponse {
+  createdTime?: string
   id?: string
   name?: string
   mimeType?: string

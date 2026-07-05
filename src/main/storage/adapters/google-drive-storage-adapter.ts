@@ -1,4 +1,5 @@
 import { createReadStream } from 'fs'
+import { randomUUID } from 'crypto'
 import { mkdir, writeFile } from 'fs/promises'
 import type { OAuth2Client } from 'google-auth-library'
 import { dirname } from 'path'
@@ -21,11 +22,14 @@ import type { ServerSaveVersionFile, StorageAdapter } from './storage-adapter.mo
 const LATEST_SAVE_FILE_NAME = 'latest.json'
 const SERVER_LOCK_FILE_NAME = 'lock.json'
 const VERSIONS_FOLDER_NAME = 'versions'
+const MUTATION_LOCK_CONTENDER_PREFIX = 'storage-operation-lock-'
 const JSON_MIME_TYPE = 'application/json'
 const ZIP_MIME_TYPE = 'application/zip'
 const SERVER_SAVE_FILE_PATTERN = /^server-v(\d+)\.zip$/
+const MUTATION_LOCK_STALE_MS = 60 * 60 * 1000
 
 export const googleDriveStorageAdapter: StorageAdapter = {
+  assertNoStorageMutationInProgress,
   deleteServerSaveVersion,
   downloadServerSaveVersion,
   listServerSaveVersions,
@@ -33,10 +37,39 @@ export const googleDriveStorageAdapter: StorageAdapter = {
   readServerLock,
   resetServerLock,
   resetServerSaves,
+  runExclusiveStorageMutation,
   serverSaveVersionExists,
   uploadServerSaveVersion,
   writeLatestSave,
   writeServerLock
+}
+
+async function runExclusiveStorageMutation<Result>(executeMutation: () => Promise<Result>): Promise<Result> {
+  const oauthClient = await createAuthenticatedDriveClient()
+  const storageFolderId = await getConfiguredDriveFolderId()
+  const contenderFileId = await acquireMutationLockContender(oauthClient, storageFolderId)
+
+  try {
+    return await executeMutation()
+  } finally {
+    await releaseMutationLockContender(oauthClient, contenderFileId)
+  }
+}
+
+async function assertNoStorageMutationInProgress(): Promise<void> {
+  const oauthClient = await createAuthenticatedDriveClient()
+  const storageFolderId = await getConfiguredDriveFolderId()
+
+  await deleteStaleMutationLockContenders(oauthClient, storageFolderId)
+
+  const activeLockContenders = await listActiveMutationLockContenders(oauthClient, storageFolderId)
+
+  if (activeLockContenders.length > 0) {
+    throw new GoogleDriveError(
+      'Storage data is being moved. Try again after the switch finishes.',
+      GoogleDriveErrorCode.RequestFailed
+    )
+  }
 }
 
 async function readLatestSave(): Promise<LatestSave> {
@@ -57,6 +90,98 @@ async function writeServerLock(serverLock: ServerLock): Promise<void> {
 
 function resetServerLock(): Promise<void> {
   return writeServerLock(DEFAULT_SERVER_LOCK)
+}
+
+async function acquireMutationLockContender(
+  oauthClient: OAuth2Client,
+  storageFolderId: string
+): Promise<string> {
+  await deleteStaleMutationLockContenders(oauthClient, storageFolderId)
+
+  const contenderFileName = `${MUTATION_LOCK_CONTENDER_PREFIX}${Date.now()}-${randomUUID()}.json`
+  const contenderFileId = await createDriveFile(
+    oauthClient,
+    storageFolderId,
+    contenderFileName,
+    JSON_MIME_TYPE
+  )
+
+  const activeLockContenders = await listActiveMutationLockContenders(oauthClient, storageFolderId)
+  const winningContender = activeLockContenders[0]
+
+  if (winningContender?.id !== contenderFileId) {
+    await releaseMutationLockContender(oauthClient, contenderFileId)
+    throw new GoogleDriveError(
+      'Storage data is already being moved. Try again after it finishes.',
+      GoogleDriveErrorCode.RequestFailed
+    )
+  }
+
+  return contenderFileId
+}
+
+async function releaseMutationLockContender(
+  oauthClient: OAuth2Client,
+  contenderFileId: string
+): Promise<void> {
+  await deleteDriveFile(oauthClient, contenderFileId).catch(() => undefined)
+}
+
+async function deleteStaleMutationLockContenders(
+  oauthClient: OAuth2Client,
+  storageFolderId: string
+): Promise<void> {
+  const lockContenders = await listMutationLockContenders(oauthClient, storageFolderId)
+  const staleLockContenders = lockContenders.filter((contender) => mutationLockContenderIsStale(contender))
+
+  await Promise.all(
+    staleLockContenders.map((contender) =>
+      contender.id ? deleteDriveFile(oauthClient, contender.id) : Promise.resolve()
+    )
+  )
+}
+
+async function listActiveMutationLockContenders(
+  oauthClient: OAuth2Client,
+  storageFolderId: string
+): Promise<GoogleDriveFileResponse[]> {
+  const contenders = await listMutationLockContenders(oauthClient, storageFolderId)
+
+  return contenders
+    .filter((contender) => !mutationLockContenderIsStale(contender))
+    .sort(compareMutationLockContenders)
+}
+
+async function listMutationLockContenders(
+  oauthClient: OAuth2Client,
+  storageFolderId: string
+): Promise<GoogleDriveFileResponse[]> {
+  const files = await listFilesInFolder(oauthClient, storageFolderId)
+
+  return files.filter((file) => file.name?.startsWith(MUTATION_LOCK_CONTENDER_PREFIX))
+}
+
+function mutationLockContenderIsStale(contender: GoogleDriveFileResponse): boolean {
+  if (!contender.createdTime) {
+    return false
+  }
+
+  const lockAgeMs = Date.now() - new Date(contender.createdTime).getTime()
+
+  return Number.isFinite(lockAgeMs) && lockAgeMs > MUTATION_LOCK_STALE_MS
+}
+
+function compareMutationLockContenders(
+  left: GoogleDriveFileResponse,
+  right: GoogleDriveFileResponse
+): number {
+  const createdTimeComparison = (left.createdTime ?? '').localeCompare(right.createdTime ?? '')
+
+  if (createdTimeComparison !== 0) {
+    return createdTimeComparison
+  }
+
+  return (left.name ?? '').localeCompare(right.name ?? '')
 }
 
 async function listServerSaveVersions(): Promise<ServerSaveVersionFile[]> {
@@ -251,7 +376,7 @@ async function listFilesInFolder(
   }
 
   const searchParams = new URLSearchParams({
-    fields: 'files(id,name,mimeType,trashed)',
+    fields: 'files(id,name,mimeType,trashed,createdTime)',
     pageSize: fileName ? '1' : '100',
     q: queryParts.join(' and '),
     spaces: 'drive'

@@ -1,4 +1,4 @@
-import { copyFile, mkdir, readdir, rm, stat } from 'fs/promises'
+import { copyFile, mkdir, open, readdir, rm, stat } from 'fs/promises'
 import { dirname, join } from 'path'
 import type { LatestSave, ServerLock } from '../../../shared/domain'
 import { renameWithRetry } from '../core/file-system-utils'
@@ -6,6 +6,7 @@ import { DEFAULT_LATEST_SAVE, DEFAULT_SERVER_LOCK } from '../core/storage-defaul
 import { StorageError } from '../core/storage-error'
 import {
   latestSaveFilePath,
+  localStorageMutationLockFilePath,
   localStorageFolderPath,
   localStorageVersionsFolderPath,
   serverLockFilePath
@@ -15,8 +16,10 @@ import { readJsonFileOrDefault, readOrCreateJsonFile, writeJsonFile } from '../p
 import type { ServerSaveVersionFile, StorageAdapter } from './storage-adapter.model'
 
 const SERVER_SAVE_FILE_PATTERN = /^server-v(\d+)\.zip$/
+const MUTATION_LOCK_STALE_MS = 60 * 60 * 1000
 
 export const localStorageAdapter: StorageAdapter = {
+  assertNoStorageMutationInProgress,
   deleteServerSaveVersion,
   downloadServerSaveVersion,
   listServerSaveVersions,
@@ -24,10 +27,27 @@ export const localStorageAdapter: StorageAdapter = {
   readServerLock,
   resetServerLock,
   resetServerSaves,
+  runExclusiveStorageMutation,
   serverSaveVersionExists,
   uploadServerSaveVersion,
   writeLatestSave,
   writeServerLock
+}
+
+async function runExclusiveStorageMutation<Result>(executeMutation: () => Promise<Result>): Promise<Result> {
+  await acquireExclusiveMutationLock()
+
+  try {
+    return await executeMutation()
+  } finally {
+    await releaseExclusiveMutationLock()
+  }
+}
+
+async function assertNoStorageMutationInProgress(): Promise<void> {
+  if (await activeMutationLockExists()) {
+    throw new StorageError('Storage data is being moved. Try again after the switch finishes.')
+  }
 }
 
 export async function ensureLocalStorage(): Promise<void> {
@@ -57,6 +77,41 @@ function writeServerLock(serverLock: ServerLock): Promise<void> {
 
 function resetServerLock(): Promise<void> {
   return writeServerLock(DEFAULT_SERVER_LOCK)
+}
+
+async function acquireExclusiveMutationLock(): Promise<void> {
+  await mkdir(localStorageFolderPath, { recursive: true })
+
+  if (await activeMutationLockExists()) {
+    throw new StorageError('Storage data is already being moved. Try again after it finishes.')
+  }
+
+  const lockFile = await open(localStorageMutationLockFilePath, 'wx')
+  await lockFile.close()
+}
+
+async function releaseExclusiveMutationLock(): Promise<void> {
+  await rm(localStorageMutationLockFilePath, { force: true })
+}
+
+async function activeMutationLockExists(): Promise<boolean> {
+  try {
+    const lockStats = await stat(localStorageMutationLockFilePath)
+    const lockAgeMs = Date.now() - lockStats.mtimeMs
+
+    if (lockAgeMs > MUTATION_LOCK_STALE_MS) {
+      await releaseExclusiveMutationLock()
+      return false
+    }
+
+    return true
+  } catch (error) {
+    if (isMissingFileError(error)) {
+      return false
+    }
+
+    throw error
+  }
 }
 
 async function listServerSaveVersions(): Promise<ServerSaveVersionFile[]> {

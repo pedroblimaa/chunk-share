@@ -6,6 +6,9 @@ export interface ServerSaveVersionFile {
 }
 
 export interface StorageAdapter {
+  assertNoStorageMutationInProgress(): Promise<void>
+  runExclusiveStorageMutation<Result>(executeMutation: () => Promise<Result>): Promise<Result>
+
   readLatestSave(): Promise<LatestSave>
   writeLatestSave(latestSave: LatestSave): Promise<void>
 

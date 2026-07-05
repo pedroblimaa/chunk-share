@@ -11,6 +11,7 @@ export const STORAGE_VALIDATE_GOOGLE_DRIVE_FOLDER_CHANNEL = 'storage:validate-go
 export const STORAGE_CLEAR_GOOGLE_DRIVE_FOLDER_CHANNEL = 'storage:clear-google-drive-folder'
 export const STORAGE_GET_PROVIDER_SWITCH_PREVIEW_CHANNEL = 'storage:get-provider-switch-preview'
 export const STORAGE_SET_PROVIDER_CHANNEL = 'storage:set-provider'
+export const STORAGE_PROVIDER_COPY_PROGRESS_CHANNEL = 'storage:provider-copy-progress'
 export const STORAGE_SAVE_SERVER_CONFIG_CHANNEL = 'storage:save-server-config'
 export const STORAGE_DELETE_SERVER_CHANNEL = 'storage:delete-server'
 export const STORAGE_RESET_SERVER_LOCK_CHANNEL = 'storage:reset-server-lock'

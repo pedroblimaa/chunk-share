@@ -1,7 +1,11 @@
 import { ServerHostingStatus, ServerLockStatus } from '../../../shared/domain'
 import {
   CloudStorageProvider,
+  StorageSwitchDataMode,
   GoogleDriveSetupStatus,
+  type CloudStorageProviderDataSummary,
+  type CloudStorageProviderSwitchRequest,
+  type CloudStorageProviderSwitchPreview,
   type CloudStorageSettings,
   type GoogleDriveFolderConfig,
   type GoogleDriveStorageState
@@ -86,6 +90,27 @@ function isServerHostingStatus(value: unknown): value is ServerHostingStatus {
 
 export function isCloudStorageProvider(value: unknown): value is CloudStorageProvider {
   return value === CloudStorageProvider.Local || value === CloudStorageProvider.GoogleDrive
+}
+
+function isCloudStorageProviderDataSummary(value: unknown): value is CloudStorageProviderDataSummary {
+  if (!isRecord(value)) {
+    return false
+  }
+
+  return (
+    isCloudStorageProvider(value.provider) &&
+    isNullablePositiveInteger(value.latestSaveVersion) &&
+    isNullableString(value.latestSaveRecordedAt) &&
+    isNonNegativeInteger(value.versionCount)
+  )
+}
+
+function isCloudStorageProviderSwitchPreview(value: unknown): value is CloudStorageProviderSwitchPreview {
+  return (
+    isRecord(value) &&
+    isCloudStorageProviderDataSummary(value.source) &&
+    isCloudStorageProviderDataSummary(value.target)
+  )
 }
 
 function isGoogleDriveSetupStatus(value: unknown): value is GoogleDriveSetupStatus {
@@ -236,4 +261,20 @@ export function isCloudStorageSettings(value: unknown): value is CloudStorageSet
   }
 
   return isCloudStorageProvider(value.activeProvider) && isGoogleDriveStorageState(value.googleDrive)
+}
+
+export function isValidProviderSwitchRequest(value: unknown): value is CloudStorageProviderSwitchRequest {
+  if (!isRecord(value) || !isCloudStorageProvider(value.provider)) {
+    return false
+  }
+
+  if (value.dataMode === StorageSwitchDataMode.UseTargetAsIs) {
+    return true
+  }
+
+  if (value.dataMode === StorageSwitchDataMode.CopyCurrentToTarget) {
+    return isCloudStorageProviderSwitchPreview(value.expectedPreview)
+  }
+
+  return false
 }

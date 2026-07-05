@@ -10,6 +10,7 @@ const CLOUD_STORAGE_SETTINGS_FILE_NAME =
 
 export const localStorageFolderPath = join(PROJECT_ROOT, LOCAL_STORAGE_FOLDER_NAME)
 export const localStorageVersionsFolderPath = join(localStorageFolderPath, 'versions')
+export const localStorageMutationLockFilePath = join(localStorageFolderPath, 'storage-operation-lock.json')
 export const latestSaveFilePath = join(localStorageFolderPath, 'latest.json')
 export const serverLockFilePath = join(localStorageFolderPath, 'lock.json')
 export const localServerFolderPath = join(PROJECT_ROOT, SERVER_FOLDER_NAME)
