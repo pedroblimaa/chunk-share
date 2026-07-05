@@ -1,5 +1,5 @@
 import type { LocalState, Player, ServerConfig, ServerSetupState } from '../../../shared/domain'
-import { readJsonFile, writeJsonFile } from './json-file-store'
+import { readOrCreateJsonFile, writeJsonFile } from './json-file-store'
 import {
   DEFAULT_LOCAL_STATE,
   DEFAULT_SERVER_CONFIG,
@@ -33,7 +33,7 @@ export async function readLocalStateSnapshot(): Promise<LocalStateSnapshot> {
 }
 
 export async function readLocalState(): Promise<LocalState> {
-  return readJsonFile(localStateFilePath, DEFAULT_LOCAL_STATE, isLocalState)
+  return readOrCreateJsonFile(localStateFilePath, DEFAULT_LOCAL_STATE, isLocalState)
 }
 
 export function writeLocalState(localState: LocalState): Promise<void> {

@@ -61,7 +61,12 @@ function resetServerLock(): Promise<void> {
 
 async function listServerSaveVersions(): Promise<ServerSaveVersionFile[]> {
   const oauthClient = await createAuthenticatedDriveClient()
-  const versionsFolderId = await ensureVersionsFolder(oauthClient)
+  const versionsFolderId = await findVersionsFolder(oauthClient)
+
+  if (!versionsFolderId) {
+    return []
+  }
+
   const files = await listFilesInFolder(oauthClient, versionsFolderId)
 
   return files
@@ -72,9 +77,12 @@ async function listServerSaveVersions(): Promise<ServerSaveVersionFile[]> {
 
 async function serverSaveVersionExists(fileName: string): Promise<boolean> {
   const oauthClient = await createAuthenticatedDriveClient()
-  const versionsFolderId = await ensureVersionsFolder(oauthClient)
+  const versionsFolderId = await findVersionsFolder(oauthClient)
 
-  return (await findFileInFolder(oauthClient, versionsFolderId, fileName)) !== null
+  return (
+    versionsFolderId !== null &&
+    (await findFileInFolder(oauthClient, versionsFolderId, fileName)) !== null
+  )
 }
 
 async function uploadServerSaveVersion(fileName: string, localZipPath: string): Promise<void> {
@@ -99,7 +107,15 @@ async function downloadServerSaveVersion(
   localDestinationPath: string
 ): Promise<void> {
   const oauthClient = await createAuthenticatedDriveClient()
-  const versionsFolderId = await ensureVersionsFolder(oauthClient)
+  const versionsFolderId = await findVersionsFolder(oauthClient)
+
+  if (!versionsFolderId) {
+    throw new GoogleDriveError(
+      `Server save version ${fileName} was not found in Google Drive.`,
+      GoogleDriveErrorCode.FolderNotFound
+    )
+  }
+
   const file = await findFileInFolder(oauthClient, versionsFolderId, fileName)
 
   if (!file?.id) {
@@ -121,7 +137,12 @@ async function downloadServerSaveVersion(
 
 async function deleteServerSaveVersion(fileName: string): Promise<void> {
   const oauthClient = await createAuthenticatedDriveClient()
-  const versionsFolderId = await ensureVersionsFolder(oauthClient)
+  const versionsFolderId = await findVersionsFolder(oauthClient)
+
+  if (!versionsFolderId) {
+    return
+  }
+
   const file = await findFileInFolder(oauthClient, versionsFolderId, fileName)
 
   if (!file?.id) {
@@ -148,7 +169,6 @@ async function readJsonDriveFile<T>(
   const file = await findFileInFolder(oauthClient, storageFolderId, fileName)
 
   if (!file?.id) {
-    await writeJsonDriveFile(fileName, defaultValue)
     return defaultValue
   }
 
@@ -198,6 +218,13 @@ async function ensureVersionsFolder(oauthClient: OAuth2Client): Promise<string> 
     VERSIONS_FOLDER_NAME,
     GOOGLE_DRIVE_FOLDER_MIME_TYPE
   )
+}
+
+async function findVersionsFolder(oauthClient: OAuth2Client): Promise<string | null> {
+  const storageFolderId = await getConfiguredDriveFolderId()
+  const existingFolder = await findFileInFolder(oauthClient, storageFolderId, VERSIONS_FOLDER_NAME)
+
+  return existingFolder?.id ?? null
 }
 
 async function createAuthenticatedDriveClient(): Promise<OAuth2Client> {
@@ -278,7 +305,7 @@ async function createDriveFile(
     }
   )
 
-  return assertGoogleDriveFileId(response.data, fileName)
+  return resolveGoogleDriveFileId(response.data, fileName)
 }
 
 async function uploadDriveFileMedia(
@@ -293,9 +320,7 @@ async function uploadDriveFileMedia(
       'Content-Type': mimeType
     },
     method: 'PATCH',
-    url: `https://www.googleapis.com/upload/drive/v3/files/${encodeURIComponent(
-      fileId
-    )}?uploadType=media`
+    url: `https://www.googleapis.com/upload/drive/v3/files/${encodeURIComponent(fileId)}?uploadType=media`
   })
 }
 
@@ -318,7 +343,7 @@ function parseServerSaveVersionFile(fileName: string): ServerSaveVersionFile | n
   }
 }
 
-function assertGoogleDriveFileId(file: GoogleDriveFileResponse, fileName: string): string {
+function resolveGoogleDriveFileId(file: GoogleDriveFileResponse, fileName: string): string {
   if (!file.id) {
     throw new GoogleDriveError(
       `Google Drive did not return a file ID for ${fileName}.`,

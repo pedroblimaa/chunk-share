@@ -27,3 +27,15 @@ export interface CloudStorageSettings {
   activeProvider: CloudStorageProvider
   googleDrive: GoogleDriveStorageState
 }
+
+export interface CloudStorageProviderDataSummary {
+  provider: CloudStorageProvider
+  latestSaveVersion: number | null
+  latestSaveRecordedAt: string | null
+  versionCount: number
+}
+
+export interface CloudStorageProviderSwitchPreview {
+  source: CloudStorageProviderDataSummary
+  target: CloudStorageProviderDataSummary
+}

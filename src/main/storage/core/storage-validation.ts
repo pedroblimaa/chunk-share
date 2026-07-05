@@ -84,7 +84,7 @@ function isServerHostingStatus(value: unknown): value is ServerHostingStatus {
   )
 }
 
-function isCloudStorageProvider(value: unknown): value is CloudStorageProvider {
+export function isCloudStorageProvider(value: unknown): value is CloudStorageProvider {
   return value === CloudStorageProvider.Local || value === CloudStorageProvider.GoogleDrive
 }
 
@@ -123,6 +123,15 @@ function isGoogleDriveStorageState(value: unknown): value is GoogleDriveStorageS
     (value.folder === null || isGoogleDriveFolderConfig(value.folder)) &&
     isNullableErrorMessage(value.errorMessage)
   )
+}
+
+export function hasValidGoogleDriveFolder(
+  value: GoogleDriveStorageState
+): value is GoogleDriveStorageState & {
+  status: GoogleDriveSetupStatus.Valid
+  folder: GoogleDriveFolderConfig
+} {
+  return value.status === GoogleDriveSetupStatus.Valid && value.folder !== null
 }
 
 export function isServerConfig(value: unknown): value is ServerConfig {

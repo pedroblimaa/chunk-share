@@ -11,7 +11,11 @@ import {
   serverLockFilePath
 } from '../core/storage-paths'
 import { isLatestSave, isServerLock } from '../core/storage-validation'
-import { readJsonFile, writeJsonFile } from '../persistence/json-file-store'
+import {
+  readJsonFileOrDefault,
+  readOrCreateJsonFile,
+  writeJsonFile
+} from '../persistence/json-file-store'
 import type { ServerSaveVersionFile, StorageAdapter } from './storage-adapter.model'
 
 const SERVER_SAVE_FILE_PATTERN = /^server-v(\d+)\.zip$/
@@ -33,12 +37,14 @@ export const localStorageAdapter: StorageAdapter = {
 export async function ensureLocalStorage(): Promise<void> {
   await mkdir(localStorageFolderPath, { recursive: true })
   await mkdir(localStorageVersionsFolderPath, { recursive: true })
-  await readLatestSave()
-  await readServerLock()
+  await Promise.all([
+    readOrCreateJsonFile(latestSaveFilePath, DEFAULT_LATEST_SAVE, isLatestSave),
+    readOrCreateJsonFile(serverLockFilePath, DEFAULT_SERVER_LOCK, isServerLock)
+  ])
 }
 
 function readLatestSave(): Promise<LatestSave> {
-  return readJsonFile(latestSaveFilePath, DEFAULT_LATEST_SAVE, isLatestSave)
+  return readJsonFileOrDefault(latestSaveFilePath, DEFAULT_LATEST_SAVE, isLatestSave)
 }
 
 function writeLatestSave(latestSave: LatestSave): Promise<void> {
@@ -46,7 +52,7 @@ function writeLatestSave(latestSave: LatestSave): Promise<void> {
 }
 
 function readServerLock(): Promise<ServerLock> {
-  return readJsonFile(serverLockFilePath, DEFAULT_SERVER_LOCK, isServerLock)
+  return readJsonFileOrDefault(serverLockFilePath, DEFAULT_SERVER_LOCK, isServerLock)
 }
 
 function writeServerLock(serverLock: ServerLock): Promise<void> {
@@ -59,7 +65,6 @@ function resetServerLock(): Promise<void> {
 
 async function listServerSaveVersions(): Promise<ServerSaveVersionFile[]> {
   try {
-    await mkdir(localStorageVersionsFolderPath, { recursive: true })
     const entries = await readdir(localStorageVersionsFolderPath, { withFileTypes: true })
 
     return entries

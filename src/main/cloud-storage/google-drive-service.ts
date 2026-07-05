@@ -14,28 +14,12 @@ import {
   type GoogleDriveFileResponse
 } from './google-drive.model'
 
-export async function createOrReuseDefaultGoogleDriveFolder(): Promise<GoogleDriveFolderConfig> {
-  const oauthClient = await createAuthenticatedDriveClient()
-  const existingFolder = await findGoogleDriveFolderByName(
-    oauthClient,
-    DEFAULT_GOOGLE_DRIVE_FOLDER_NAME
-  )
-
-  if (existingFolder?.id) {
-    return validateGoogleDriveFolderAccess(existingFolder.id)
-  }
-
-  const folder = await createGoogleDriveFolder(oauthClient, {
-    name: DEFAULT_GOOGLE_DRIVE_FOLDER_NAME
-  })
-
-  return validateGoogleDriveFolderAccess(assertGoogleDriveFileId(folder))
-}
-
-export async function validateGoogleDriveFolderAccess(
-  folderId: string
+export async function ensureGoogleDriveFolder(
+  configuredFolderId?: string
 ): Promise<GoogleDriveFolderConfig> {
   const oauthClient = await createAuthenticatedDriveClient()
+  const folderId = configuredFolderId ?? (await resolveDefaultGoogleDriveFolderId(oauthClient))
+
   const folder = await readGoogleDriveFolder(oauthClient, folderId)
 
   assertUsableGoogleDriveFolder(folder)
@@ -44,11 +28,25 @@ export async function validateGoogleDriveFolderAccess(
   const now = new Date().toISOString()
 
   return {
-    folderId: assertGoogleDriveFileId(folder),
+    folderId: resolveGoogleDriveFileId(folder),
     folderName: folder.name ?? DEFAULT_GOOGLE_DRIVE_FOLDER_NAME,
     configuredAt: now,
     validatedAt: now
   }
+}
+
+async function resolveDefaultGoogleDriveFolderId(oauthClient: OAuth2Client): Promise<string> {
+  const existingFolder = await findGoogleDriveFolder(oauthClient)
+
+  if (existingFolder?.id) {
+    return existingFolder.id
+  }
+
+  const createdFolder = await createGoogleDriveFolder(oauthClient, {
+    name: DEFAULT_GOOGLE_DRIVE_FOLDER_NAME
+  })
+
+  return resolveGoogleDriveFileId(createdFolder)
 }
 
 async function createAuthenticatedDriveClient(): Promise<OAuth2Client> {
@@ -57,12 +55,11 @@ async function createAuthenticatedDriveClient(): Promise<OAuth2Client> {
   return createAuthenticatedGoogleOAuthClient(authSession.tokens)
 }
 
-async function findGoogleDriveFolderByName(
-  oauthClient: OAuth2Client,
-  folderName: string
+async function findGoogleDriveFolder(
+  oauthClient: OAuth2Client
 ): Promise<GoogleDriveFileResponse | null> {
   const query = [
-    `name = '${escapeGoogleDriveQueryValue(folderName)}'`,
+    `name = '${escapeGoogleDriveQueryValue(DEFAULT_GOOGLE_DRIVE_FOLDER_NAME)}'`,
     `mimeType = '${GOOGLE_DRIVE_FOLDER_MIME_TYPE}'`,
     'trashed = false'
   ].join(' and ')
@@ -88,9 +85,7 @@ async function readGoogleDriveFolder(
       fields: 'id,name,mimeType,trashed,capabilities(canAddChildren,canEdit)'
     })
     const response = await oauthClient.fetch<GoogleDriveFileResponse>(
-      `${GOOGLE_DRIVE_API_BASE_URL}/files/${encodeURIComponent(
-        folderId
-      )}?${searchParams.toString()}`
+      `${GOOGLE_DRIVE_API_BASE_URL}/files/${encodeURIComponent(folderId)}?${searchParams.toString()}`
     )
 
     return response.data
@@ -134,7 +129,7 @@ async function validateGoogleDriveFolderWriteAccess(
     parentFolderId
   })
 
-  await deleteGoogleDriveFile(oauthClient, assertGoogleDriveFileId(temporaryFolder))
+  await deleteGoogleDriveFile(oauthClient, resolveGoogleDriveFileId(temporaryFolder))
 }
 
 async function deleteGoogleDriveFile(oauthClient: OAuth2Client, fileId: string): Promise<void> {
@@ -166,7 +161,7 @@ function assertUsableGoogleDriveFolder(folder: GoogleDriveFileResponse): void {
   }
 }
 
-function assertGoogleDriveFileId(file: GoogleDriveFileResponse): string {
+function resolveGoogleDriveFileId(file: GoogleDriveFileResponse): string {
   if (!file.id) {
     throw new GoogleDriveError(
       'Google Drive did not return a folder ID.',

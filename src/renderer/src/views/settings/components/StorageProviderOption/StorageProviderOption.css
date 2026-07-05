@@ -1,0 +1,51 @@
+.settings-storage-option {
+  align-items: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-bold);
+  gap: 6px;
+  justify-content: center;
+  min-height: 30px;
+  padding: 5px 8px;
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease,
+    color 140ms ease;
+}
+
+.settings-storage-option:hover,
+.settings-storage-option:focus-visible {
+  border-color: var(--color-border-subtle);
+  color: var(--color-text-primary);
+}
+
+.settings-storage-option:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+.settings-storage-option.is-selected {
+  background: var(--color-background-console);
+  border-color: var(--color-border-accent-muted);
+  color: var(--color-text-primary);
+}
+
+.settings-storage-option .material-symbols-outlined {
+  color: currentColor;
+  font-size: 16px;
+}
+
+.settings-storage-option small {
+  color: var(--color-accent);
+  font-family: var(--font-family-mono);
+  font-size: 10px;
+  font-weight: var(--font-weight-bold);
+  line-height: 1;
+  text-transform: uppercase;
+}

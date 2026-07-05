@@ -1,6 +1,5 @@
 import './SettingsView.css'
 
-import { GoogleDriveSetupStatus } from '../../../../../shared/cloud-storage.model'
 import AppSidebar from '../../../components/shared/AppSidebar/AppSidebar'
 import Badge from '../../../components/shared/Badge/Badge'
 import Button from '../../../components/shared/Button/Button'
@@ -8,29 +7,10 @@ import Card from '../../../components/shared/Card/Card'
 import MaterialIcon from '../../../components/shared/MaterialIcon/MaterialIcon'
 import TopBar from '../../dashboard/components/TopBar/TopBar'
 import StorageModeSettingsCard from '../components/StorageModeSettingsCard/StorageModeSettingsCard'
-import { useCloudStorageSettings } from '../hooks/useCloudStorageSettings'
-import type { GoogleDriveStatusViewMap } from '../settings.model'
+import StorageProviderSettingsProvider from '../StorageProviderSettingsProvider/StorageProviderSettingsProvider'
 import type { SettingsViewProps } from './SettingsView.model'
 
 const SINGLE_SERVER_DISABLED_REASON = 'Only one server is supported in the MVP.'
-const GOOGLE_DRIVE_STATUS_VIEW: GoogleDriveStatusViewMap = {
-  [GoogleDriveSetupStatus.NotConfigured]: {
-    label: 'Not configured',
-    tone: 'disabled'
-  },
-  [GoogleDriveSetupStatus.NeedsAuth]: {
-    label: 'Needs permission',
-    tone: 'warning'
-  },
-  [GoogleDriveSetupStatus.Valid]: {
-    label: 'Configured',
-    tone: 'active'
-  },
-  [GoogleDriveSetupStatus.Blocked]: {
-    label: 'Blocked',
-    tone: 'danger'
-  }
-}
 
 function SettingsView({
   serverDisplayState,
@@ -41,7 +21,6 @@ function SettingsView({
 }: SettingsViewProps): React.JSX.Element {
   const serverIsConfigured = serverDisplayState.serverStatus !== 'not-configured'
   const signedInUser = serverDisplayState.signedInUser
-  const cloudStorageSettingsState = useCloudStorageSettings()
 
   return (
     <div className="dashboard-screen settings-screen">
@@ -75,9 +54,7 @@ function SettingsView({
 
               <div className="settings-account-summary">
                 <div
-                  className={`settings-account-avatar${
-                    signedInUser?.avatarUrl ? ' has-image' : ''
-                  }`}
+                  className={`settings-account-avatar${signedInUser?.avatarUrl ? ' has-image' : ''}`}
                 >
                   {signedInUser?.avatarUrl ? (
                     <img src={signedInUser.avatarUrl} alt="" aria-hidden="true" />
@@ -110,18 +87,9 @@ function SettingsView({
               </div>
             </Card>
 
-            <StorageModeSettingsCard
-              cloudStorageSettings={cloudStorageSettingsState.cloudStorageSettings}
-              googleDriveAction={cloudStorageSettingsState.googleDriveAction}
-              googleDriveErrorMessage={cloudStorageSettingsState.googleDriveErrorMessage}
-              googleDriveIsBusy={cloudStorageSettingsState.googleDriveIsBusy}
-              googleDriveStatusViewMap={GOOGLE_DRIVE_STATUS_VIEW}
-              onClearGoogleDriveFolder={cloudStorageSettingsState.clearGoogleDriveFolder}
-              onSetupDefaultGoogleDriveFolder={
-                cloudStorageSettingsState.setupDefaultGoogleDriveFolder
-              }
-              onValidateGoogleDriveFolder={cloudStorageSettingsState.validateGoogleDriveFolder}
-            />
+            <StorageProviderSettingsProvider>
+              <StorageModeSettingsCard />
+            </StorageProviderSettingsProvider>
           </section>
         </main>
       </div>

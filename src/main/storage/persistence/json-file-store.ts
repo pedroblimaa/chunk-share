@@ -6,7 +6,7 @@ import { StorageError } from '../core/storage-error'
 
 type Validator<T> = (value: unknown) => value is T
 
-export async function readJsonFile<T>(
+export async function readOrCreateJsonFile<T>(
   filePath: string,
   defaultValue: T,
   validate: Validator<T>
@@ -14,22 +14,27 @@ export async function readJsonFile<T>(
   await mkdir(dirname(filePath), { recursive: true })
 
   try {
-    const rawJson = await readFile(filePath, 'utf-8')
-    const parsedJson: unknown = JSON.parse(rawJson)
-
-    if (!validate(parsedJson)) {
-      throw new StorageError(`Invalid data shape in ${filePath}`)
-    }
-
-    return parsedJson
+    return await readAndValidateJsonFile(filePath, validate)
   } catch (error) {
     if (isMissingFileError(error)) {
       await writeJsonFile(filePath, defaultValue)
       return defaultValue
     }
 
-    if (error instanceof SyntaxError) {
-      throw new StorageError(`Invalid JSON syntax in ${filePath}`)
+    throw error
+  }
+}
+
+export async function readJsonFileOrDefault<T>(
+  filePath: string,
+  defaultValue: T,
+  validate: Validator<T>
+): Promise<T> {
+  try {
+    return await readAndValidateJsonFile(filePath, validate)
+  } catch (error) {
+    if (isMissingFileError(error)) {
+      return defaultValue
     }
 
     throw error
@@ -58,6 +63,27 @@ export async function writeJsonFile<T>(
     await rm(tempFilePath, { force: true })
     throw error
   }
+}
+
+async function readAndValidateJsonFile<T>(filePath: string, validate: Validator<T>): Promise<T> {
+  const rawJson = await readFile(filePath, 'utf-8')
+  let parsedJson: unknown
+
+  try {
+    parsedJson = JSON.parse(rawJson)
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      throw new StorageError(`Invalid JSON syntax in ${filePath}`)
+    }
+
+    throw error
+  }
+
+  if (!validate(parsedJson)) {
+    throw new StorageError(`Invalid data shape in ${filePath}`)
+  }
+
+  return parsedJson
 }
 
 function isMissingFileError(error: unknown): boolean {
