@@ -1,7 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   CloudStorageProvider,
-  CloudStorageProviderSwitchDataMode,
   type CloudStorageProviderSwitchPreview,
   type CloudStorageSettings
 } from '../../../../../shared/cloud-storage.model'
@@ -17,12 +16,17 @@ export function useStorageProviderSettingsController(): StorageProviderSettingsC
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [storageProviderSwitchPreview, setStorageProviderSwitchPreview] =
     useState<CloudStorageProviderSwitchPreview | null>(null)
-  const activeStorageProvider =
-    storageProviderSettings?.activeProvider ?? CloudStorageProvider.Local
+  const operationIsRunning = useRef(true)
+  const activeStorageProvider = storageProviderSettings?.activeProvider ?? null
   const operationState = {
     errorMessage,
     isBusy: currentOperation !== StorageSettingsOperation.Idle,
     operation: currentOperation
+  }
+
+  const synchronizeStorageProviderSettings = async (): Promise<void> => {
+    const settings = await window.chunkShare.storage.getCloudStorageSettings()
+    setStorageProviderSettings(settings)
   }
 
   const runStorageOperation = async <Result>(
@@ -31,6 +35,11 @@ export function useStorageProviderSettingsController(): StorageProviderSettingsC
     applyResult: (result: Result) => void,
     fallbackErrorMessage = 'Unable to update storage.'
   ): Promise<boolean> => {
+    if (operationIsRunning.current) {
+      return false
+    }
+
+    operationIsRunning.current = true
     setCurrentOperation(operation)
     setErrorMessage(null)
 
@@ -39,9 +48,13 @@ export function useStorageProviderSettingsController(): StorageProviderSettingsC
       applyResult(result)
       return true
     } catch (error: unknown) {
-      setErrorMessage(getErrorMessage(error, fallbackErrorMessage))
+      const message = getErrorMessage(error, fallbackErrorMessage)
+
+      await synchronizeStorageProviderSettings().catch(() => undefined)
+      setErrorMessage(message)
       return false
     } finally {
+      operationIsRunning.current = false
       setCurrentOperation(StorageSettingsOperation.Idle)
     }
   }
@@ -54,6 +67,7 @@ export function useStorageProviderSettingsController(): StorageProviderSettingsC
         setErrorMessage(getErrorMessage(error, 'Unable to load storage provider settings.'))
       })
       .finally(() => {
+        operationIsRunning.current = false
         setCurrentOperation(StorageSettingsOperation.Idle)
       })
   }, [])
@@ -62,14 +76,6 @@ export function useStorageProviderSettingsController(): StorageProviderSettingsC
     runStorageOperation(
       StorageSettingsOperation.SetupGoogleDriveFolder,
       () => window.chunkShare.storage.setupGoogleDriveFolder(),
-      setStorageProviderSettings
-    )
-  }
-
-  const requestGoogleDriveValidation = (): void => {
-    runStorageOperation(
-      StorageSettingsOperation.ValidateGoogleDriveFolder,
-      () => window.chunkShare.storage.validateGoogleDriveFolder(),
       setStorageProviderSettings
     )
   }
@@ -95,10 +101,7 @@ export function useStorageProviderSettingsController(): StorageProviderSettingsC
 
   const requestStorageProviderSwitch = (provider: CloudStorageProvider): void => {
     const updateProvider = (): Promise<CloudStorageSettings> =>
-      window.chunkShare.storage.setCloudStorageProvider({
-        provider,
-        dataMode: CloudStorageProviderSwitchDataMode.UseTargetAsIs
-      })
+      window.chunkShare.storage.setCloudStorageProvider(provider)
 
     const applyResult = (nextSettings: CloudStorageSettings): void => {
       setStorageProviderSettings(nextSettings)
@@ -129,7 +132,6 @@ export function useStorageProviderSettingsController(): StorageProviderSettingsC
     dismissStorageError,
     requestGoogleDriveDisconnect,
     requestGoogleDriveSetup,
-    requestGoogleDriveValidation,
     requestStorageProviderSwitch,
     requestStorageProviderSwitchPreview,
     resetStorageProviderSwitchPreview

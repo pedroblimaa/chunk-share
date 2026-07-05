@@ -2,7 +2,6 @@ import { contextBridge, ipcRenderer } from 'electron'
 import type {
   CloudStorageProvider,
   CloudStorageProviderSwitchPreview,
-  CloudStorageProviderSwitchRequest,
   CloudStorageSettings
 } from '../shared/cloud-storage.model'
 import type { ServerDisplayState } from '../shared/dashboard'
@@ -76,9 +75,8 @@ const chunkShareApi = {
       provider: CloudStorageProvider
     ): Promise<CloudStorageProviderSwitchPreview> =>
       ipcRenderer.invoke(STORAGE_GET_PROVIDER_SWITCH_PREVIEW_CHANNEL, provider),
-    setCloudStorageProvider: (
-      request: CloudStorageProviderSwitchRequest
-    ): Promise<CloudStorageSettings> => ipcRenderer.invoke(STORAGE_SET_PROVIDER_CHANNEL, request),
+    setCloudStorageProvider: (provider: CloudStorageProvider): Promise<CloudStorageSettings> =>
+      ipcRenderer.invoke(STORAGE_SET_PROVIDER_CHANNEL, provider),
     deleteServer: (): Promise<ServerStorageSnapshot> =>
       ipcRenderer.invoke(STORAGE_DELETE_SERVER_CHANNEL),
     resetServerLock: (): Promise<ServerStorageSnapshot> =>

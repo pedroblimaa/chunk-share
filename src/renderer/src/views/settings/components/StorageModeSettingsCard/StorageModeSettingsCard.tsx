@@ -14,23 +14,22 @@ import LocalStoragePanel from '../LocalStoragePanel/LocalStoragePanel'
 import StorageProviderOption from '../StorageProviderOption/StorageProviderOption'
 import StorageProviderSwitchPanel from '../StorageProviderSwitchPanel/StorageProviderSwitchPanel'
 import { useStorageProviderSettings } from '../../hooks/useStorageProviderSettings'
-import type { StorageModeProvider } from './StorageModeSettingsCard.model'
-
-export const STORAGE_MODE_INFO =
-  'ChunkShare can store shared saves locally or in the configured Google Drive folder.'
+import { STORAGE_MODE_INFO } from './storage-mode-settings.constants'
 
 function StorageModeSettingsCard(): React.JSX.Element {
   const storage = useStorageProviderSettings()
-  const [selectedProvider, setSelectedProvider] = useState<StorageModeProvider | null>(null)
-  const [switchTargetProvider, setSwitchTargetProvider] = useState<StorageModeProvider | null>(null)
+  const [selectedProvider, setSelectedProvider] = useState<CloudStorageProvider | null>(null)
+  const [switchTargetProvider, setSwitchTargetProvider] = useState<CloudStorageProvider | null>(
+    null
+  )
   const activeProvider = storage.activeStorageProvider
-  const displayedProvider = selectedProvider ?? activeProvider
+  const displayedProvider = selectedProvider ?? activeProvider ?? CloudStorageProvider.Local
   const effectiveSwitchTargetProvider =
     switchTargetProvider === activeProvider ? null : switchTargetProvider
   const googleDriveIsValid =
     storage.storageProviderSettings?.googleDrive.status === GoogleDriveSetupStatus.Valid
 
-  const handleSelectProvider = (provider: StorageModeProvider): void => {
+  const handleSelectProvider = (provider: CloudStorageProvider): void => {
     setSelectedProvider(provider)
 
     const isActiveProvider = provider === activeProvider

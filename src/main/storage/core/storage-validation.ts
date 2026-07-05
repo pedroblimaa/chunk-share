@@ -1,9 +1,7 @@
 import { ServerHostingStatus, ServerLockStatus } from '../../../shared/domain'
 import {
   CloudStorageProvider,
-  CloudStorageProviderSwitchDataMode,
   GoogleDriveSetupStatus,
-  type CloudStorageProviderSwitchRequest,
   type CloudStorageSettings,
   type GoogleDriveFolderConfig,
   type GoogleDriveStorageState
@@ -239,15 +237,5 @@ export function isCloudStorageSettings(value: unknown): value is CloudStorageSet
 
   return (
     isCloudStorageProvider(value.activeProvider) && isGoogleDriveStorageState(value.googleDrive)
-  )
-}
-
-export function isCloudStorageProviderSwitchRequest(
-  value: unknown
-): value is CloudStorageProviderSwitchRequest {
-  return (
-    isRecord(value) &&
-    isCloudStorageProvider(value.provider) &&
-    value.dataMode === CloudStorageProviderSwitchDataMode.UseTargetAsIs
   )
 }

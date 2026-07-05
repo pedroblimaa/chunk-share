@@ -2,11 +2,9 @@ import {
   CloudStorageProvider,
   GoogleDriveSetupStatus,
   type CloudStorageProviderDataSummary,
-  type CloudStorageProviderSwitchRequest,
   type CloudStorageProviderSwitchPreview,
   type CloudStorageSettings,
-  type GoogleDriveFolderConfig,
-  CloudStorageProviderSwitchDataMode
+  type GoogleDriveFolderConfig
 } from '../../../shared/cloud-storage.model'
 import { ServerLockStatus } from '../../../shared/domain'
 import { isServerActiveStatus } from '../../../shared/server-runtime'
@@ -22,9 +20,12 @@ import {
   readCloudStorageSettings,
   writeCloudStorageSettings
 } from '../persistence/cloud-storage-settings-store'
+import { saveLocalSaveVersion } from '../persistence/local-state-store'
 import { hasValidGoogleDriveFolder } from './storage-validation'
 import { StorageError } from './storage-error'
 import { GOOGLE_DRIVE_NOT_READY_ERROR_MESSAGE } from './cloud-storage-messages'
+import { runExclusiveStorageOperation } from './storage-operation-coordinator'
+import { ExclusiveStorageOperation } from './storage-operation.model'
 
 export async function getCloudStorageSettings(): Promise<CloudStorageSettings> {
   return readCloudStorageSettings()
@@ -50,20 +51,47 @@ export async function getCloudStorageProviderSwitchPreview(
   return { source, target }
 }
 
-export async function setupGoogleDriveFolder(): Promise<CloudStorageSettings> {
-  const settings = await readCloudStorageSettings()
-  assertServerIsNotActive()
-  const folderId = settings.googleDrive.folder?.folderId
+export function setupGoogleDriveFolder(): Promise<CloudStorageSettings> {
+  return runStorageSettingsChange(async () => {
+    const settings = await readCloudStorageSettings()
+    assertServerIsNotActive()
+    const folderId = settings.googleDrive.folder?.folderId
 
-  return ensureAndSaveGoogleDriveFolder(settings, folderId)
+    return ensureAndSaveGoogleDriveFolder(settings, folderId)
+  })
 }
 
-export async function validateGoogleDriveFolder(): Promise<CloudStorageSettings> {
-  const settings = await readCloudStorageSettings()
-  assertServerIsNotActive()
-  const folderId = settings.googleDrive.folder?.folderId
+export function validateGoogleDriveFolder(): Promise<CloudStorageSettings> {
+  return runStorageSettingsChange(async () => {
+    const settings = await readCloudStorageSettings()
+    assertServerIsNotActive()
+    const folderId = settings.googleDrive.folder?.folderId
 
-  if (!folderId) {
+    if (!folderId) {
+      return writeAndReturnCloudStorageSettings({
+        ...settings,
+        googleDrive: {
+          status: GoogleDriveSetupStatus.NotConfigured,
+          folder: null,
+          errorMessage: null
+        }
+      })
+    }
+
+    return ensureAndSaveGoogleDriveFolder(settings, folderId)
+  })
+}
+
+export function clearGoogleDriveFolder(): Promise<CloudStorageSettings> {
+  return runStorageSettingsChange(async () => {
+    let settings = await readCloudStorageSettings()
+
+    if (settings.activeProvider === CloudStorageProvider.GoogleDrive) {
+      settings = await switchCloudStorageProvider(settings, CloudStorageProvider.Local)
+    } else {
+      assertServerIsNotActive()
+    }
+
     return writeAndReturnCloudStorageSettings({
       ...settings,
       googleDrive: {
@@ -72,50 +100,39 @@ export async function validateGoogleDriveFolder(): Promise<CloudStorageSettings>
         errorMessage: null
       }
     })
-  }
-
-  return ensureAndSaveGoogleDriveFolder(settings, folderId)
-}
-
-export async function clearGoogleDriveFolder(): Promise<CloudStorageSettings> {
-  const settings = await readCloudStorageSettings()
-
-  if (settings.activeProvider === CloudStorageProvider.GoogleDrive) {
-    const provider = CloudStorageProvider.Local
-    const dataMode = CloudStorageProviderSwitchDataMode.UseTargetAsIs
-    await setCloudStorageProvider({ provider, dataMode })
-  } else {
-    assertServerIsNotActive()
-  }
-
-  return writeAndReturnCloudStorageSettings({
-    ...settings,
-    googleDrive: {
-      status: GoogleDriveSetupStatus.NotConfigured,
-      folder: null,
-      errorMessage: null
-    }
   })
 }
 
-export async function setCloudStorageProvider(
-  request: CloudStorageProviderSwitchRequest
+export function setCloudStorageProvider(
+  provider: CloudStorageProvider
 ): Promise<CloudStorageSettings> {
-  const settings = await readCloudStorageSettings()
-  if (settings.activeProvider === request.provider) {
-    return settings
-  }
+  return runStorageSettingsChange(async () => {
+    const settings = await readCloudStorageSettings()
 
-  await assertCloudStorageProviderCanSwitch(settings.activeProvider, request.provider)
-  const validatedSettings = await validateTargetProvider(request.provider)
-
-  return activateCloudStorageProvider(validatedSettings, request.provider)
+    return switchCloudStorageProvider(settings, provider)
+  })
 }
 
-function activateCloudStorageProvider(
+async function switchCloudStorageProvider(
   settings: CloudStorageSettings,
   provider: CloudStorageProvider
 ): Promise<CloudStorageSettings> {
+  if (settings.activeProvider === provider) {
+    return settings
+  }
+
+  await assertCloudStorageProviderCanSwitch(settings.activeProvider, provider)
+  const validatedSettings = await validateTargetProvider(settings, provider)
+
+  return activateCloudStorageProvider(validatedSettings, provider)
+}
+
+async function activateCloudStorageProvider(
+  settings: CloudStorageSettings,
+  provider: CloudStorageProvider
+): Promise<CloudStorageSettings> {
+  await saveLocalSaveVersion(null)
+
   return writeAndReturnCloudStorageSettings({
     ...settings,
     activeProvider: provider
@@ -130,7 +147,7 @@ async function ensureAndSaveGoogleDriveFolder(
     const validatedFolder = await ensureGoogleDriveFolder(folderId)
     return saveValidGoogleDriveFolder(settings, validatedFolder)
   } catch (error) {
-    return handleGoogleDriveFolderOperationFailure(settings, error)
+    return saveGoogleDriveFolderFailure(settings, error)
   }
 }
 
@@ -148,7 +165,7 @@ function saveValidGoogleDriveFolder(
   })
 }
 
-function handleGoogleDriveFolderOperationFailure(
+function saveGoogleDriveFolderFailure(
   settings: CloudStorageSettings,
   error: unknown
 ): Promise<CloudStorageSettings> {
@@ -190,7 +207,7 @@ async function createCloudStorageProviderDataSummary(
   return {
     provider,
     latestSaveVersion: latestSave?.saveVersion ?? null,
-    latestSaveUploadedAt: latestSave?.uploadedAt ?? null,
+    latestSaveRecordedAt: latestSave?.uploadedAt ?? null,
     versionCount: versionFiles.length
   }
 }
@@ -201,6 +218,18 @@ function assertServerIsNotActive(): void {
   if (isServerActiveStatus(runtimeSnapshot.status)) {
     throw new StorageError('Cannot change storage settings while the Minecraft server is active.')
   }
+}
+
+function runStorageSettingsChange<Result>(
+  executeOperation: () => Promise<Result>
+): Promise<Result> {
+  return runExclusiveStorageOperation(
+    ExclusiveStorageOperation.StorageSettingsChange,
+    new StorageError(
+      'Cannot change storage settings while another storage operation is in progress.'
+    ),
+    executeOperation
+  )
 }
 
 async function assertCloudStorageProviderCanSwitch(
@@ -224,10 +253,9 @@ async function assertStorageProviderIsUnlocked(provider: CloudStorageProvider): 
 }
 
 async function validateTargetProvider(
+  settings: CloudStorageSettings,
   provider: CloudStorageProvider
 ): Promise<CloudStorageSettings> {
-  const settings = await readCloudStorageSettings()
-
   if (provider === CloudStorageProvider.Local) {
     await ensureLocalStorage()
     return settings
@@ -244,6 +272,7 @@ async function validateTargetProvider(
   try {
     validatedFolder = await ensureGoogleDriveFolder(settings.googleDrive.folder?.folderId)
   } catch (error) {
+    await saveGoogleDriveFolderFailure(settings, error)
     throw new StorageError(getCloudStorageErrorMessage(error))
   }
 

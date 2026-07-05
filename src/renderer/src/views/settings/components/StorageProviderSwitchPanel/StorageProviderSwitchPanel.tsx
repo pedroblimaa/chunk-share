@@ -7,6 +7,7 @@ import {
 } from '../../../../../../shared/cloud-storage.model'
 import Button from '../../../../components/shared/Button/Button'
 import { StorageSettingsOperation } from '../../settings.model'
+import { formatNullableDate } from '../../settings-formatters'
 import {
   StorageProviderSwitchScenario,
   type StorageProviderDataSummaryProps,
@@ -56,7 +57,7 @@ function StorageProviderSwitchPanel({
           <strong>Unable to check storage data</strong>
           <span>Retry the check or cancel this provider switch.</span>
         </div>
-        <div className="settings-provider-switch-actions settings-provider-switch-two-actions">
+        <div className="settings-provider-switch-actions">
           <Button fullWidth icon="refresh" onClick={onRetry}>
             Retry
           </Button>
@@ -94,7 +95,7 @@ function StorageProviderSwitchChoice({
         <StorageProviderDataSummary label={`Current - ${sourceLabel}`} summary={preview.source} />
         <StorageProviderDataSummary label={`Target - ${targetLabel}`} summary={preview.target} />
       </div>
-      <div className="settings-provider-switch-actions settings-provider-switch-two-actions">
+      <div className="settings-provider-switch-actions">
         <Button
           disabled={isBusy}
           fullWidth
@@ -146,7 +147,7 @@ function StorageProviderDataSummary({
       <span>
         {summary.latestSaveVersion === null
           ? 'No latest save'
-          : `Latest save v${summary.latestSaveVersion} - ${formatNullableDate(summary.latestSaveUploadedAt)}`}
+          : `Latest save v${summary.latestSaveVersion} - ${formatNullableDate(summary.latestSaveRecordedAt, 'Not available')}`}
       </span>
       <span>
         {summary.versionCount} retained {summary.versionCount === 1 ? 'version' : 'versions'}
@@ -169,17 +170,6 @@ function getProviderSwitchProgressLabel(operation: StorageSettingsOperation): st
 
 function getStorageProviderLabel(provider: CloudStorageProvider): string {
   return provider === CloudStorageProvider.Local ? 'Local Storage' : 'Google Drive'
-}
-
-function formatNullableDate(value: string | null): string {
-  if (!value) {
-    return 'Not available'
-  }
-
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: 'medium',
-    timeStyle: 'short'
-  }).format(new Date(value))
 }
 
 export default StorageProviderSwitchPanel

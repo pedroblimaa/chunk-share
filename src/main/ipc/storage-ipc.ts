@@ -30,7 +30,6 @@ import {
 import { StorageError } from '../storage/core/storage-error'
 import {
   isCloudStorageProvider as isValidProvider,
-  isCloudStorageProviderSwitchRequest as isValidProviderSwitchRequest,
   isServerConfig
 } from '../storage/core/storage-validation'
 
@@ -53,12 +52,12 @@ export function registerStorageIpcHandlers(): void {
     return getStorageProviderSwitchPreview(provider)
   })
 
-  ipcMain.handle(STORAGE_SET_PROVIDER_CHANNEL, (_, request: unknown) => {
-    if (!isValidProviderSwitchRequest(request)) {
+  ipcMain.handle(STORAGE_SET_PROVIDER_CHANNEL, (_, provider: unknown) => {
+    if (!isValidProvider(provider)) {
       throw new StorageError('Invalid cloud storage provider switch payload.')
     }
 
-    return setCloudStorageProvider(request)
+    return setCloudStorageProvider(provider)
   })
 
   ipcMain.handle(STORAGE_DELETE_SERVER_CHANNEL, () => deleteConfiguredServer())

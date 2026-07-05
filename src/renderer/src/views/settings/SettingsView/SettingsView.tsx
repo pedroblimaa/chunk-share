@@ -12,7 +12,6 @@ import type { SettingsViewProps } from './SettingsView.model'
 
 const SINGLE_SERVER_DISABLED_REASON = 'Only one server is supported in the MVP.'
 
-// TODO: Move this outside the components folder, and inside the views folder
 function SettingsView({
   serverDisplayState,
   onCreateServer,

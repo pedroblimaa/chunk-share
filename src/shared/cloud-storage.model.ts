@@ -3,10 +3,6 @@ export enum CloudStorageProvider {
   GoogleDrive = 'google-drive'
 }
 
-export enum CloudStorageProviderSwitchDataMode {
-  UseTargetAsIs = 'use-target-as-is'
-}
-
 export enum GoogleDriveSetupStatus {
   NotConfigured = 'not-configured',
   NeedsAuth = 'needs-auth',
@@ -35,16 +31,11 @@ export interface CloudStorageSettings {
 export interface CloudStorageProviderDataSummary {
   provider: CloudStorageProvider
   latestSaveVersion: number | null
-  latestSaveUploadedAt: string | null
+  latestSaveRecordedAt: string | null
   versionCount: number
 }
 
 export interface CloudStorageProviderSwitchPreview {
   source: CloudStorageProviderDataSummary
   target: CloudStorageProviderDataSummary
-}
-
-export interface CloudStorageProviderSwitchRequest {
-  provider: CloudStorageProvider
-  dataMode: CloudStorageProviderSwitchDataMode.UseTargetAsIs
 }

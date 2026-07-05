@@ -16,6 +16,8 @@ import { getServerSyncSnapshot } from '../server-sync/server-sync-service'
 import { getSyncStartBlockedMessage } from '../server-sync/server-sync-messages'
 import { publishServerSave } from '../storage/server-save/server-save-publisher'
 import { restoreLatestServerSave } from '../storage/server-save/server-save-restorer'
+import { runExclusiveStorageOperation } from '../storage/core/storage-operation-coordinator'
+import { ExclusiveStorageOperation } from '../storage/core/storage-operation.model'
 import { localServerFolderPath, localServerJarFilePath } from '../storage/core/storage-paths'
 import { parseMinecraftOutput, type MinecraftOutputEvent } from './minecraft-output-parser'
 import {
@@ -91,6 +93,16 @@ class ServerRuntime {
       throw new ServerRuntimeError('Minecraft server is already starting, running, or stopping.')
     }
 
+    return runExclusiveStorageOperation(
+      ExclusiveStorageOperation.ServerStart,
+      new ServerRuntimeError(
+        'Cannot start Minecraft while another storage operation is in progress.'
+      ),
+      () => this.startServerSession()
+    )
+  }
+
+  private async startServerSession(): Promise<ServerRuntimeSnapshot> {
     let storageSnapshot = await getServerSyncSnapshot()
     let { localState, serverSync } = storageSnapshot
 

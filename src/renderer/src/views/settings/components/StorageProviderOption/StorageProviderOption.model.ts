@@ -1,10 +1,10 @@
-import type { StorageModeProvider } from '../StorageModeSettingsCard/StorageModeSettingsCard.model'
+import type { CloudStorageProvider } from '../../../../../../shared/cloud-storage.model'
 
 export interface StorageProviderOptionProps {
   describedBy?: string
   icon: string
   isSelected: boolean
   label: string
-  onSelect: (provider: StorageModeProvider) => void
-  provider: StorageModeProvider
+  onSelect: (provider: CloudStorageProvider) => void
+  provider: CloudStorageProvider
 }

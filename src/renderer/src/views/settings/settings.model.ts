@@ -18,8 +18,7 @@ export enum StorageSettingsOperation {
   Load = 'load',
   PreviewProviderSwitch = 'preview-provider-switch',
   SetupGoogleDriveFolder = 'setup-google-drive-folder',
-  SwitchProvider = 'switch-provider',
-  ValidateGoogleDriveFolder = 'validate-google-drive-folder'
+  SwitchProvider = 'switch-provider'
 }
 
 export type GoogleDriveStatusViewMap = Record<GoogleDriveSetupStatus, GoogleDriveStatusView>
@@ -33,12 +32,11 @@ export interface StorageProviderOperationState {
 export interface StorageProviderSettingsController {
   storageProviderSettings: CloudStorageSettings | null
   storageProviderSwitchPreview: CloudStorageProviderSwitchPreview | null
-  activeStorageProvider: CloudStorageProvider
+  activeStorageProvider: CloudStorageProvider | null
   operationState: StorageProviderOperationState
   dismissStorageError: () => void
   requestGoogleDriveDisconnect: () => Promise<boolean>
   requestGoogleDriveSetup: () => void
-  requestGoogleDriveValidation: () => void
   requestStorageProviderSwitch: (provider: CloudStorageProvider) => void
   requestStorageProviderSwitchPreview: (provider: CloudStorageProvider) => void
   resetStorageProviderSwitchPreview: () => void

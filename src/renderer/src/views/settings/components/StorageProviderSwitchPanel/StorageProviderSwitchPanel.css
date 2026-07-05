@@ -36,24 +36,9 @@
   padding: 12px;
 }
 
-.settings-provider-switch-warning {
-  background: rgba(255, 108, 108, 0.08);
-  border: 1px solid rgba(255, 108, 108, 0.26);
-  border-radius: 6px;
-  color: var(--color-danger);
-  font-size: var(--font-size-caption);
-  line-height: var(--line-height-copy);
-  margin: 0;
-  padding: 10px 12px;
-}
-
 .settings-provider-switch-actions {
   display: grid;
   gap: 10px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.settings-provider-switch-two-actions {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 

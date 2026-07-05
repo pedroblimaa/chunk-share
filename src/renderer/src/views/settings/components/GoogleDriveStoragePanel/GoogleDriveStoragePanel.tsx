@@ -7,12 +7,13 @@ import Badge from '../../../../components/shared/Badge/Badge'
 import Button from '../../../../components/shared/Button/Button'
 import { StorageSettingsOperation } from '../../settings.model'
 import { useStorageProviderSettings } from '../../hooks/useStorageProviderSettings'
+import { formatNullableDate } from '../../settings-formatters'
 import GoogleDriveDisconnectChoice from '../GoogleDriveDisconnectChoice/GoogleDriveDisconnectChoice'
-import { GOOGLE_DRIVE_STATUS_VIEW } from '../StorageModeSettingsCard/storage-mode-settings.constants'
+import {
+  CLOUD_SWITCH_NOTE,
+  GOOGLE_DRIVE_STATUS_VIEW
+} from '../StorageModeSettingsCard/storage-mode-settings.constants'
 import type { GoogleDriveStoragePanelProps } from './GoogleDriveStoragePanel.model'
-
-export const CLOUD_SWITCH_NOTE =
-  'Google Drive must be configured and validated before becoming the active storage.'
 
 function GoogleDriveStoragePanel({ children }: GoogleDriveStoragePanelProps): React.JSX.Element {
   const storage = useStorageProviderSettings()
@@ -29,10 +30,6 @@ function GoogleDriveStoragePanel({ children }: GoogleDriveStoragePanelProps): Re
     storage.operationState.operation === StorageSettingsOperation.SetupGoogleDriveFolder
       ? 'Working...'
       : idleSetupButtonLabel
-  const validateButtonLabel =
-    storage.operationState.operation === StorageSettingsOperation.ValidateGoogleDriveFolder
-      ? 'Working...'
-      : 'Validate folder access'
   const controlsAreDisabled =
     storage.operationState.isBusy || storage.storageProviderSettings === null
 
@@ -62,7 +59,7 @@ function GoogleDriveStoragePanel({ children }: GoogleDriveStoragePanelProps): Re
         <dl className="settings-drive-details">
           <div>
             <dt>Validated</dt>
-            <dd>{formatNullableDate(googleDriveState.folder.validatedAt)}</dd>
+            <dd>{formatNullableDate(googleDriveState.folder.validatedAt, 'Not validated yet')}</dd>
           </div>
         </dl>
       )}
@@ -88,44 +85,21 @@ function GoogleDriveStoragePanel({ children }: GoogleDriveStoragePanelProps): Re
             </Button>
 
             {googleDriveState?.folder && (
-              <div className="settings-drive-secondary-actions">
-                <Button
-                  fullWidth
-                  disabled={controlsAreDisabled}
-                  icon="sync"
-                  variant="secondary"
-                  onClick={storage.requestGoogleDriveValidation}
-                >
-                  {validateButtonLabel}
-                </Button>
-
-                <Button
-                  fullWidth
-                  disabled={controlsAreDisabled}
-                  icon="link_off"
-                  variant="ghost"
-                  onClick={() => setDisconnectIsPending(true)}
-                >
-                  Disconnect Google Drive
-                </Button>
-              </div>
+              <Button
+                fullWidth
+                disabled={controlsAreDisabled}
+                icon="link_off"
+                variant="ghost"
+                onClick={() => setDisconnectIsPending(true)}
+              >
+                Disconnect Google Drive
+              </Button>
             )}
           </>
         )}
       </div>
     </>
   )
-}
-
-function formatNullableDate(value: string | null): string {
-  if (!value) {
-    return 'Not validated yet'
-  }
-
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: 'medium',
-    timeStyle: 'short'
-  }).format(new Date(value))
 }
 
 export default GoogleDriveStoragePanel

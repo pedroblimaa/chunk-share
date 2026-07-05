@@ -10,7 +10,8 @@ function GoogleDriveDisconnectChoice({
   onCancel
 }: GoogleDriveDisconnectChoiceProps): React.JSX.Element {
   const storage = useStorageProviderSettings()
-  const isBusy =
+  const isBusy = storage.operationState.isBusy
+  const isDisconnecting =
     storage.operationState.operation === StorageSettingsOperation.ClearGoogleDriveFolder
   const isGoogleDriveActive = storage.activeStorageProvider === CloudStorageProvider.GoogleDrive
 
@@ -45,7 +46,7 @@ function GoogleDriveDisconnectChoice({
           variant="danger"
           onClick={handleConfirm}
         >
-          {isBusy ? 'Disconnecting...' : 'Disconnect Google Drive'}
+          {isDisconnecting ? 'Disconnecting...' : 'Disconnect Google Drive'}
         </Button>
         <Button disabled={isBusy} fullWidth variant="ghost" onClick={onCancel}>
           Cancel
