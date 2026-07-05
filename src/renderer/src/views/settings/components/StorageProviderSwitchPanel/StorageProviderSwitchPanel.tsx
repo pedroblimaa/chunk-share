@@ -48,11 +48,7 @@ function StorageProviderSwitchPanel({
 
   if (hasError) {
     return (
-      <div
-        className="settings-provider-switch-panel"
-        role="group"
-        aria-label="Retry storage switch"
-      >
+      <div className="settings-provider-switch-panel" role="group" aria-label="Retry storage switch">
         <div>
           <strong>Unable to check storage data</strong>
           <span>Retry the check or cancel this provider switch.</span>
@@ -137,10 +133,7 @@ function storageProviderHasData(summary: CloudStorageProviderDataSummary): boole
   return summary.latestSaveVersion !== null || summary.versionCount > 0
 }
 
-function StorageProviderDataSummary({
-  label,
-  summary
-}: StorageProviderDataSummaryProps): React.JSX.Element {
+function StorageProviderDataSummary({ label, summary }: StorageProviderDataSummaryProps): React.JSX.Element {
   return (
     <div>
       <strong>{label}</strong>

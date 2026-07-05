@@ -14,9 +14,7 @@ import {
   type GoogleDriveFileResponse
 } from './google-drive.model'
 
-export async function ensureGoogleDriveFolder(
-  configuredFolderId?: string
-): Promise<GoogleDriveFolderConfig> {
+export async function ensureGoogleDriveFolder(configuredFolderId?: string): Promise<GoogleDriveFolderConfig> {
   const oauthClient = await createAuthenticatedDriveClient()
   const folderId = configuredFolderId ?? (await resolveDefaultGoogleDriveFolderId(oauthClient))
 
@@ -55,9 +53,7 @@ async function createAuthenticatedDriveClient(): Promise<OAuth2Client> {
   return createAuthenticatedGoogleOAuthClient(authSession.tokens)
 }
 
-async function findGoogleDriveFolder(
-  oauthClient: OAuth2Client
-): Promise<GoogleDriveFileResponse | null> {
+async function findGoogleDriveFolder(oauthClient: OAuth2Client): Promise<GoogleDriveFileResponse | null> {
   const query = [
     `name = '${escapeGoogleDriveQueryValue(DEFAULT_GOOGLE_DRIVE_FOLDER_NAME)}'`,
     `mimeType = '${GOOGLE_DRIVE_FOLDER_MIME_TYPE}'`,
@@ -163,10 +159,7 @@ function assertUsableGoogleDriveFolder(folder: GoogleDriveFileResponse): void {
 
 function resolveGoogleDriveFileId(file: GoogleDriveFileResponse): string {
   if (!file.id) {
-    throw new GoogleDriveError(
-      'Google Drive did not return a folder ID.',
-      GoogleDriveErrorCode.RequestFailed
-    )
+    throw new GoogleDriveError('Google Drive did not return a folder ID.', GoogleDriveErrorCode.RequestFailed)
   }
 
   return file.id

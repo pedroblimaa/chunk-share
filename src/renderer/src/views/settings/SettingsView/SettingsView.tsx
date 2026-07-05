@@ -53,9 +53,7 @@ function SettingsView({
               </div>
 
               <div className="settings-account-summary">
-                <div
-                  className={`settings-account-avatar${signedInUser?.avatarUrl ? ' has-image' : ''}`}
-                >
+                <div className={`settings-account-avatar${signedInUser?.avatarUrl ? ' has-image' : ''}`}>
                   {signedInUser?.avatarUrl ? (
                     <img src={signedInUser.avatarUrl} alt="" aria-hidden="true" />
                   ) : (

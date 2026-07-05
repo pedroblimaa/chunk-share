@@ -60,11 +60,7 @@ async function updateHostingHeartbeat({
     })
   } catch (error) {
     stopHeartbeat()
-    addLogLine(
-      'ChunkShare',
-      `Unable to update hosting heartbeat: ${getErrorMessage(error)}`,
-      'warning'
-    )
+    addLogLine('ChunkShare', `Unable to update hosting heartbeat: ${getErrorMessage(error)}`, 'warning')
   }
 }
 

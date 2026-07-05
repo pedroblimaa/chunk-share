@@ -1,8 +1,5 @@
 import { useState } from 'react'
-import {
-  CloudStorageProvider,
-  GoogleDriveSetupStatus
-} from '../../../../../../shared/cloud-storage.model'
+import { CloudStorageProvider, GoogleDriveSetupStatus } from '../../../../../../shared/cloud-storage.model'
 import Badge from '../../../../components/shared/Badge/Badge'
 import Button from '../../../../components/shared/Button/Button'
 import { StorageSettingsOperation } from '../../settings.model'
@@ -23,15 +20,12 @@ function GoogleDriveStoragePanel({ children }: GoogleDriveStoragePanelProps): Re
   const googleDriveStatusView = GOOGLE_DRIVE_STATUS_VIEW[googleDriveStatus]
   const googleDriveIsValid = googleDriveStatus === GoogleDriveSetupStatus.Valid
   const isActive = storage.activeStorageProvider === CloudStorageProvider.GoogleDrive
-  const idleSetupButtonLabel = googleDriveState?.folder
-    ? 'Recheck Drive folder'
-    : 'Set up Drive folder'
+  const idleSetupButtonLabel = googleDriveState?.folder ? 'Recheck Drive folder' : 'Set up Drive folder'
   const setupButtonLabel =
     storage.operationState.operation === StorageSettingsOperation.SetupGoogleDriveFolder
       ? 'Working...'
       : idleSetupButtonLabel
-  const controlsAreDisabled =
-    storage.operationState.isBusy || storage.storageProviderSettings === null
+  const controlsAreDisabled = storage.operationState.isBusy || storage.storageProviderSettings === null
 
   return (
     <>

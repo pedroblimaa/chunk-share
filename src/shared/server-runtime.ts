@@ -2,13 +2,7 @@ import type { ServerConnectionAddress, ServerStatus } from './domain'
 
 export type { ServerConnectionAddress } from './domain'
 
-export type ServerRuntimeStatus =
-  | 'stopped'
-  | 'starting'
-  | 'running'
-  | 'stopping'
-  | 'crashed'
-  | 'error'
+export type ServerRuntimeStatus = 'stopped' | 'starting' | 'running' | 'stopping' | 'crashed' | 'error'
 
 export function isServerActiveStatus(status: ServerRuntimeStatus | ServerStatus): boolean {
   return status === 'starting' || status === 'running' || status === 'stopping'

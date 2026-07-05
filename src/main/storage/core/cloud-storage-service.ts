@@ -103,9 +103,7 @@ export function clearGoogleDriveFolder(): Promise<CloudStorageSettings> {
   })
 }
 
-export function setCloudStorageProvider(
-  provider: CloudStorageProvider
-): Promise<CloudStorageSettings> {
+export function setCloudStorageProvider(provider: CloudStorageProvider): Promise<CloudStorageSettings> {
   return runStorageSettingsChange(async () => {
     const settings = await readCloudStorageSettings()
 
@@ -220,14 +218,10 @@ function assertServerIsNotActive(): void {
   }
 }
 
-function runStorageSettingsChange<Result>(
-  executeOperation: () => Promise<Result>
-): Promise<Result> {
+function runStorageSettingsChange<Result>(executeOperation: () => Promise<Result>): Promise<Result> {
   return runExclusiveStorageOperation(
     ExclusiveStorageOperation.StorageSettingsChange,
-    new StorageError(
-      'Cannot change storage settings while another storage operation is in progress.'
-    ),
+    new StorageError('Cannot change storage settings while another storage operation is in progress.'),
     executeOperation
   )
 }
@@ -262,9 +256,7 @@ async function validateTargetProvider(
   }
 
   if (!hasValidGoogleDriveFolder(settings.googleDrive)) {
-    throw new StorageError(
-      settings.googleDrive.errorMessage ?? GOOGLE_DRIVE_NOT_READY_ERROR_MESSAGE
-    )
+    throw new StorageError(settings.googleDrive.errorMessage ?? GOOGLE_DRIVE_NOT_READY_ERROR_MESSAGE)
   }
 
   let validatedFolder: GoogleDriveFolderConfig

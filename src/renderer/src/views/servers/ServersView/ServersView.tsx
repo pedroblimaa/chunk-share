@@ -3,10 +3,7 @@ import './ServersView.css'
 import { useEffect, useState } from 'react'
 import type { ServerDisplayState } from '../../../../../shared/dashboard'
 import { ServerLockStatus } from '../../../../../shared/domain'
-import {
-  isServerActiveStatus,
-  type ServerRuntimeSnapshot
-} from '../../../../../shared/server-runtime'
+import { isServerActiveStatus, type ServerRuntimeSnapshot } from '../../../../../shared/server-runtime'
 import { ServerSyncStatus } from '../../../../../shared/server-sync'
 import AppSidebar from '../../../components/shared/AppSidebar/AppSidebar'
 import Button from '../../../components/shared/Button/Button'
@@ -43,9 +40,7 @@ function getCardServerStatus(
     return runtimeSnapshot.status
   }
 
-  return serverDisplayState.serverStatus === 'not-configured'
-    ? 'stopped'
-    : serverDisplayState.serverStatus
+  return serverDisplayState.serverStatus === 'not-configured' ? 'stopped' : serverDisplayState.serverStatus
 }
 
 function createConfiguredServer(

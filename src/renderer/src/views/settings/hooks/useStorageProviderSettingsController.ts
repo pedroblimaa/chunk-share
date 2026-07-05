@@ -8,8 +8,7 @@ import { getErrorMessage } from '../../../utils/error-message'
 import { StorageSettingsOperation, type StorageProviderSettingsController } from '../settings.model'
 
 export function useStorageProviderSettingsController(): StorageProviderSettingsController {
-  const [storageProviderSettings, setStorageProviderSettings] =
-    useState<CloudStorageSettings | null>(null)
+  const [storageProviderSettings, setStorageProviderSettings] = useState<CloudStorageSettings | null>(null)
   const [currentOperation, setCurrentOperation] = useState<StorageSettingsOperation>(
     StorageSettingsOperation.Load
   )

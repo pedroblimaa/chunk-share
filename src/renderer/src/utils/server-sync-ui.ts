@@ -1,10 +1,6 @@
 import { ServerHostingStatus, ServerLockStatus, type LatestSave } from '../../../shared/domain'
 import { ServerSyncStatus, type ServerSyncSnapshot } from '../../../shared/server-sync'
-import {
-  SERVER_SYNC_VIEW_BY_STATUS,
-  ServerSyncTone,
-  type ServerSyncView
-} from './server-sync-ui-constants'
+import { SERVER_SYNC_VIEW_BY_STATUS, ServerSyncTone, type ServerSyncView } from './server-sync-ui-constants'
 
 export type ServerSaveSyncBadgeTone = 'neutral' | 'success' | 'warning' | 'danger'
 
@@ -19,9 +15,7 @@ export function getServerSyncView(syncStatus: ServerSyncSnapshot): ServerSyncVie
   if (syncStatus.status === ServerSyncStatus.LockedByOther) {
     const hostName = syncStatus.lockedBy?.displayName ?? 'someone'
     const hostingStatus =
-      syncStatus.serverLock.status === ServerLockStatus.Locked
-        ? syncStatus.serverLock.hostingStatus
-        : null
+      syncStatus.serverLock.status === ServerLockStatus.Locked ? syncStatus.serverLock.hostingStatus : null
     const remoteHostIsStarting = hostingStatus === ServerHostingStatus.Starting
     const remoteHostIsStopping = hostingStatus === ServerHostingStatus.Stopping
     const remoteHostIsTransitioning = remoteHostIsStarting || remoteHostIsStopping
@@ -30,9 +24,7 @@ export function getServerSyncView(syncStatus: ServerSyncSnapshot): ServerSyncVie
 
     return {
       ...view,
-      label: remoteHostIsTransitioning
-        ? `${transitionLabel} with ${hostName}`
-        : `Online with ${hostName}`,
+      label: remoteHostIsTransitioning ? `${transitionLabel} with ${hostName}` : `Online with ${hostName}`,
       tone: remoteHostIsTransitioning ? ServerSyncTone.Warning : view.tone,
       actionLabel: remoteHostIsTransitioning ? `${transitionLabel}...` : view.actionLabel,
       message: remoteHostIsTransitioning ? transitionMessage : view.message

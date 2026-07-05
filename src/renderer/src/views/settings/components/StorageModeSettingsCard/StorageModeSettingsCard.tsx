@@ -1,10 +1,7 @@
 import './StorageModeSettingsCard.css'
 
 import { useState } from 'react'
-import {
-  CloudStorageProvider,
-  GoogleDriveSetupStatus
-} from '../../../../../../shared/cloud-storage.model'
+import { CloudStorageProvider, GoogleDriveSetupStatus } from '../../../../../../shared/cloud-storage.model'
 import Card from '../../../../components/shared/Card/Card'
 import MaterialIcon from '../../../../components/shared/MaterialIcon/MaterialIcon'
 import Tooltip from '../../../../components/shared/Tooltip/Tooltip'
@@ -19,13 +16,10 @@ import { STORAGE_MODE_INFO } from './storage-mode-settings.constants'
 function StorageModeSettingsCard(): React.JSX.Element {
   const storage = useStorageProviderSettings()
   const [selectedProvider, setSelectedProvider] = useState<CloudStorageProvider | null>(null)
-  const [switchTargetProvider, setSwitchTargetProvider] = useState<CloudStorageProvider | null>(
-    null
-  )
+  const [switchTargetProvider, setSwitchTargetProvider] = useState<CloudStorageProvider | null>(null)
   const activeProvider = storage.activeStorageProvider
   const displayedProvider = selectedProvider ?? activeProvider ?? CloudStorageProvider.Local
-  const effectiveSwitchTargetProvider =
-    switchTargetProvider === activeProvider ? null : switchTargetProvider
+  const effectiveSwitchTargetProvider = switchTargetProvider === activeProvider ? null : switchTargetProvider
   const googleDriveIsValid =
     storage.storageProviderSettings?.googleDrive.status === GoogleDriveSetupStatus.Valid
 
@@ -33,8 +27,7 @@ function StorageModeSettingsCard(): React.JSX.Element {
     setSelectedProvider(provider)
 
     const isActiveProvider = provider === activeProvider
-    const isInvalidGoogleDrive =
-      provider === CloudStorageProvider.GoogleDrive && !googleDriveIsValid
+    const isInvalidGoogleDrive = provider === CloudStorageProvider.GoogleDrive && !googleDriveIsValid
 
     if (isActiveProvider || isInvalidGoogleDrive) {
       cancelProviderSwitch()
@@ -116,8 +109,7 @@ function StorageModeSettingsCard(): React.JSX.Element {
 
       {displayedProvider === CloudStorageProvider.GoogleDrive && (
         <GoogleDriveStoragePanel>
-          {effectiveSwitchTargetProvider === CloudStorageProvider.GoogleDrive &&
-            providerSwitchPanel}
+          {effectiveSwitchTargetProvider === CloudStorageProvider.GoogleDrive && providerSwitchPanel}
         </GoogleDriveStoragePanel>
       )}
     </Card>

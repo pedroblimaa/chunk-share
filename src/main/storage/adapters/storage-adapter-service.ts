@@ -12,9 +12,7 @@ export async function getActiveStorageAdapter(): Promise<StorageAdapter> {
   return getStorageAdapterForProvider(settings.activeProvider)
 }
 
-export async function getStorageAdapterForProvider(
-  provider: CloudStorageProvider
-): Promise<StorageAdapter> {
+export async function getStorageAdapterForProvider(provider: CloudStorageProvider): Promise<StorageAdapter> {
   if (provider === CloudStorageProvider.Local) {
     return localStorageAdapter
   }

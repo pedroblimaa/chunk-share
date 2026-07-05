@@ -39,16 +39,14 @@ import type {
 const chunkShareApi = {
   auth: {
     getSession: (): Promise<ServerDisplayState> => ipcRenderer.invoke(AUTH_GET_SESSION_CHANNEL),
-    signInWithGoogle: (): Promise<ServerDisplayState> =>
-      ipcRenderer.invoke(AUTH_SIGN_IN_WITH_GOOGLE_CHANNEL),
+    signInWithGoogle: (): Promise<ServerDisplayState> => ipcRenderer.invoke(AUTH_SIGN_IN_WITH_GOOGLE_CHANNEL),
     signOut: (): Promise<ServerDisplayState> => ipcRenderer.invoke(AUTH_SIGN_OUT_CHANNEL)
   },
   dashboard: {
     getSnapshot: (): Promise<ServerDisplayState> => ipcRenderer.invoke(DASHBOARD_SNAPSHOT_CHANNEL)
   },
   serverRuntime: {
-    getSnapshot: (): Promise<ServerRuntimeSnapshot> =>
-      ipcRenderer.invoke(SERVER_RUNTIME_SNAPSHOT_CHANNEL),
+    getSnapshot: (): Promise<ServerRuntimeSnapshot> => ipcRenderer.invoke(SERVER_RUNTIME_SNAPSHOT_CHANNEL),
     start: (): Promise<ServerRuntimeSnapshot> => ipcRenderer.invoke(SERVER_RUNTIME_START_CHANNEL),
     stop: (): Promise<ServerRuntimeSnapshot> => ipcRenderer.invoke(SERVER_RUNTIME_STOP_CHANNEL),
     onEvent: (listener: (event: ServerRuntimeEvent) => void): (() => void) => {
@@ -77,8 +75,7 @@ const chunkShareApi = {
       ipcRenderer.invoke(STORAGE_GET_PROVIDER_SWITCH_PREVIEW_CHANNEL, provider),
     setCloudStorageProvider: (provider: CloudStorageProvider): Promise<CloudStorageSettings> =>
       ipcRenderer.invoke(STORAGE_SET_PROVIDER_CHANNEL, provider),
-    deleteServer: (): Promise<ServerStorageSnapshot> =>
-      ipcRenderer.invoke(STORAGE_DELETE_SERVER_CHANNEL),
+    deleteServer: (): Promise<ServerStorageSnapshot> => ipcRenderer.invoke(STORAGE_DELETE_SERVER_CHANNEL),
     resetServerLock: (): Promise<ServerStorageSnapshot> =>
       ipcRenderer.invoke(STORAGE_RESET_SERVER_LOCK_CHANNEL),
     saveServerConfig: (serverConfig: ServerConfig): Promise<ServerStorageSnapshot> =>
@@ -90,10 +87,7 @@ const chunkShareApi = {
     setupVanillaServer: (input: SetupVanillaServerInput): Promise<ServerStorageSnapshot> =>
       ipcRenderer.invoke(SERVER_SETUP_SETUP_VANILLA_SERVER_CHANNEL, input),
     onProgress: (listener: (event: ServerSetupProgressEvent) => void): (() => void) => {
-      const progressListener = (
-        _: Electron.IpcRendererEvent,
-        event: ServerSetupProgressEvent
-      ): void => {
+      const progressListener = (_: Electron.IpcRendererEvent, event: ServerSetupProgressEvent): void => {
         listener(event)
       }
 

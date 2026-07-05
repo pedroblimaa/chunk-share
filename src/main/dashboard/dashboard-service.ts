@@ -84,11 +84,7 @@ function buildServerDisplayState(storageSnapshot: ServerStorageSnapshot): Server
   const { localState, serverSync } = storageSnapshot
   const signedInUser = getSignedInUserFromPlayer(localState.player)
   const serverConfigured = localState.serverSetup.status === 'ready'
-  const serverStatus = getDisplayServerStatus(
-    storageSnapshot,
-    runtimeSnapshot.status,
-    serverConfigured
-  )
+  const serverStatus = getDisplayServerStatus(storageSnapshot, runtimeSnapshot.status, serverConfigured)
   const serverIsRunning = isServerActiveStatus(runtimeSnapshot.status)
   const connectionAddresses = getSnapshotConnectionAddresses(
     storageSnapshot,

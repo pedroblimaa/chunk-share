@@ -4,11 +4,7 @@ interface MaterialIconProps {
   className?: string
 }
 
-function MaterialIcon({
-  name,
-  filled = false,
-  className = ''
-}: MaterialIconProps): React.JSX.Element {
+function MaterialIcon({ name, filled = false, className = '' }: MaterialIconProps): React.JSX.Element {
   const classes = ['material-symbols-outlined', filled ? 'material-icon-filled' : '', className]
     .filter(Boolean)
     .join(' ')

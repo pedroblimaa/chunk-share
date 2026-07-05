@@ -11,11 +11,7 @@ import {
   serverLockFilePath
 } from '../core/storage-paths'
 import { isLatestSave, isServerLock } from '../core/storage-validation'
-import {
-  readJsonFileOrDefault,
-  readOrCreateJsonFile,
-  writeJsonFile
-} from '../persistence/json-file-store'
+import { readJsonFileOrDefault, readOrCreateJsonFile, writeJsonFile } from '../persistence/json-file-store'
 import type { ServerSaveVersionFile, StorageAdapter } from './storage-adapter.model'
 
 const SERVER_SAVE_FILE_PATTERN = /^server-v(\d+)\.zip$/
@@ -115,10 +111,7 @@ async function uploadServerSaveVersion(fileName: string, localZipPath: string): 
   }
 }
 
-async function downloadServerSaveVersion(
-  fileName: string,
-  localDestinationPath: string
-): Promise<void> {
+async function downloadServerSaveVersion(fileName: string, localDestinationPath: string): Promise<void> {
   await mkdir(dirname(localDestinationPath), { recursive: true })
   await copyFile(getServerSaveVersionPath(fileName), localDestinationPath)
 }

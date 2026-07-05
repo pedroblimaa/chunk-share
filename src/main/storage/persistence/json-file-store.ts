@@ -41,11 +41,7 @@ export async function readJsonFileOrDefault<T>(
   }
 }
 
-export async function writeJsonFile<T>(
-  filePath: string,
-  value: T,
-  validate?: Validator<T>
-): Promise<void> {
+export async function writeJsonFile<T>(filePath: string, value: T, validate?: Validator<T>): Promise<void> {
   if (validate && !validate(value)) {
     throw new StorageError(`Refusing to write invalid data shape to ${filePath}`)
   }

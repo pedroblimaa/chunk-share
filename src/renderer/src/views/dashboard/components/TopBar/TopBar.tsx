@@ -69,12 +69,7 @@ function TopBar({
         <button className="icon-button" type="button" aria-label="Notifications">
           <MaterialIcon name="notifications" />
         </button>
-        <button
-          className="icon-button"
-          type="button"
-          aria-label="Settings"
-          onClick={onOpenSettings}
-        >
+        <button className="icon-button" type="button" aria-label="Settings" onClick={onOpenSettings}>
           <MaterialIcon name="settings" />
         </button>
         <Tooltip content={createInstanceDisabled ? createInstanceTitle : undefined}>
@@ -100,12 +95,7 @@ function TopBar({
                 <span>{user?.name ?? 'ChunkShare user'}</span>
                 {user?.email && <small>{user.email}</small>}
               </div>
-              <button
-                className="account-popover-action"
-                type="button"
-                role="menuitem"
-                onClick={signOut}
-              >
+              <button className="account-popover-action" type="button" role="menuitem" onClick={signOut}>
                 <MaterialIcon name="logout" />
                 <span>Sign out</span>
               </button>

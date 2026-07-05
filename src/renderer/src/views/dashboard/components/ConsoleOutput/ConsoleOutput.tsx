@@ -76,11 +76,7 @@ function ConsoleOutput({ logs }: ConsoleOutputProps): React.JSX.Element {
           >
             <MaterialIcon
               name={
-                copyStatus === 'copied'
-                  ? 'check'
-                  : copyStatus === 'failed'
-                    ? 'error_outline'
-                    : 'content_copy'
+                copyStatus === 'copied' ? 'check' : copyStatus === 'failed' ? 'error_outline' : 'content_copy'
               }
             />
           </button>

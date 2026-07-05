@@ -28,10 +28,7 @@ import {
   updateServerConfig
 } from '../storage/core/storage-service'
 import { StorageError } from '../storage/core/storage-error'
-import {
-  isCloudStorageProvider as isValidProvider,
-  isServerConfig
-} from '../storage/core/storage-validation'
+import { isCloudStorageProvider as isValidProvider, isServerConfig } from '../storage/core/storage-validation'
 
 export function registerStorageIpcHandlers(): void {
   ipcMain.handle(STORAGE_SNAPSHOT_CHANNEL, () => getStorageSnapshot())
