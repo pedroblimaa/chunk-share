@@ -1,9 +1,11 @@
 import type { ReactNode } from 'react'
 import type {
   CloudStorageProvider,
+  StorageSwitchDataMode,
   CloudStorageProviderSwitchPreview,
   CloudStorageSettings,
-  GoogleDriveSetupStatus
+  GoogleDriveSetupStatus,
+  StorageProviderCopyProgress
 } from '../../../../shared/cloud-storage.model'
 import type { BadgeTone } from '../../components/shared/Badge/Badge.model'
 
@@ -14,6 +16,7 @@ export interface GoogleDriveStatusView {
 
 export enum StorageSettingsOperation {
   ClearGoogleDriveFolder = 'clear-google-drive-folder',
+  CopyProviderData = 'copy-provider-data',
   Idle = 'idle',
   Load = 'load',
   PreviewProviderSwitch = 'preview-provider-switch',
@@ -31,14 +34,22 @@ export interface StorageProviderOperationState {
 
 export interface StorageProviderSettingsController {
   storageProviderSettings: CloudStorageSettings | null
+  storageProviderCopyProgress: StorageProviderCopyProgress | null
   storageProviderSwitchPreview: CloudStorageProviderSwitchPreview | null
   activeStorageProvider: CloudStorageProvider | null
   operationState: StorageProviderOperationState
   dismissStorageError: () => void
   requestGoogleDriveDisconnect: () => Promise<boolean>
   requestGoogleDriveSetup: () => void
-  requestStorageProviderSwitch: (provider: CloudStorageProvider) => void
-  requestStorageProviderSwitchPreview: (provider: CloudStorageProvider) => void
+  requestStorageProviderSettingsLoad: () => void
+  requestStorageProviderSwitch: (
+    provider: CloudStorageProvider,
+    dataMode: StorageSwitchDataMode,
+    expectedPreview?: CloudStorageProviderSwitchPreview
+  ) => Promise<boolean>
+  requestStorageProviderSwitchPreview: (
+    provider: CloudStorageProvider
+  ) => Promise<CloudStorageProviderSwitchPreview | null>
   resetStorageProviderSwitchPreview: () => void
 }
 

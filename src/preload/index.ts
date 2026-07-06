@@ -2,7 +2,9 @@ import { contextBridge, ipcRenderer } from 'electron'
 import type {
   CloudStorageProvider,
   CloudStorageProviderSwitchPreview,
-  CloudStorageSettings
+  CloudStorageProviderSwitchRequest,
+  CloudStorageSettings,
+  StorageProviderCopyProgress
 } from '../shared/cloud-storage.model'
 import type { ServerDisplayState } from '../shared/dashboard'
 import type { ServerConfig, ServerStorageSnapshot } from '../shared/domain'
@@ -22,6 +24,7 @@ import {
   STORAGE_CLOUD_SETTINGS_CHANNEL,
   STORAGE_DELETE_SERVER_CHANNEL,
   STORAGE_GET_PROVIDER_SWITCH_PREVIEW_CHANNEL,
+  STORAGE_PROVIDER_COPY_PROGRESS_CHANNEL,
   STORAGE_RESET_SERVER_LOCK_CHANNEL,
   STORAGE_SAVE_SERVER_CONFIG_CHANNEL,
   STORAGE_SET_PROVIDER_CHANNEL,
@@ -73,8 +76,16 @@ const chunkShareApi = {
       provider: CloudStorageProvider
     ): Promise<CloudStorageProviderSwitchPreview> =>
       ipcRenderer.invoke(STORAGE_GET_PROVIDER_SWITCH_PREVIEW_CHANNEL, provider),
-    setCloudStorageProvider: (provider: CloudStorageProvider): Promise<CloudStorageSettings> =>
-      ipcRenderer.invoke(STORAGE_SET_PROVIDER_CHANNEL, provider),
+    setCloudStorageProvider: (request: CloudStorageProviderSwitchRequest): Promise<CloudStorageSettings> =>
+      ipcRenderer.invoke(STORAGE_SET_PROVIDER_CHANNEL, request),
+    onProviderCopyProgress: (listener: (progress: StorageProviderCopyProgress) => void): (() => void) => {
+      const handler = (_: Electron.IpcRendererEvent, progress: StorageProviderCopyProgress): void =>
+        listener(progress)
+
+      ipcRenderer.on(STORAGE_PROVIDER_COPY_PROGRESS_CHANNEL, handler)
+
+      return () => ipcRenderer.removeListener(STORAGE_PROVIDER_COPY_PROGRESS_CHANNEL, handler)
+    },
     deleteServer: (): Promise<ServerStorageSnapshot> => ipcRenderer.invoke(STORAGE_DELETE_SERVER_CHANNEL),
     resetServerLock: (): Promise<ServerStorageSnapshot> =>
       ipcRenderer.invoke(STORAGE_RESET_SERVER_LOCK_CHANNEL),

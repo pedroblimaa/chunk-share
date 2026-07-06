@@ -109,6 +109,8 @@ async function updateHostingLockStatus(
 
 async function assertHostingLockCanBeAcquired(): Promise<void> {
   const storageAdapter = await getActiveStorageAdapter()
+  await storageAdapter.assertNoStorageMutationInProgress()
+
   const serverLock = await storageAdapter.readServerLock()
 
   if (serverLock.status === ServerLockStatus.Unlocked) {

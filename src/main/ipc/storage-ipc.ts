@@ -28,7 +28,12 @@ import {
   updateServerConfig
 } from '../storage/core/storage-service'
 import { StorageError } from '../storage/core/storage-error'
-import { isCloudStorageProvider as isValidProvider, isServerConfig } from '../storage/core/storage-validation'
+import {
+  isCloudStorageProvider as isValidProvider,
+  isValidProviderSwitchRequest,
+  isServerConfig
+} from '../storage/core/storage-validation'
+import { createCopyProgressSender } from './storage-progress-sender'
 
 export function registerStorageIpcHandlers(): void {
   ipcMain.handle(STORAGE_SNAPSHOT_CHANNEL, () => getStorageSnapshot())
@@ -49,12 +54,12 @@ export function registerStorageIpcHandlers(): void {
     return getStorageProviderSwitchPreview(provider)
   })
 
-  ipcMain.handle(STORAGE_SET_PROVIDER_CHANNEL, (_, provider: unknown) => {
-    if (!isValidProvider(provider)) {
+  ipcMain.handle(STORAGE_SET_PROVIDER_CHANNEL, (event, request: unknown) => {
+    if (!isValidProviderSwitchRequest(request)) {
       throw new StorageError('Invalid cloud storage provider switch payload.')
     }
 
-    return setCloudStorageProvider(provider)
+    return setCloudStorageProvider(request, createCopyProgressSender(event.sender))
   })
 
   ipcMain.handle(STORAGE_DELETE_SERVER_CHANNEL, () => deleteConfiguredServer())

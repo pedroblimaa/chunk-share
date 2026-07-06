@@ -1,7 +1,9 @@
 import {
   CloudStorageProvider,
+  StorageSwitchDataMode,
   GoogleDriveSetupStatus,
   type CloudStorageProviderDataSummary,
+  type CloudStorageProviderSwitchRequest,
   type CloudStorageProviderSwitchPreview,
   type CloudStorageSettings,
   type GoogleDriveFolderConfig
@@ -21,11 +23,13 @@ import {
   writeCloudStorageSettings
 } from '../persistence/cloud-storage-settings-store'
 import { saveLocalSaveVersion } from '../persistence/local-state-store'
-import { hasValidGoogleDriveFolder } from './storage-validation'
-import { StorageError } from './storage-error'
 import { GOOGLE_DRIVE_NOT_READY_ERROR_MESSAGE } from './cloud-storage-messages'
+import { StorageError } from './storage-error'
 import { runExclusiveStorageOperation } from './storage-operation-coordinator'
 import { ExclusiveStorageOperation } from './storage-operation.model'
+import type { StorageProviderCopyProgressListener } from './storage-provider-copy.model'
+import { executeStorageProviderCopy, createVisibleProgressReporter } from './storage-provider-copy-service'
+import { hasValidGoogleDriveFolder } from './storage-validation'
 
 export async function getCloudStorageSettings(): Promise<CloudStorageSettings> {
   return readCloudStorageSettings()
@@ -103,11 +107,32 @@ export function clearGoogleDriveFolder(): Promise<CloudStorageSettings> {
   })
 }
 
-export function setCloudStorageProvider(provider: CloudStorageProvider): Promise<CloudStorageSettings> {
+export function setCloudStorageProvider(
+  request: CloudStorageProviderSwitchRequest,
+  onCopyProgress: StorageProviderCopyProgressListener = () => undefined
+): Promise<CloudStorageSettings> {
   return runStorageSettingsChange(async () => {
     const settings = await readCloudStorageSettings()
 
-    return switchCloudStorageProvider(settings, provider)
+    if (settings.activeProvider === request.provider) {
+      return settings
+    }
+
+    await assertCloudStorageProviderCanSwitch(settings.activeProvider, request.provider)
+    const validatedSettings = await validateAndPrepareTargetProvider(settings, request.provider)
+
+    if (request.dataMode === StorageSwitchDataMode.UseTargetAsIs) {
+      return activateCloudStorageProvider(validatedSettings, request.provider)
+    }
+
+    return executeStorageProviderCopy(
+      settings,
+      validatedSettings,
+      request.provider,
+      request.expectedPreview,
+      createVisibleProgressReporter(settings.activeProvider, request.provider, onCopyProgress),
+      activateCloudStorageProvider
+    )
   })
 }
 
@@ -120,7 +145,7 @@ async function switchCloudStorageProvider(
   }
 
   await assertCloudStorageProviderCanSwitch(settings.activeProvider, provider)
-  const validatedSettings = await validateTargetProvider(settings, provider)
+  const validatedSettings = await validateAndPrepareTargetProvider(settings, provider)
 
   return activateCloudStorageProvider(validatedSettings, provider)
 }
@@ -246,7 +271,7 @@ async function assertStorageProviderIsUnlocked(provider: CloudStorageProvider): 
   }
 }
 
-async function validateTargetProvider(
+async function validateAndPrepareTargetProvider(
   settings: CloudStorageSettings,
   provider: CloudStorageProvider
 ): Promise<CloudStorageSettings> {

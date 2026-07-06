@@ -1,6 +1,6 @@
 import { useContext } from 'react'
-import { StorageProviderSettingsContext } from '../storage-provider-settings-context'
 import type { StorageProviderSettingsController } from '../settings.model'
+import { StorageProviderSettingsContext } from '../storage-provider-settings-context'
 
 export function useStorageProviderSettings(): StorageProviderSettingsController {
   const controller = useContext(StorageProviderSettingsContext)

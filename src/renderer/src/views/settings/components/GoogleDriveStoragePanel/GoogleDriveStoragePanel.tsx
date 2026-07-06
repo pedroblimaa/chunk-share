@@ -1,68 +1,50 @@
 import { useState } from 'react'
-import { CloudStorageProvider, GoogleDriveSetupStatus } from '../../../../../../shared/cloud-storage.model'
 import Badge from '../../../../components/shared/Badge/Badge'
 import Button from '../../../../components/shared/Button/Button'
-import { StorageSettingsOperation } from '../../settings.model'
 import { useStorageProviderSettings } from '../../hooks/useStorageProviderSettings'
 import { formatNullableDate } from '../../settings-formatters'
 import GoogleDriveDisconnectChoice from '../GoogleDriveDisconnectChoice/GoogleDriveDisconnectChoice'
-import {
-  CLOUD_SWITCH_NOTE,
-  GOOGLE_DRIVE_STATUS_VIEW
-} from '../StorageModeSettingsCard/storage-mode-settings.constants'
+import { CLOUD_SWITCH_NOTE } from '../StorageModeSettingsCard/storage-mode-settings.constants'
 import type { GoogleDriveStoragePanelProps } from './GoogleDriveStoragePanel.model'
+import { useDrivePanelState } from './useDrivePanelState'
 
-function GoogleDriveStoragePanel({ children }: GoogleDriveStoragePanelProps): React.JSX.Element {
+function GoogleDriveStoragePanel({ onActivate }: GoogleDriveStoragePanelProps): React.JSX.Element {
   const storage = useStorageProviderSettings()
   const [disconnectIsPending, setDisconnectIsPending] = useState(false)
-  const googleDriveState = storage.storageProviderSettings?.googleDrive
-  const googleDriveStatus = googleDriveState?.status ?? GoogleDriveSetupStatus.NotConfigured
-  const googleDriveStatusView = GOOGLE_DRIVE_STATUS_VIEW[googleDriveStatus]
-  const googleDriveIsValid = googleDriveStatus === GoogleDriveSetupStatus.Valid
-  const isActive = storage.activeStorageProvider === CloudStorageProvider.GoogleDrive
-  const idleSetupButtonLabel = googleDriveState?.folder ? 'Recheck Drive folder' : 'Set up Drive folder'
-  const setupButtonLabel =
-    storage.operationState.operation === StorageSettingsOperation.SetupGoogleDriveFolder
-      ? 'Working...'
-      : idleSetupButtonLabel
-  const controlsAreDisabled = storage.operationState.isBusy || storage.storageProviderSettings === null
+  const state = useDrivePanelState(storage, onActivate)
 
   return (
     <>
-      {!googleDriveIsValid && (
+      {!state.isValid && (
         <p className="settings-storage-note" id="settings-cloud-switch-note">
           {CLOUD_SWITCH_NOTE}
         </p>
       )}
 
-      <div className={`settings-storage-panel${isActive ? ' is-active' : ''}`}>
+      <div className={`settings-storage-panel${state.isActive ? ' is-active' : ''}`}>
         <div>
           <strong>Google Drive</strong>
-          <span>{googleDriveState?.folder?.folderName ?? 'Shared folder sync'}</span>
+          <span>{state.folderName}</span>
         </div>
-        {isActive ? (
+        {state.isActive ? (
           <Badge dot>Active</Badge>
         ) : (
-          <Badge className="settings-pending-badge" tone={googleDriveStatusView.tone}>
-            {googleDriveStatusView.label}
+          <Badge className="settings-pending-badge" tone={state.statusView.tone}>
+            {state.statusView.label}
           </Badge>
         )}
       </div>
 
-      {googleDriveState?.folder && (
+      {state.hasFolder && (
         <dl className="settings-drive-details">
           <div>
             <dt>Validated</dt>
-            <dd>{formatNullableDate(googleDriveState.folder.validatedAt, 'Not validated yet')}</dd>
+            <dd>{formatNullableDate(state.validatedAt, 'Not validated yet')}</dd>
           </div>
         </dl>
       )}
 
-      {googleDriveState?.errorMessage && (
-        <p className="settings-drive-error">{googleDriveState.errorMessage}</p>
-      )}
-
-      {children}
+      {state.errorMessage && <p className="settings-drive-error">{state.errorMessage}</p>}
 
       <div className="settings-drive-actions">
         {disconnectIsPending ? (
@@ -70,18 +52,20 @@ function GoogleDriveStoragePanel({ children }: GoogleDriveStoragePanelProps): Re
         ) : (
           <>
             <Button
+              aria-busy={state.primaryActionIsRunning}
+              className={state.primaryActionIsRunning ? 'settings-storage-button-loading' : undefined}
               fullWidth
-              disabled={controlsAreDisabled}
-              icon="create_new_folder"
-              onClick={storage.requestGoogleDriveSetup}
+              disabled={state.controlsAreDisabled}
+              icon={state.primaryAction.icon}
+              onClick={state.runPrimaryAction}
             >
-              {setupButtonLabel}
+              {state.primaryAction.label}
             </Button>
 
-            {googleDriveState?.folder && (
+            {state.hasFolder && (
               <Button
                 fullWidth
-                disabled={controlsAreDisabled}
+                disabled={state.controlsAreDisabled}
                 icon="link_off"
                 variant="ghost"
                 onClick={() => setDisconnectIsPending(true)}
