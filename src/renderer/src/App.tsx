@@ -96,6 +96,7 @@ function App(): React.JSX.Element {
             onNavigateToServers={() => setAppView('servers')}
             onOpenSettings={openSettings}
             onSignOut={signOut}
+            onStorageProviderChange={refreshServerDisplayState}
           />
         )
 

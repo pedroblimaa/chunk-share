@@ -7,10 +7,15 @@ import type { ReadableStream as NodeReadableStream } from 'stream/web'
 import type { LocalState, ServerConfig } from '../../shared/domain'
 import {
   ServerSetupProgressStep as Step,
+  type DownloadSharedServerInput,
   type ServerSetupProgressEvent,
   type SetupVanillaServerInput
 } from '../../shared/server-setup'
-import { saveServerSetupResult, saveServerSetupState } from '../storage/persistence/local-state-store'
+import {
+  saveRestoredServerSetupResult,
+  saveServerSetupResult,
+  saveServerSetupState
+} from '../storage/persistence/local-state-store'
 import {
   localServerEulaFilePath,
   localServerFolderPath,
@@ -18,13 +23,18 @@ import {
   localServerPropertiesFilePath
 } from '../storage/core/storage-paths'
 import { getActiveStorageAdapter } from '../storage/adapters/storage-adapter-service'
+import { getServerSyncSnapshot } from '../server-sync/server-sync-service'
+import { ExclusiveStorageOperation } from '../storage/core/storage-operation.model'
+import { runExclusiveStorageOperation } from '../storage/core/storage-operation-coordinator'
 import { backupServerFolder } from '../storage/server-save/server-folder-backup'
+import { restoreLatestServerSave } from '../storage/server-save/server-save-restorer'
 import { ServerSetupError } from './server-setup-error'
 import { resolveVanillaServerDownload } from './vanilla-version-resolver'
 
 const SERVER_JAR_TEMP_FILE_PATH = `${localServerJarFilePath}.tmp`
 const DEFAULT_LEVEL_NAME = 'world'
 const DEFAULT_MOTD = 'ChunkShare Minecraft Server'
+const DEFAULT_SERVER_PORT = 25565
 type ServerSetupProgressListener = (event: ServerSetupProgressEvent) => void
 
 export async function setupVanillaServer(
@@ -45,6 +55,57 @@ export async function setupVanillaServer(
     await removeTempServerJar()
     const errorMessage = getErrorMessage(error)
     await markSetupError(errorMessage)
+    throw error
+  }
+}
+
+export async function downloadSharedServer(input: DownloadSharedServerInput): Promise<LocalState> {
+  if (!input.eulaAccepted) {
+    throw new ServerSetupError('Minecraft EULA must be accepted before downloading the server.')
+  }
+
+  return runExclusiveStorageOperation(
+    ExclusiveStorageOperation.ServerDownload,
+    new ServerSetupError('Cannot download a shared server while another storage operation is in progress.'),
+    () => runSharedServerDownload()
+  )
+}
+
+async function runSharedServerDownload(): Promise<LocalState> {
+  await markSetupDownloading()
+
+  try {
+    const storageSnapshot = await getServerSyncSnapshot()
+    const latestSave = storageSnapshot.latestSave
+
+    if (!latestSave) {
+      throw new ServerSetupError('The active storage provider does not contain a shared server save.')
+    }
+
+    if (latestSave.serverType !== 'vanilla') {
+      throw new ServerSetupError('Only shared Vanilla servers can be downloaded in this version.')
+    }
+
+    await restoreLatestServerSave(storageSnapshot)
+    await assertRestoredServerJarExists()
+    await writeAcceptedEula()
+
+    return saveRestoredServerSetupResult(
+      {
+        name: latestSave.serverName ?? 'Shared Minecraft Server',
+        serverType: latestSave.serverType,
+        minecraftVersion: latestSave.minecraftVersion,
+        serverFolderPath: localServerFolderPath,
+        port: await readServerPort()
+      },
+      {
+        status: 'ready',
+        errorMessage: null,
+        completedAt: new Date().toISOString()
+      }
+    )
+  } catch (error) {
+    await markSetupError(getErrorMessage(error))
     throw error
   }
 }
@@ -163,6 +224,23 @@ async function writeServerProperties(input: SetupVanillaServerInput): Promise<vo
   ].join('\n')
 
   await writeFile(localServerPropertiesFilePath, `${properties}\n`, 'utf-8')
+}
+
+async function assertRestoredServerJarExists(): Promise<void> {
+  const serverJarStats = await stat(localServerJarFilePath).catch(() => {
+    throw new ServerSetupError('The shared server save does not contain server.jar.')
+  })
+
+  if (!serverJarStats.isFile()) {
+    throw new ServerSetupError('The shared server save does not contain server.jar.')
+  }
+}
+
+async function readServerPort(): Promise<number> {
+  const properties = await readFile(localServerPropertiesFilePath, 'utf8')
+  const port = Number(properties.match(/^server-port=(\d+)$/m)?.[1] ?? DEFAULT_SERVER_PORT)
+
+  return Number.isSafeInteger(port) && port >= 1 && port <= 65535 ? port : DEFAULT_SERVER_PORT
 }
 
 async function writeAcceptedEula(): Promise<void> {

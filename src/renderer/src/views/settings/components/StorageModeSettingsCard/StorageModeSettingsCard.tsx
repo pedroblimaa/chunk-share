@@ -11,29 +11,36 @@ import Card from '../../../../components/shared/Card/Card'
 import MaterialIcon from '../../../../components/shared/MaterialIcon/MaterialIcon'
 import Tooltip from '../../../../components/shared/Tooltip/Tooltip'
 import Toast from '../../../../components/shared/Toast/Toast'
+import { getErrorMessage } from '../../../../utils/error-message'
+import { storageProviderHasData } from '../../settings-helpers'
 import { useStorageProviderSettings } from '../../hooks/useStorageProviderSettings'
 import GoogleDriveStoragePanel from '../GoogleDriveStoragePanel/GoogleDriveStoragePanel'
 import LocalStoragePanel from '../LocalStoragePanel/LocalStoragePanel'
 import StorageProviderOption from '../StorageProviderOption/StorageProviderOption'
 import StorageProviderSwitchDialog from '../StorageProviderSwitchDialog/StorageProviderSwitchDialog'
+import type { StorageModeSettingsCardProps } from './StorageModeSettingsCard.model'
 import { STORAGE_MODE_INFO } from './storage-mode-settings.constants'
-import { storageProviderHasData } from '../../settings-helpers'
 
-function StorageModeSettingsCard(): React.JSX.Element {
+function StorageModeSettingsCard({
+  onStorageProviderChange
+}: StorageModeSettingsCardProps): React.JSX.Element {
   const storage = useStorageProviderSettings()
   const [selectedProvider, setSelectedProvider] = useState<CloudStorageProvider | null>(null)
   const [switchTargetProvider, setSwitchTargetProvider] = useState<CloudStorageProvider | null>(null)
+  const [refreshErrorMessage, setRefreshErrorMessage] = useState<string | null>(null)
   const activeProvider = storage.activeStorageProvider
   const displayedProvider = selectedProvider ?? activeProvider
   const isLoading = activeProvider === null
+  const storageErrorMessage = storage.operationState.errorMessage ?? refreshErrorMessage
 
   const cancelProviderSwitch = (): void => {
     setSwitchTargetProvider(null)
+    setRefreshErrorMessage(null)
     storage.resetStorageProviderSwitchPreview()
     storage.dismissStorageError()
   }
 
-  const finishProviderSwitch = (didSwitch: boolean): void => {
+  const finishProviderSwitch = async (didSwitch: boolean): Promise<void> => {
     if (!didSwitch) {
       return
     }
@@ -41,6 +48,14 @@ function StorageModeSettingsCard(): React.JSX.Element {
     setSelectedProvider(null)
     setSwitchTargetProvider(null)
     storage.resetStorageProviderSwitchPreview()
+
+    try {
+      await onStorageProviderChange()
+    } catch (error: unknown) {
+      setRefreshErrorMessage(
+        getErrorMessage(error, 'Storage provider changed, but the server list did not refresh.')
+      )
+    }
   }
 
   const beginProviderActivation = async (provider: CloudStorageProvider): Promise<void> => {
@@ -56,7 +71,7 @@ function StorageModeSettingsCard(): React.JSX.Element {
         provider,
         StorageSwitchDataMode.UseTargetAsIs
       )
-      finishProviderSwitch(didSwitch)
+      await finishProviderSwitch(didSwitch)
       return
     }
 
@@ -72,7 +87,7 @@ function StorageModeSettingsCard(): React.JSX.Element {
       switchTargetProvider,
       StorageSwitchDataMode.UseTargetAsIs
     )
-    finishProviderSwitch(didSwitch)
+    await finishProviderSwitch(didSwitch)
   }
 
   const copyCurrentDataToTargetProvider = async (): Promise<void> => {
@@ -85,7 +100,7 @@ function StorageModeSettingsCard(): React.JSX.Element {
       StorageSwitchDataMode.CopyCurrentToTarget,
       storage.storageProviderSwitchPreview
     )
-    finishProviderSwitch(didSwitch)
+    await finishProviderSwitch(didSwitch)
   }
 
   const retryProviderSwitch = (): void => {
@@ -96,12 +111,12 @@ function StorageModeSettingsCard(): React.JSX.Element {
 
   return (
     <Card as="article" className="settings-storage-card">
-      {storage.operationState.errorMessage !== null && switchTargetProvider === null && (
+      {storageErrorMessage !== null && switchTargetProvider === null && (
         <Toast
-          message={storage.operationState.errorMessage}
+          message={storageErrorMessage}
           title="Storage update failed"
           tone="error"
-          onClose={storage.dismissStorageError}
+          onClose={cancelProviderSwitch}
         />
       )}
 

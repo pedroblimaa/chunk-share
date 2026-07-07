@@ -180,6 +180,47 @@ class ServerRuntime {
     }
   }
 
+  async downloadLatestSharedSave(): Promise<ServerRuntimeSnapshot> {
+    if (this.status !== 'stopped') {
+      throw new ServerRuntimeError('Stop the Minecraft server before downloading a shared save.')
+    }
+
+    return runExclusiveStorageOperation(
+      ExclusiveStorageOperation.ServerDownload,
+      new ServerRuntimeError('Cannot download a shared save while another storage operation is in progress.'),
+      () => this.runLatestSharedSaveDownload()
+    )
+  }
+
+  private async runLatestSharedSaveDownload(): Promise<ServerRuntimeSnapshot> {
+    const storageSnapshot = await getServerSyncSnapshot()
+
+    if (storageSnapshot.localState.serverSetup.status !== 'ready') {
+      throw new ServerRuntimeError('Set up this shared server on this device before downloading it.')
+    }
+
+    if (storageSnapshot.serverSync.status !== ServerSyncStatus.UpdateAvailable) {
+      throw new ServerRuntimeError('No newer shared save is available to download.')
+    }
+
+    this.errorMessage = null
+    this.addLogLine('ChunkShare', 'Downloading the latest shared save.')
+
+    try {
+      await restoreLatestServerSave(storageSnapshot)
+      this.addLogLine('ChunkShare', 'Local server updated from the shared save.', 'success')
+      this.emitRuntimeEvent()
+
+      return this.getSnapshot()
+    } catch (error) {
+      const message = getDownloadSharedSaveErrorMessage(error)
+      this.errorMessage = message
+      this.addLogLine('ChunkShare', message, 'error')
+      this.emitRuntimeEvent()
+      throw new ServerRuntimeError(message)
+    }
+  }
+
   private async publishLocalNewerSaveBeforeStart(sessionId: string): Promise<ServerStorageSnapshot> {
     this.addLogLine('ChunkShare', 'Publishing newer local save before start.')
 
@@ -577,6 +618,10 @@ export function stopMinecraftServer(): Promise<ServerRuntimeSnapshot> {
   return serverRuntime.stop()
 }
 
+export function downloadLatestSharedSave(): Promise<ServerRuntimeSnapshot> {
+  return serverRuntime.downloadLatestSharedSave()
+}
+
 async function readMaxPlayers(serverFolderPath: string): Promise<number> {
   const properties = await readFile(join(serverFolderPath, 'server.properties'), 'utf8').catch(() => '')
   const match = properties.match(/^max-players=(\d+)$/m)
@@ -614,6 +659,14 @@ function getPreStartRestoreErrorMessage(error: unknown): string {
   }
 
   return 'Unable to update local server from shared save before start.'
+}
+
+function getDownloadSharedSaveErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return `Unable to download the shared save: ${error.message}`
+  }
+
+  return 'Unable to download the shared save.'
 }
 
 function getStopCompletionErrorMessage(error: unknown): string {

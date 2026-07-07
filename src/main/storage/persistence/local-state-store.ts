@@ -69,6 +69,22 @@ export async function saveServerSetupResult(
   })
 }
 
+export async function saveRestoredServerSetupResult(
+  serverConfig: ServerConfig,
+  serverSetup: ServerSetupState
+): Promise<LocalState> {
+  if (!isServerConfig(serverConfig)) {
+    throw new StorageError('Invalid server config payload.')
+  }
+
+  return saveLocalStateChanges({
+    activeSessionId: null,
+    dirty: false,
+    serverConfig,
+    serverSetup
+  })
+}
+
 export function saveLocalSaveVersion(localSaveVersion: number | null): Promise<LocalState> {
   return saveLocalStateChanges({ localSaveVersion })
 }

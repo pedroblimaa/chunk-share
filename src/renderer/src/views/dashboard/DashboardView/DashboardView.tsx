@@ -2,9 +2,7 @@ import './DashboardView.css'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ServerDisplayState } from '../../../../../shared/dashboard'
-import { ServerHostingStatus, ServerLockStatus } from '../../../../../shared/domain'
 import { isServerActiveStatus, type ServerRuntimeSnapshot } from '../../../../../shared/server-runtime'
-import { ServerSyncStatus } from '../../../../../shared/server-sync'
 import AppSidebar from '../../../components/shared/AppSidebar/AppSidebar'
 import Card from '../../../components/shared/Card/Card'
 import Toast from '../../../components/shared/Toast/Toast'
@@ -13,11 +11,9 @@ import {
   applyRuntimeSnapshotToServerDisplayState,
   loadServerDisplayState
 } from '../../../utils/server-display-state'
-import {
-  formatLatestSaveLabel,
-  getServerSaveSyncBadge,
-  getServerSyncView
-} from '../../../utils/server-sync-ui'
+import { formatLatestSaveLabel, getServerSaveSyncBadge } from '../../../utils/server-sync-ui'
+import { getDashboardPrimaryActionView } from '../dashboard-header-action'
+import type { DashboardPrimaryActionKind } from '../dashboard-header-action.model'
 import ConsoleOutput from '../components/ConsoleOutput/ConsoleOutput'
 import DashboardStatCard from '../components/DashboardStatCard/DashboardStatCard'
 import ServerHeader from '../components/ServerHeader/ServerHeader'
@@ -33,15 +29,6 @@ interface DashboardPreviewProps {
 }
 
 type CopyStatus = 'idle' | 'copied' | 'failed'
-type HeaderToggleButtonTone = 'default' | 'sync'
-
-interface HeaderToggleButtonView {
-  label?: string
-  icon?: string
-  tone: HeaderToggleButtonTone
-  tooltip?: string
-  ariaLabel?: string
-}
 
 const COPY_STATUS_LABELS: Record<CopyStatus, string> = {
   copied: 'Copied',
@@ -57,60 +44,6 @@ const COPY_STATUS_ICONS: Record<CopyStatus, string> = {
 
 const DASHBOARD_REFRESH_INTERVAL_MS = 3_000
 
-function getHeaderToggleButtonView({
-  dashboardSnapshot,
-  serverIsJoinable,
-  syncBlocksStart
-}: {
-  dashboardSnapshot: ServerDisplayState
-  serverIsJoinable: boolean
-  syncBlocksStart: boolean
-}): HeaderToggleButtonView {
-  const syncView = getServerSyncView(dashboardSnapshot.syncStatus)
-
-  if (serverIsJoinable) {
-    return {
-      label: 'Join Server',
-      icon: 'login',
-      tone: 'default',
-      tooltip: 'Show connection details',
-      ariaLabel: 'Show connection details'
-    }
-  }
-
-  if (syncBlocksStart) {
-    return {
-      tone: 'default',
-      tooltip: syncView.message
-    }
-  }
-
-  if (dashboardSnapshot.serverStatus !== 'stopped') {
-    return { tone: 'default' }
-  }
-
-  switch (dashboardSnapshot.syncStatus.status) {
-    case ServerSyncStatus.UpdateAvailable:
-      return {
-        label: syncView.actionLabel,
-        icon: 'download',
-        tone: 'sync',
-        tooltip: syncView.message,
-        ariaLabel: syncView.actionLabel
-      }
-    case ServerSyncStatus.LocalNewer:
-      return {
-        label: syncView.actionLabel,
-        icon: 'upload',
-        tone: 'sync',
-        tooltip: syncView.message,
-        ariaLabel: syncView.actionLabel
-      }
-    default:
-      return { tone: 'default' }
-  }
-}
-
 function DashboardView({
   serverDisplayState,
   onServerDisplayStateChange,
@@ -124,6 +57,7 @@ function DashboardView({
   const [addressCopyStatus, setAddressCopyStatus] = useState<CopyStatus>('idle')
   const [isServerToggleAnimating, setIsServerToggleAnimating] = useState(false)
   const [connectionDetailsOpen, setConnectionDetailsOpen] = useState(false)
+  const [downloadEulaAccepted, setDownloadEulaAccepted] = useState(false)
 
   useEffect(() => {
     serverDisplayStateRef.current = serverDisplayState
@@ -159,6 +93,12 @@ function DashboardView({
     },
     [updateServerDisplayState]
   )
+
+  const refreshDashboardAfterDownload = useCallback(async (): Promise<void> => {
+    const nextRuntimeSnapshot = await window.chunkShare.serverRuntime.getSnapshot()
+
+    await refreshServerDisplayState(nextRuntimeSnapshot)
+  }, [refreshServerDisplayState])
 
   useEffect(() => {
     let isMounted = true
@@ -261,6 +201,38 @@ function DashboardView({
     }
   }
 
+  async function downloadServer(): Promise<void> {
+    setRuntimeErrorMessage(null)
+    setIsServerToggleAnimating(true)
+
+    try {
+      await window.chunkShare.serverSetup.downloadSharedServer({
+        eulaAccepted: downloadEulaAccepted
+      })
+
+      await refreshDashboardAfterDownload()
+      setDownloadEulaAccepted(false)
+    } catch (error: unknown) {
+      setRuntimeErrorMessage(getErrorMessage(error, 'Unable to download server.'))
+    } finally {
+      setIsServerToggleAnimating(false)
+    }
+  }
+
+  async function downloadLatestSave(): Promise<void> {
+    setRuntimeErrorMessage(null)
+    setIsServerToggleAnimating(true)
+
+    try {
+      await window.chunkShare.serverRuntime.downloadSharedSave()
+      await refreshDashboardAfterDownload()
+    } catch (error: unknown) {
+      setRuntimeErrorMessage(getErrorMessage(error, 'Unable to download latest save.'))
+    } finally {
+      setIsServerToggleAnimating(false)
+    }
+  }
+
   async function copyConnectionAddress(): Promise<void> {
     if (!dashboardSnapshot.connectionAddress) {
       return
@@ -309,34 +281,26 @@ function DashboardView({
   }
 
   function handleHeaderServerAction(): void {
-    if (serverIsJoinable) {
-      setConnectionDetailsOpen(true)
-      return
+    const actionByKind: Record<DashboardPrimaryActionKind, () => void> = {
+      join: () => setConnectionDetailsOpen(true),
+      'download-server': () => {
+        downloadServer()
+      },
+      'download-save': () => {
+        downloadLatestSave()
+      },
+      'toggle-server': () => {
+        handleServerToggle()
+      }
     }
 
-    void handleServerToggle()
+    actionByKind[primaryActionView.kind]()
   }
 
   const dashboardSnapshot = serverDisplayState
-  const serverIsJoinable =
-    dashboardSnapshot.syncStatus.status === ServerSyncStatus.LockedByOther &&
-    dashboardSnapshot.syncStatus.serverLock.status === ServerLockStatus.Locked &&
-    dashboardSnapshot.syncStatus.serverLock.hostingStatus === ServerHostingStatus.Running &&
-    Boolean(dashboardSnapshot.connectionAddress)
-  const syncBlocksStart =
-    dashboardSnapshot.serverStatus !== 'running' && !dashboardSnapshot.syncStatus.isStartAllowed
-  const toggleDisabled =
-    dashboardSnapshot.serverStatus === 'not-configured' ||
-    dashboardSnapshot.serverStatus === 'starting' ||
-    dashboardSnapshot.serverStatus === 'stopping' ||
-    dashboardSnapshot.serverStatus === 'crashed' ||
-    syncBlocksStart
-
-  const headerToggleDisabled = serverIsJoinable ? false : toggleDisabled
-  const headerToggleButtonView = getHeaderToggleButtonView({
+  const primaryActionView = getDashboardPrimaryActionView({
     dashboardSnapshot,
-    serverIsJoinable,
-    syncBlocksStart
+    downloadEulaAccepted
   })
   const connectionAddressDetails = dashboardSnapshot.connectionAddresses
     .map((connectionAddress) => `${connectionAddress.label}: ${connectionAddress.address}`)
@@ -395,33 +359,44 @@ function DashboardView({
           ) : null}
 
           <ServerHeader
-            name={dashboardSnapshot.serverName}
-            status={dashboardSnapshot.serverStatus}
-            connectionAddress={dashboardSnapshot.connectionAddress}
-            connectionAddressDetails={connectionAddressDetails}
-            connectionDetailsOpen={connectionDetailsOpen}
-            isAnimating={isServerToggleAnimating}
-            toggleDisabled={headerToggleDisabled}
-            toggleButtonTooltip={headerToggleButtonView.tooltip}
-            toggleButtonLabel={headerToggleButtonView.label}
-            toggleButtonIcon={headerToggleButtonView.icon}
-            toggleButtonTone={headerToggleButtonView.tone}
-            copyConnectionDetailsLabel={addressCopyButtonLabel}
-            copyConnectionDetailsStateClass={addressCopyButtonStateClass}
-            onCopyConnectionAddress={copyConnectionAddress}
-            onCopyConnectionAddressDetails={copyConnectionAddressDetails}
-            onCloseConnectionDetails={closeConnectionDetails}
-            onToggleConnectionDetails={toggleConnectionDetails}
-            onToggleServer={handleHeaderServerAction}
+            server={{
+              name: dashboardSnapshot.serverName,
+              status: dashboardSnapshot.serverStatus
+            }}
+            connection={{
+              connectionAddress: dashboardSnapshot.connectionAddress,
+              connectionAddressDetails,
+              connectionDetailsOpen,
+              copyConnectionDetailsLabel: addressCopyButtonLabel,
+              copyConnectionDetailsStateClass: addressCopyButtonStateClass,
+              onCopyConnectionAddress: copyConnectionAddress,
+              onCopyConnectionAddressDetails: copyConnectionAddressDetails,
+              onCloseConnectionDetails: closeConnectionDetails,
+              onToggleConnectionDetails: toggleConnectionDetails
+            }}
+            primaryAction={{
+              disabled: primaryActionView.isDisabled,
+              icon: primaryActionView.icon,
+              isAnimating: isServerToggleAnimating,
+              label: primaryActionView.label,
+              tone: primaryActionView.tone,
+              tooltip: primaryActionView.tooltip,
+              onClick: handleHeaderServerAction
+            }}
+            downloadEula={{
+              accepted: downloadEulaAccepted,
+              isVisible: primaryActionView.kind === 'download-server',
+              onChange: setDownloadEulaAccepted
+            }}
           />
 
           <div className="dashboard-grid">
             <ServerStatePanel
               lastActiveLabel={lastActiveLabel}
               snapshot={dashboardSnapshot}
-              toggleDisabled={headerToggleDisabled}
-              toggleButtonAriaLabel={headerToggleButtonView.ariaLabel}
-              toggleButtonTooltip={headerToggleButtonView.tooltip}
+              toggleDisabled={primaryActionView.isDisabled}
+              toggleButtonAriaLabel={primaryActionView.ariaLabel}
+              toggleButtonTooltip={primaryActionView.tooltip}
               onToggleServer={handleHeaderServerAction}
             />
 

@@ -14,10 +14,12 @@ import {
   AUTH_SIGN_OUT_CHANNEL,
   DASHBOARD_SNAPSHOT_CHANNEL,
   SERVER_RUNTIME_EVENTS_CHANNEL,
+  SERVER_RUNTIME_DOWNLOAD_SHARED_SAVE_CHANNEL,
   SERVER_RUNTIME_SNAPSHOT_CHANNEL,
   SERVER_RUNTIME_START_CHANNEL,
   SERVER_RUNTIME_STOP_CHANNEL,
   SERVER_SETUP_LIST_VANILLA_VERSIONS_CHANNEL,
+  SERVER_SETUP_DOWNLOAD_SHARED_SERVER_CHANNEL,
   SERVER_SETUP_PROGRESS_CHANNEL,
   SERVER_SETUP_SETUP_VANILLA_SERVER_CHANNEL,
   STORAGE_CLEAR_GOOGLE_DRIVE_FOLDER_CHANNEL,
@@ -35,6 +37,7 @@ import {
 import type { ServerRuntimeEvent, ServerRuntimeSnapshot } from '../shared/server-runtime'
 import type {
   ServerSetupProgressEvent,
+  DownloadSharedServerInput,
   SetupVanillaServerInput,
   VanillaMinecraftVersion
 } from '../shared/server-setup'
@@ -50,6 +53,8 @@ const chunkShareApi = {
   },
   serverRuntime: {
     getSnapshot: (): Promise<ServerRuntimeSnapshot> => ipcRenderer.invoke(SERVER_RUNTIME_SNAPSHOT_CHANNEL),
+    downloadSharedSave: (): Promise<ServerRuntimeSnapshot> =>
+      ipcRenderer.invoke(SERVER_RUNTIME_DOWNLOAD_SHARED_SAVE_CHANNEL),
     start: (): Promise<ServerRuntimeSnapshot> => ipcRenderer.invoke(SERVER_RUNTIME_START_CHANNEL),
     stop: (): Promise<ServerRuntimeSnapshot> => ipcRenderer.invoke(SERVER_RUNTIME_STOP_CHANNEL),
     onEvent: (listener: (event: ServerRuntimeEvent) => void): (() => void) => {
@@ -95,6 +100,8 @@ const chunkShareApi = {
   serverSetup: {
     listVanillaVersions: (): Promise<VanillaMinecraftVersion[]> =>
       ipcRenderer.invoke(SERVER_SETUP_LIST_VANILLA_VERSIONS_CHANNEL),
+    downloadSharedServer: (input: DownloadSharedServerInput): Promise<ServerStorageSnapshot> =>
+      ipcRenderer.invoke(SERVER_SETUP_DOWNLOAD_SHARED_SERVER_CHANNEL, input),
     setupVanillaServer: (input: SetupVanillaServerInput): Promise<ServerStorageSnapshot> =>
       ipcRenderer.invoke(SERVER_SETUP_SETUP_VANILLA_SERVER_CHANNEL, input),
     onProgress: (listener: (event: ServerSetupProgressEvent) => void): (() => void) => {

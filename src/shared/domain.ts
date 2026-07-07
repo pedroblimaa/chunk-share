@@ -66,6 +66,7 @@ export type LatestSave = {
   fileName: string
   uploadedAt: string
   uploadedBy: Player
+  serverName?: string
   minecraftVersion: MinecraftVersion
   serverType: ServerType
 } | null

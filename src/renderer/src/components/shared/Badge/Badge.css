@@ -40,8 +40,8 @@
 }
 
 .chunk-badge-info {
-  border-color: var(--color-border-emphasis);
-  color: var(--color-text-secondary);
+  border-color: rgba(127, 179, 255, 0.38);
+  color: var(--color-info);
 }
 
 .chunk-badge-dot {
