@@ -22,6 +22,34 @@
   min-height: 0;
   overflow-y: auto;
   padding: 24px 32px;
+  position: relative;
+}
+
+.dashboard-loading-overlay {
+  align-items: center;
+  backdrop-filter: blur(5px);
+  background: rgb(10 12 10 / 72%);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  position: absolute;
+  z-index: 10;
+}
+
+.dashboard-loading-indicator {
+  align-items: center;
+  color: var(--color-text-primary);
+  display: flex;
+  flex-direction: column;
+  font-size: var(--font-size-action);
+  font-weight: var(--font-weight-semibold);
+  gap: 14px;
+}
+
+.dashboard-loading-indicator .material-symbols-outlined {
+  animation: dashboard-refresh-spin 900ms linear infinite;
+  color: var(--color-accent);
+  font-size: 38px;
 }
 
 .dashboard-grid {
@@ -104,5 +132,11 @@
 
   100% {
     transform: translateY(0);
+  }
+}
+
+@keyframes dashboard-refresh-spin {
+  to {
+    transform: rotate(360deg);
   }
 }

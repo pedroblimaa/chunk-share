@@ -97,6 +97,17 @@ class ServerRuntime {
   }
 
   private async startServerSession(): Promise<ServerRuntimeSnapshot> {
+    this.beginServerStart()
+
+    try {
+      return await this.startConfiguredServerSession()
+    } catch (error) {
+      this.handleStartSessionFailure(error)
+      throw error
+    }
+  }
+
+  private async startConfiguredServerSession(): Promise<ServerRuntimeSnapshot> {
     let storageSnapshot = await getServerSyncSnapshot()
     let { localState, serverSync } = storageSnapshot
 
@@ -152,6 +163,24 @@ class ServerRuntime {
     this.attachServerProcessListeners(this.serverProcess, sessionId)
 
     return this.getSnapshot()
+  }
+
+  private beginServerStart(): void {
+    this.status = 'starting'
+    this.errorMessage = null
+    this.logs = []
+    this.stdoutBuffer = ''
+    this.stderrBuffer = ''
+    this.connectionAddresses = []
+    this.players = { online: 0, max: DEFAULT_PLAYER_LIMIT }
+    this.resources = MOCK_RESOURCES
+    this.emitRuntimeEvent()
+  }
+
+  private handleStartSessionFailure(error: unknown): void {
+    if (this.status === 'starting') {
+      this.finishWithError(getErrorMessage(error))
+    }
   }
 
   private async restoreCloudSaveBeforeStart(

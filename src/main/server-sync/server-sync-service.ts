@@ -7,7 +7,7 @@ import {
 } from '../../shared/domain'
 import { STALE_LOCK_THRESHOLD_MS, ServerSyncStatus, type ServerSyncSnapshot } from '../../shared/server-sync'
 import { getActiveStorageAdapter } from '../storage/adapters/storage-adapter-service'
-import type { StorageAdapter } from '../storage/adapters/storage-adapter.model'
+import type { ServerSaveVersionFile } from '../storage/adapters/storage-adapter.model'
 import { readLocalState } from '../storage/persistence/local-state-store'
 import { getActiveRuntimeSessionId } from '../server-runtime/server-hosting-lock-manager'
 
@@ -15,7 +15,7 @@ interface ServerSyncContext {
   latestSave: LatestSave
   serverLock: ServerLock
   localState: LocalState
-  storageAdapter: StorageAdapter
+  versionFiles: ServerSaveVersionFile[]
 }
 
 interface ServerSyncRuleContext extends ServerSyncContext {
@@ -48,11 +48,8 @@ const SERVER_SYNC_RULES: ServerSyncRule[] = [
 
 export async function getServerSyncSnapshot(): Promise<ServerStorageSnapshot> {
   const storageAdapter = await getActiveStorageAdapter()
-  const [latestSave, serverLock, localState] = await Promise.all([
-    storageAdapter.readLatestSave(),
-    storageAdapter.readServerLock(),
-    readLocalState()
-  ])
+  const [storageData, localState] = await Promise.all([storageAdapter.readServerSyncData(), readLocalState()])
+  const { latestSave, serverLock, versionFiles } = storageData
 
   return {
     latestSave,
@@ -61,7 +58,7 @@ export async function getServerSyncSnapshot(): Promise<ServerStorageSnapshot> {
       latestSave,
       serverLock,
       localState,
-      storageAdapter
+      versionFiles
     }),
     localState
   }
@@ -121,9 +118,9 @@ async function incompatibleRule({
 
 async function missingCloudFileRule({
   latestSave,
-  storageAdapter
+  versionFiles
 }: ServerSyncRuleContext): Promise<ServerSyncDecision | null> {
-  if (!latestSave || (await storageAdapter.serverSaveVersionExists(latestSave.fileName))) {
+  if (!latestSave || versionFiles.some((versionFile) => versionFile.fileName === latestSave.fileName)) {
     return null
   }
 

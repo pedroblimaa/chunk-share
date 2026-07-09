@@ -5,6 +5,7 @@ import type { ServerDisplayState } from '../../../../../shared/dashboard'
 import { isServerActiveStatus, type ServerRuntimeSnapshot } from '../../../../../shared/server-runtime'
 import AppSidebar from '../../../components/shared/AppSidebar/AppSidebar'
 import Card from '../../../components/shared/Card/Card'
+import MaterialIcon from '../../../components/shared/MaterialIcon/MaterialIcon'
 import Toast from '../../../components/shared/Toast/Toast'
 import { getErrorMessage } from '../../../utils/error-message'
 import {
@@ -20,7 +21,7 @@ import ServerHeader from '../components/ServerHeader/ServerHeader'
 import ServerStatePanel from '../components/ServerStatePanel/ServerStatePanel'
 import TopBar from '../components/TopBar/TopBar'
 
-interface DashboardPreviewProps {
+interface DashboardViewProps {
   serverDisplayState: ServerDisplayState
   onServerDisplayStateChange: (serverDisplayState: ServerDisplayState) => void
   onNavigateToServers: () => void
@@ -50,7 +51,7 @@ function DashboardView({
   onNavigateToServers,
   onOpenSettings,
   onSignOut
-}: DashboardPreviewProps): React.JSX.Element {
+}: DashboardViewProps): React.JSX.Element {
   const serverDisplayStateRef = useRef(serverDisplayState)
   const [runtimeErrorMessage, setRuntimeErrorMessage] = useState<string | null>(null)
   const [errorCopyStatus, setErrorCopyStatus] = useState<CopyStatus>('idle')
@@ -58,6 +59,8 @@ function DashboardView({
   const [isServerToggleAnimating, setIsServerToggleAnimating] = useState(false)
   const [connectionDetailsOpen, setConnectionDetailsOpen] = useState(false)
   const [downloadEulaAccepted, setDownloadEulaAccepted] = useState(false)
+  const [isInitialSnapshotRefreshing, setIsInitialSnapshotRefreshing] = useState(true)
+  const [initialLoadErrorMessage, setInitialLoadErrorMessage] = useState<string | null>(null)
 
   useEffect(() => {
     serverDisplayStateRef.current = serverDisplayState
@@ -99,6 +102,34 @@ function DashboardView({
 
     await refreshServerDisplayState(nextRuntimeSnapshot)
   }, [refreshServerDisplayState])
+
+  useEffect(() => {
+    let shouldIgnoreResult = false
+
+    async function refreshInitialServerDisplayState(): Promise<void> {
+      try {
+        const nextServerDisplayState = await loadServerDisplayState()
+
+        if (!shouldIgnoreResult) {
+          updateServerDisplayState(nextServerDisplayState)
+        }
+      } catch (error: unknown) {
+        if (!shouldIgnoreResult) {
+          setInitialLoadErrorMessage(getErrorMessage(error, 'Unable to refresh server data.'))
+        }
+      } finally {
+        if (!shouldIgnoreResult) {
+          setIsInitialSnapshotRefreshing(false)
+        }
+      }
+    }
+
+    refreshInitialServerDisplayState()
+
+    return () => {
+      shouldIgnoreResult = true
+    }
+  }, [updateServerDisplayState])
 
   useEffect(() => {
     let isMounted = true
@@ -242,12 +273,14 @@ function DashboardView({
   }
 
   async function copyRuntimeError(): Promise<void> {
-    if (!runtimeErrorMessage) {
+    const errorMessage = initialLoadErrorMessage ?? runtimeErrorMessage
+
+    if (!errorMessage) {
       return
     }
 
     try {
-      await navigator.clipboard.writeText(runtimeErrorMessage)
+      await navigator.clipboard.writeText(errorMessage)
       setErrorCopyStatus('copied')
     } catch {
       setErrorCopyStatus('failed')
@@ -276,6 +309,7 @@ function DashboardView({
   }
 
   function closeRuntimeErrorToast(): void {
+    setInitialLoadErrorMessage(null)
     setRuntimeErrorMessage(null)
     setErrorCopyStatus('idle')
   }
@@ -302,6 +336,7 @@ function DashboardView({
     dashboardSnapshot,
     downloadEulaAccepted
   })
+  const primaryActionIsDisabled = isInitialSnapshotRefreshing || primaryActionView.isDisabled
   const connectionAddressDetails = dashboardSnapshot.connectionAddresses
     .map((connectionAddress) => `${connectionAddress.label}: ${connectionAddress.address}`)
     .join(', ')
@@ -314,6 +349,7 @@ function DashboardView({
   const lastActiveLabel = isServerActiveStatus(dashboardSnapshot.serverStatus)
     ? 'Active now'
     : latestSaveLabel
+  const displayedErrorMessage = initialLoadErrorMessage ?? runtimeErrorMessage
 
   return (
     <div
@@ -343,7 +379,7 @@ function DashboardView({
         />
 
         <main className="dashboard-content">
-          {runtimeErrorMessage ? (
+          {displayedErrorMessage ? (
             <Toast
               action={{
                 icon: COPY_STATUS_ICONS[errorCopyStatus],
@@ -351,7 +387,7 @@ function DashboardView({
                 onClick: copyRuntimeError
               }}
               icon="error"
-              message={runtimeErrorMessage}
+              message={displayedErrorMessage}
               title="Server action failed"
               tone="error"
               onClose={closeRuntimeErrorToast}
@@ -375,7 +411,7 @@ function DashboardView({
               onToggleConnectionDetails: toggleConnectionDetails
             }}
             primaryAction={{
-              disabled: primaryActionView.isDisabled,
+              disabled: primaryActionIsDisabled,
               icon: primaryActionView.icon,
               isAnimating: isServerToggleAnimating,
               label: primaryActionView.label,
@@ -394,7 +430,7 @@ function DashboardView({
             <ServerStatePanel
               lastActiveLabel={lastActiveLabel}
               snapshot={dashboardSnapshot}
-              toggleDisabled={primaryActionView.isDisabled}
+              toggleDisabled={primaryActionIsDisabled}
               toggleButtonAriaLabel={primaryActionView.ariaLabel}
               toggleButtonTooltip={primaryActionView.tooltip}
               onToggleServer={handleHeaderServerAction}
@@ -429,6 +465,15 @@ function DashboardView({
           </div>
 
           <ConsoleOutput logs={dashboardSnapshot.consoleLogs} />
+
+          {isInitialSnapshotRefreshing && (
+            <div className="dashboard-loading-overlay" role="status" aria-live="polite">
+              <div className="dashboard-loading-indicator">
+                <MaterialIcon name="sync" />
+                <span>Syncing server data...</span>
+              </div>
+            </div>
+          )}
         </main>
       </div>
     </div>
