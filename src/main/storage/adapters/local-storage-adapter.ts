@@ -6,14 +6,14 @@ import { DEFAULT_LATEST_SAVE, DEFAULT_SERVER_LOCK } from '../core/storage-defaul
 import { StorageError } from '../core/storage-error'
 import {
   latestSaveFilePath,
-  localStorageMutationLockFilePath,
   localStorageFolderPath,
+  localStorageMutationLockFilePath,
   localStorageVersionsFolderPath,
   serverLockFilePath
 } from '../core/storage-paths'
 import { isLatestSave, isServerLock } from '../core/storage-validation'
 import { readJsonFileOrDefault, readOrCreateJsonFile, writeJsonFile } from '../persistence/json-file-store'
-import type { ServerSaveVersionFile, StorageAdapter } from './storage-adapter.model'
+import type { ServerSaveVersionFile, ServerSyncStorageData, StorageAdapter } from './storage-adapter.model'
 
 const SERVER_SAVE_FILE_PATTERN = /^server-v(\d+)\.zip$/
 const MUTATION_LOCK_STALE_MS = 60 * 60 * 1000
@@ -25,6 +25,7 @@ export const localStorageAdapter: StorageAdapter = {
   listServerSaveVersions,
   readLatestSave,
   readServerLock,
+  readServerSyncData,
   resetServerLock,
   resetServerSaves,
   runExclusiveStorageMutation,
@@ -57,6 +58,20 @@ export async function ensureLocalStorage(): Promise<void> {
     readOrCreateJsonFile(latestSaveFilePath, DEFAULT_LATEST_SAVE, isLatestSave),
     readOrCreateJsonFile(serverLockFilePath, DEFAULT_SERVER_LOCK, isServerLock)
   ])
+}
+
+async function readServerSyncData(): Promise<ServerSyncStorageData> {
+  const [latestSave, serverLock, versionFiles] = await Promise.all([
+    readLatestSave(),
+    readServerLock(),
+    listServerSaveVersions()
+  ])
+
+  return {
+    latestSave,
+    serverLock,
+    versionFiles
+  }
 }
 
 function readLatestSave(): Promise<LatestSave> {

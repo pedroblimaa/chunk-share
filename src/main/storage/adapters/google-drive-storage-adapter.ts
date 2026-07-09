@@ -17,7 +17,7 @@ import { GoogleDriveError } from '../../cloud-storage/google-drive-error'
 import { DEFAULT_LATEST_SAVE, DEFAULT_SERVER_LOCK } from '../core/storage-defaults'
 import { isLatestSave, isServerLock } from '../core/storage-validation'
 import { readCloudStorageSettings } from '../persistence/cloud-storage-settings-store'
-import type { ServerSaveVersionFile, StorageAdapter } from './storage-adapter.model'
+import type { ServerSaveVersionFile, ServerSyncStorageData, StorageAdapter } from './storage-adapter.model'
 
 const LATEST_SAVE_FILE_NAME = 'latest.json'
 const SERVER_LOCK_FILE_NAME = 'lock.json'
@@ -35,6 +35,7 @@ export const googleDriveStorageAdapter: StorageAdapter = {
   listServerSaveVersions,
   readLatestSave,
   readServerLock,
+  readServerSyncData,
   resetServerLock,
   resetServerSaves,
   runExclusiveStorageMutation,
@@ -82,6 +83,47 @@ async function writeLatestSave(latestSave: LatestSave): Promise<void> {
 
 async function readServerLock(): Promise<ServerLock> {
   return readJsonDriveFile(SERVER_LOCK_FILE_NAME, DEFAULT_SERVER_LOCK, isServerLock)
+}
+
+async function readServerSyncData(): Promise<ServerSyncStorageData> {
+  const oauthClient = await createAuthenticatedDriveClient()
+  const storageFolderId = await getConfiguredDriveFolderId()
+  const storageFiles = await listFilesInFolder(oauthClient, storageFolderId)
+  const versionsFolder = findFileByName(storageFiles, VERSIONS_FOLDER_NAME)
+
+  const readDriveFile = <T>(
+    fileName: string,
+    defaultValue: T,
+    validate: (value: unknown) => value is T
+  ): Promise<T> =>
+    readJsonDriveFileWithClient(
+      oauthClient,
+      findFileByName(storageFiles, fileName),
+      fileName,
+      defaultValue,
+      validate
+    )
+
+  const resolveVersionsFolder = async (): Promise<ServerSaveVersionFile[]> => {
+    if (!versionsFolder?.id) {
+      return []
+    }
+
+    const fileList = await listFilesInFolder(oauthClient, versionsFolder.id)
+    return toServerSaveVersionFiles(fileList)
+  }
+
+  const [latestSave, serverLock, versionFiles] = await Promise.all([
+    readDriveFile(LATEST_SAVE_FILE_NAME, DEFAULT_LATEST_SAVE, isLatestSave),
+    readDriveFile(SERVER_LOCK_FILE_NAME, DEFAULT_SERVER_LOCK, isServerLock),
+    resolveVersionsFolder()
+  ])
+
+  return {
+    latestSave,
+    serverLock,
+    versionFiles
+  }
 }
 
 async function writeServerLock(serverLock: ServerLock): Promise<void> {
@@ -194,10 +236,7 @@ async function listServerSaveVersions(): Promise<ServerSaveVersionFile[]> {
 
   const files = await listFilesInFolder(oauthClient, versionsFolderId)
 
-  return files
-    .map((file) => parseServerSaveVersionFile(file.name ?? ''))
-    .filter((file): file is ServerSaveVersionFile => file !== null)
-    .sort((a, b) => a.saveVersion - b.saveVersion)
+  return toServerSaveVersionFiles(files)
 }
 
 async function serverSaveVersionExists(fileName: string): Promise<boolean> {
@@ -289,6 +328,16 @@ async function readJsonDriveFile<T>(
   const storageFolderId = await getConfiguredDriveFolderId()
   const file = await findFileInFolder(oauthClient, storageFolderId, fileName)
 
+  return readJsonDriveFileWithClient(oauthClient, file, fileName, defaultValue, validate)
+}
+
+async function readJsonDriveFileWithClient<T>(
+  oauthClient: OAuth2Client,
+  file: GoogleDriveFileResponse | null,
+  fileName: string,
+  defaultValue: T,
+  validate: (value: unknown) => value is T
+): Promise<T> {
   if (!file?.id) {
     return defaultValue
   }
@@ -323,8 +372,16 @@ async function ensureVersionsFolder(oauthClient: OAuth2Client): Promise<string> 
   const storageFolderId = await getConfiguredDriveFolderId()
   const existingFolder = await findFileInFolder(oauthClient, storageFolderId, VERSIONS_FOLDER_NAME)
 
+  return resolveVersionsFolderId(oauthClient, storageFolderId, existingFolder)
+}
+
+function resolveVersionsFolderId(
+  oauthClient: OAuth2Client,
+  storageFolderId: string,
+  existingFolder: GoogleDriveFileResponse | null
+): Promise<string> {
   if (existingFolder?.id) {
-    return existingFolder.id
+    return Promise.resolve(existingFolder.id)
   }
 
   return createDriveFile(oauthClient, storageFolderId, VERSIONS_FOLDER_NAME, GOOGLE_DRIVE_FOLDER_MIME_TYPE)
@@ -445,6 +502,17 @@ function parseServerSaveVersionFile(fileName: string): ServerSaveVersionFile | n
     fileName,
     saveVersion: Number(match[1])
   }
+}
+
+function toServerSaveVersionFiles(files: GoogleDriveFileResponse[]): ServerSaveVersionFile[] {
+  return files
+    .map((file) => parseServerSaveVersionFile(file.name ?? ''))
+    .filter((file): file is ServerSaveVersionFile => file !== null)
+    .sort((a, b) => a.saveVersion - b.saveVersion)
+}
+
+function findFileByName(files: GoogleDriveFileResponse[], fileName: string): GoogleDriveFileResponse | null {
+  return files.find((file) => file.name === fileName) ?? null
 }
 
 function resolveGoogleDriveFileId(file: GoogleDriveFileResponse, fileName: string): string {

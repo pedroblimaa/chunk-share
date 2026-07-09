@@ -31,18 +31,8 @@ export function useServerActions({
 
   const openServerDashboard = useCallback(async (): Promise<void> => {
     setErrorMessage(null)
-
-    try {
-      await refreshServerDisplayState()
-      setAppView('server-detail')
-    } catch (error: unknown) {
-      if (handleStorageError(error)) {
-        return
-      }
-
-      setErrorMessage(getErrorMessage(error, 'Unable to open server.'))
-    }
-  }, [handleStorageError, refreshServerDisplayState, setAppView, setErrorMessage])
+    setAppView('server-detail')
+  }, [setAppView, setErrorMessage])
 
   const deleteServer = useCallback(async (): Promise<void> => {
     if (typeof window.chunkShare.storage.deleteServer !== 'function') {
