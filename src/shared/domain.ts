@@ -3,6 +3,7 @@ import type { ServerSyncSnapshot } from './server-sync'
 export type ServerStatus =
   | 'not-configured'
   | 'stopped'
+  | 'updating'
   | 'starting'
   | 'running'
   | 'stopping'

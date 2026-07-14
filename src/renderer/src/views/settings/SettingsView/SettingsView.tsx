@@ -24,7 +24,7 @@ function SettingsView({
   const signedInUser = serverDisplayState.signedInUser
 
   return (
-    <div className="dashboard-screen settings-screen">
+    <div className="dashboard-screen">
       <AppSidebar
         activeItem="settings"
         addServerDisabled={serverIsConfigured}
@@ -67,19 +67,13 @@ function SettingsView({
                 </div>
               </div>
 
-              <div className="settings-status-row">
+              <div className="settings-acount-footer">
                 <span>Authentication</span>
                 <div className="settings-account-actions">
                   <Badge tone="active" icon="check_circle" iconFilled>
                     Connected
                   </Badge>
-                  <Button
-                    className="settings-sign-out-button"
-                    icon="logout"
-                    size="compact"
-                    variant="ghost"
-                    onClick={onSignOut}
-                  >
+                  <Button icon="logout" size="compact" variant="ghost" onClick={onSignOut}>
                     Sign out
                   </Button>
                 </div>

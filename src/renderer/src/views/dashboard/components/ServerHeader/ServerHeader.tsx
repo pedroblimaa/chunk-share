@@ -15,19 +15,17 @@ function isServerRunning(status: ServerStatus): boolean {
 }
 
 function getToggleButtonLabel(status: ServerStatus): string {
-  if (status === 'starting') {
-    return 'Starting...'
+  const labelByStatus: Partial<Record<ServerStatus, string>> = {
+    starting: 'Starting...',
+    stopping: 'Stopping...',
+    updating: 'Updating...'
   }
 
-  if (status === 'stopping') {
-    return 'Stopping...'
-  }
-
-  return isServerRunning(status) ? 'Stop Server' : 'Start Server'
+  return labelByStatus[status] ?? (isServerRunning(status) ? 'Stop Server' : 'Start Server')
 }
 
 function getToggleButtonIcon(status: ServerStatus): string {
-  if (status === 'starting' || status === 'stopping') {
+  if (['starting', 'stopping', 'updating'].includes(status)) {
     return 'sync'
   }
 
@@ -41,7 +39,8 @@ function ServerHeader({
   downloadEula
 }: ServerHeaderProps): React.JSX.Element {
   const serverIsRunning = isServerRunning(server.status)
-  const serverIsBusy = server.status === 'starting' || server.status === 'stopping'
+  const serverIsBusy =
+    server.status === 'starting' || server.status === 'stopping' || server.status === 'updating'
   const toggleButtonLabel = primaryAction.label ?? getToggleButtonLabel(server.status)
   const toggleButtonIcon = primaryAction.icon ?? getToggleButtonIcon(server.status)
   const toggleButtonTone = primaryAction.tone ?? 'default'
@@ -102,7 +101,7 @@ function ServerHeader({
           <Tooltip content={primaryAction.tooltip}>
             <button
               aria-label={toggleButtonLabel}
-              aria-busy={primaryAction.isAnimating}
+              aria-busy={primaryAction.isAnimating || serverIsBusy}
               className={`server-toggle-button is-${serverIsRunning ? 'running' : 'stopped'} is-tone-${toggleButtonTone}${
                 primaryAction.isAnimating ? ' is-animating' : ''
               }${serverIsBusy ? ' is-busy' : ''}`}

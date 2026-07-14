@@ -46,7 +46,7 @@ function GoogleDriveStoragePanel({ onActivate }: GoogleDriveStoragePanelProps): 
 
       {state.errorMessage && <p className="settings-drive-error">{state.errorMessage}</p>}
 
-      <div className="settings-drive-actions">
+      <div className="settings-storage-actions">
         {disconnectIsPending ? (
           <GoogleDriveDisconnectChoice onCancel={() => setDisconnectIsPending(false)} />
         ) : (

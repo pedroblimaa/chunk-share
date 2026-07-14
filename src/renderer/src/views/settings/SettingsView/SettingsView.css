@@ -91,7 +91,7 @@
   font-size: var(--font-size-body);
 }
 
-.settings-status-row {
+.settings-acount-footer {
   align-items: center;
   border-top: 1px solid var(--color-border-subtle);
   color: var(--color-text-secondary);
@@ -145,7 +145,7 @@
 
 @media (max-width: 720px) {
   .settings-storage-panel,
-  .settings-status-row {
+  .settings-acount-footer {
     align-items: flex-start;
     flex-direction: column;
   }

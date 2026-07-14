@@ -53,6 +53,7 @@ function DashboardView({
   onSignOut
 }: DashboardViewProps): React.JSX.Element {
   const serverDisplayStateRef = useRef(serverDisplayState)
+  const displayStateRequestIdRef = useRef(0)
   const [runtimeErrorMessage, setRuntimeErrorMessage] = useState<string | null>(null)
   const [errorCopyStatus, setErrorCopyStatus] = useState<CopyStatus>('idle')
   const [addressCopyStatus, setAddressCopyStatus] = useState<CopyStatus>('idle')
@@ -60,7 +61,6 @@ function DashboardView({
   const [connectionDetailsOpen, setConnectionDetailsOpen] = useState(false)
   const [downloadEulaAccepted, setDownloadEulaAccepted] = useState(false)
   const [isInitialSnapshotRefreshing, setIsInitialSnapshotRefreshing] = useState(true)
-  const [initialLoadErrorMessage, setInitialLoadErrorMessage] = useState<string | null>(null)
 
   useEffect(() => {
     serverDisplayStateRef.current = serverDisplayState
@@ -76,6 +76,7 @@ function DashboardView({
 
   const applyRuntimeSnapshotToDisplayState = useCallback(
     (runtimeSnapshot: ServerRuntimeSnapshot): void => {
+      displayStateRequestIdRef.current += 1
       updateServerDisplayState(
         applyRuntimeSnapshotToServerDisplayState(serverDisplayStateRef.current, runtimeSnapshot)
       )
@@ -83,53 +84,42 @@ function DashboardView({
     [updateServerDisplayState]
   )
 
-  const refreshServerDisplayState = useCallback(
-    async (nextRuntimeSnapshot: ServerRuntimeSnapshot): Promise<void> => {
-      try {
-        const nextServerDisplayState = await loadServerDisplayState()
-        updateServerDisplayState(
-          applyRuntimeSnapshotToServerDisplayState(nextServerDisplayState, nextRuntimeSnapshot)
-        )
-      } catch (error: unknown) {
+  const refreshServerDisplayState = useCallback(async (): Promise<void> => {
+    const requestId = ++displayStateRequestIdRef.current
+
+    try {
+      const nextServerDisplayState = await loadServerDisplayState()
+
+      if (requestId !== displayStateRequestIdRef.current) {
+        return
+      }
+
+      updateServerDisplayState(nextServerDisplayState)
+    } catch (error: unknown) {
+      if (requestId === displayStateRequestIdRef.current) {
         setRuntimeErrorMessage(getErrorMessage(error, 'Unable to refresh dashboard.'))
       }
-    },
-    [updateServerDisplayState]
-  )
+    }
+  }, [updateServerDisplayState])
 
   const refreshDashboardAfterDownload = useCallback(async (): Promise<void> => {
-    const nextRuntimeSnapshot = await window.chunkShare.serverRuntime.getSnapshot()
-
-    await refreshServerDisplayState(nextRuntimeSnapshot)
+    await refreshServerDisplayState()
   }, [refreshServerDisplayState])
 
   useEffect(() => {
-    let shouldIgnoreResult = false
+    let isMounted = true
 
-    async function refreshInitialServerDisplayState(): Promise<void> {
-      try {
-        const nextServerDisplayState = await loadServerDisplayState()
-
-        if (!shouldIgnoreResult) {
-          updateServerDisplayState(nextServerDisplayState)
-        }
-      } catch (error: unknown) {
-        if (!shouldIgnoreResult) {
-          setInitialLoadErrorMessage(getErrorMessage(error, 'Unable to refresh server data.'))
-        }
-      } finally {
-        if (!shouldIgnoreResult) {
-          setIsInitialSnapshotRefreshing(false)
-        }
+    void refreshServerDisplayState().finally(() => {
+      if (isMounted) {
+        setIsInitialSnapshotRefreshing(false)
       }
-    }
-
-    refreshInitialServerDisplayState()
+    })
 
     return () => {
-      shouldIgnoreResult = true
+      isMounted = false
+      displayStateRequestIdRef.current += 1
     }
-  }, [updateServerDisplayState])
+  }, [refreshServerDisplayState])
 
   useEffect(() => {
     let isMounted = true
@@ -159,22 +149,19 @@ function DashboardView({
   useEffect(() => {
     return window.chunkShare.serverRuntime.onEvent((runtimeEvent) => {
       setRuntimeErrorMessage(runtimeEvent.snapshot.errorMessage)
-      applyRuntimeSnapshotToDisplayState(runtimeEvent.snapshot)
 
       if (runtimeEvent.snapshot.status === 'stopped') {
-        void refreshServerDisplayState(runtimeEvent.snapshot)
+        void refreshServerDisplayState()
+        return
       }
+
+      applyRuntimeSnapshotToDisplayState(runtimeEvent.snapshot)
     })
   }, [applyRuntimeSnapshotToDisplayState, refreshServerDisplayState])
 
   useEffect(() => {
     const refreshTimer = window.setInterval(() => {
-      window.chunkShare.serverRuntime
-        .getSnapshot()
-        .then(refreshServerDisplayState)
-        .catch((error: unknown) => {
-          setRuntimeErrorMessage(getErrorMessage(error, 'Unable to refresh dashboard.'))
-        })
+      void refreshServerDisplayState()
     }, DASHBOARD_REFRESH_INTERVAL_MS)
 
     return () => window.clearInterval(refreshTimer)
@@ -273,14 +260,12 @@ function DashboardView({
   }
 
   async function copyRuntimeError(): Promise<void> {
-    const errorMessage = initialLoadErrorMessage ?? runtimeErrorMessage
-
-    if (!errorMessage) {
+    if (!runtimeErrorMessage) {
       return
     }
 
     try {
-      await navigator.clipboard.writeText(errorMessage)
+      await navigator.clipboard.writeText(runtimeErrorMessage)
       setErrorCopyStatus('copied')
     } catch {
       setErrorCopyStatus('failed')
@@ -309,13 +294,16 @@ function DashboardView({
   }
 
   function closeRuntimeErrorToast(): void {
-    setInitialLoadErrorMessage(null)
     setRuntimeErrorMessage(null)
     setErrorCopyStatus('idle')
   }
 
   function handleHeaderServerAction(): void {
-    const actionByKind: Record<DashboardPrimaryActionKind, () => void> = {
+    if (primaryActionView.kind === 'none') {
+      return
+    }
+
+    const actionByKind: Record<Exclude<DashboardPrimaryActionKind, 'none'>, () => void> = {
       join: () => setConnectionDetailsOpen(true),
       'download-server': () => {
         downloadServer()
@@ -349,7 +337,6 @@ function DashboardView({
   const lastActiveLabel = isServerActiveStatus(dashboardSnapshot.serverStatus)
     ? 'Active now'
     : latestSaveLabel
-  const displayedErrorMessage = initialLoadErrorMessage ?? runtimeErrorMessage
 
   return (
     <div
@@ -379,7 +366,7 @@ function DashboardView({
         />
 
         <main className="dashboard-content">
-          {displayedErrorMessage ? (
+          {runtimeErrorMessage ? (
             <Toast
               action={{
                 icon: COPY_STATUS_ICONS[errorCopyStatus],
@@ -387,7 +374,7 @@ function DashboardView({
                 onClick: copyRuntimeError
               }}
               icon="error"
-              message={displayedErrorMessage}
+              message={runtimeErrorMessage}
               title="Server action failed"
               tone="error"
               onClose={closeRuntimeErrorToast}

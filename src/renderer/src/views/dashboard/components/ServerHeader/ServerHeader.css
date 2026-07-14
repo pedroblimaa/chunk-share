@@ -58,14 +58,16 @@
 }
 
 .status-starting,
-.status-stopping {
+.status-stopping,
+.status-updating {
   animation: server-status-pulse 1200ms ease-in-out infinite;
   border-color: var(--color-warning);
   color: var(--color-warning);
 }
 
 .status-starting span,
-.status-stopping span {
+.status-stopping span,
+.status-updating span {
   background: var(--color-warning);
   box-shadow: 0 0 12px var(--color-warning);
 }
@@ -236,12 +238,12 @@
 }
 
 .server-toggle-button.is-tone-sync {
-  background: #2389d7;
+  background: var(--color-sync);
   color: var(--color-text-inverse);
 }
 
 .server-toggle-button.is-tone-sync:hover {
-  box-shadow: 0 0 18px rgba(35, 137, 215, 0.36);
+  box-shadow: 0 0 18px var(--color-sync-glow);
   transform: translateY(-1px);
 }
 
@@ -271,6 +273,11 @@
 .server-toggle-button.is-busy {
   background: var(--color-warning);
   color: var(--color-text-on-accent);
+}
+
+.server-toggle-button.is-tone-sync.is-busy {
+  background: var(--color-sync);
+  color: var(--color-text-inverse);
 }
 
 .server-toggle-button.is-busy .material-symbols-outlined {

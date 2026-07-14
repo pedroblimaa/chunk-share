@@ -54,7 +54,8 @@ function getStatusLabel(server: ServerCardSummary): string {
     running: 'Running',
     starting: 'Starting',
     stopping: 'Stopping',
-    stopped: 'Stopped'
+    stopped: 'Stopped',
+    updating: 'Updating'
   }
 
   return statusLabels[server.status]

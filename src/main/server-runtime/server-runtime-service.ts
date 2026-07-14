@@ -85,8 +85,13 @@ class ServerRuntime {
       throw new ServerRuntimeError('Minecraft server is already running.')
     }
 
-    if (this.status === 'starting' || this.status === 'running' || this.status === 'stopping') {
-      throw new ServerRuntimeError('Minecraft server is already starting, running, or stopping.')
+    if (
+      this.status === 'starting' ||
+      this.status === 'running' ||
+      this.status === 'stopping' ||
+      this.status === 'updating'
+    ) {
+      throw new ServerRuntimeError('Minecraft server cannot start while it is active or updating.')
     }
 
     return runExclusiveStorageOperation(
@@ -210,6 +215,10 @@ class ServerRuntime {
   }
 
   async downloadLatestSharedSave(): Promise<ServerRuntimeSnapshot> {
+    if (this.status === 'updating') {
+      throw new ServerRuntimeError('The shared save is already being updated.')
+    }
+
     if (this.status !== 'stopped') {
       throw new ServerRuntimeError('Stop the Minecraft server before downloading a shared save.')
     }
@@ -222,30 +231,32 @@ class ServerRuntime {
   }
 
   private async runLatestSharedSaveDownload(): Promise<ServerRuntimeSnapshot> {
-    const storageSnapshot = await getServerSyncSnapshot()
-
-    if (storageSnapshot.localState.serverSetup.status !== 'ready') {
-      throw new ServerRuntimeError('Set up this shared server on this device before downloading it.')
-    }
-
-    if (storageSnapshot.serverSync.status !== ServerSyncStatus.UpdateAvailable) {
-      throw new ServerRuntimeError('No newer shared save is available to download.')
-    }
-
+    this.status = 'updating'
     this.errorMessage = null
-    this.addLogLine('ChunkShare', 'Downloading the latest shared save.')
+    this.emitRuntimeEvent()
 
     try {
+      const storageSnapshot = await getServerSyncSnapshot()
+
+      if (storageSnapshot.localState.serverSetup.status !== 'ready') {
+        throw new ServerRuntimeError('Set up this shared server on this device before downloading it.')
+      }
+
+      if (storageSnapshot.serverSync.status !== ServerSyncStatus.UpdateAvailable) {
+        throw new ServerRuntimeError('No newer shared save is available to download.')
+      }
+
+      this.addLogLine('ChunkShare', 'Downloading the latest shared save.')
       await restoreLatestServerSave(storageSnapshot)
+      this.status = 'stopped'
       this.addLogLine('ChunkShare', 'Local server updated from the shared save.', 'success')
-      this.emitRuntimeEvent()
 
       return this.getSnapshot()
     } catch (error) {
       const message = getDownloadSharedSaveErrorMessage(error)
+      this.status = 'stopped'
       this.errorMessage = message
       this.addLogLine('ChunkShare', message, 'error')
-      this.emitRuntimeEvent()
       throw new ServerRuntimeError(message)
     }
   }
@@ -295,6 +306,10 @@ class ServerRuntime {
   }
 
   async stop(): Promise<ServerRuntimeSnapshot> {
+    if (this.status === 'updating') {
+      throw new ServerRuntimeError('Cannot stop Minecraft while the shared save is being updated.')
+    }
+
     if (!this.serverProcess) {
       this.status = 'stopped'
       this.errorMessage = null

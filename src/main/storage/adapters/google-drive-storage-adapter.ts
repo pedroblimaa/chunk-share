@@ -1,8 +1,10 @@
-import { createReadStream } from 'fs'
+import { createReadStream, createWriteStream } from 'fs'
 import { randomUUID } from 'crypto'
-import { mkdir, writeFile } from 'fs/promises'
+import { mkdir } from 'fs/promises'
 import type { OAuth2Client } from 'google-auth-library'
 import { dirname } from 'path'
+import type { Readable } from 'stream'
+import { pipeline } from 'stream/promises'
 import type { LatestSave, ServerLock } from '../../../shared/domain'
 import { ensureGoogleDriveAuthSession } from '../../auth/auth-service'
 import { createAuthenticatedGoogleOAuthClient } from '../../auth/google-oauth-client'
@@ -287,12 +289,12 @@ async function downloadServerSaveVersion(fileName: string, localDestinationPath:
 
   await mkdir(dirname(localDestinationPath), { recursive: true })
 
-  const response = await oauthClient.request<ArrayBuffer>({
-    responseType: 'arraybuffer',
+  const response = await oauthClient.request<Readable>({
+    responseType: 'stream',
     url: `${GOOGLE_DRIVE_API_BASE_URL}/files/${encodeURIComponent(file.id)}?alt=media`
   })
 
-  await writeFile(localDestinationPath, Buffer.from(response.data))
+  await pipeline(response.data, createWriteStream(localDestinationPath))
 }
 
 async function deleteServerSaveVersion(fileName: string): Promise<void> {

@@ -40,6 +40,16 @@ export function getDashboardPrimaryActionView({
     }
   }
 
+  if (dashboardSnapshot.serverStatus === 'updating') {
+    return {
+      kind: 'none',
+      isDisabled: true,
+      tone: 'sync',
+      tooltip: 'Downloading the latest shared save.',
+      ariaLabel: 'Updating shared save'
+    }
+  }
+
   const toggleIsDisabled =
     dashboardSnapshot.serverStatus === 'not-configured' ||
     dashboardSnapshot.serverStatus === 'starting' ||

@@ -33,6 +33,9 @@
   --color-accent-glow: rgba(128, 220, 91, 0.1);
   --color-accent-glow-soft: rgba(128, 220, 91, 0.08);
 
+  --color-sync: #2389d7;
+  --color-sync-glow: rgba(35, 137, 215, 0.36);
+
   --color-danger: #b3312c;
   --color-danger-glow: rgba(179, 49, 44, 0.22);
   --color-danger-text: #ffb4ab;

@@ -24,3 +24,4 @@ cloudStorageSettings.json
 cloudStorageSettings.test.json
 .aider*
 .server.extract*
+.server.download*
