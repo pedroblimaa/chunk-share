@@ -35,17 +35,27 @@ export async function executeStorageProviderCopy(
       await session.prepare(sourceProvider, sourceAdapter, targetProvider, targetAdapter)
       assertSwitchPreviewIsCurrent(expectedPreview, session.preview!)
 
+      let nextSettings: CloudStorageSettings
+
       try {
         await session.replaceTarget()
         session.finalize()
-        return await activateProvider(validatedSettings, targetProvider)
+        nextSettings = await activateProvider(validatedSettings, targetProvider)
       } catch (error) {
-        if (session.preview) {
-          await session.restoreTarget().catch(() => undefined)
-        }
-
+        await session.restoreTarget()
         throw error
       }
+
+      try {
+        await session.commitTarget()
+      } catch (error) {
+        console.error(
+          'Storage provider switched, but its previous save-history backup was not deleted.',
+          error
+        )
+      }
+
+      return nextSettings
     })
   } finally {
     await session.dispose()

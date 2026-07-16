@@ -93,7 +93,9 @@ function StorageProviderSwitchChoice({
           className={`settings-provider-switch-warning${copyIsRunning ? ' is-hiding' : ''}`}
         >
           <MaterialIcon name="warning" />
-          <span>{targetLabel} save history will be permanently replaced.</span>
+          <span>
+            {targetLabel} save history will be replaced with only the current provider&apos;s latest save.
+          </span>
         </div>
       )}
       <div className="settings-provider-switch-actions">

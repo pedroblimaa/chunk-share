@@ -44,11 +44,11 @@ export function getCopyActionLabel(
 
   switch (progress.phase) {
     case StorageProviderCopyPhase.PreparingSource:
-      return formatFileProgressLabel('Preparing current saves', progress)
+      return formatFileProgressLabel('Preparing save', progress)
     case StorageProviderCopyPhase.PreparingTarget:
       return formatFileProgressLabel('Backing up target saves', progress)
     case StorageProviderCopyPhase.Copying:
-      return formatFileProgressLabel('Copying saves', progress)
+      return formatFileProgressLabel('Copying save', progress)
     case StorageProviderCopyPhase.Finalizing:
       return 'Finalizing storage switch...'
     case StorageProviderCopyPhase.Restoring:
@@ -70,7 +70,7 @@ export function getProviderSwitchProgressLabel(operation: StorageSettingsOperati
   }
 
   if (operation === StorageSettingsOperation.CopyProviderData) {
-    return 'Copying saves to the selected provider...'
+    return 'Copying the latest save to the selected provider...'
   }
 
   if (operation === StorageSettingsOperation.SwitchProvider) {

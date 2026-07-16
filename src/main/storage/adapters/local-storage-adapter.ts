@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto'
 import { copyFile, mkdir, open, readdir, rm, stat } from 'fs/promises'
 import { dirname, join } from 'path'
 import type { LatestSave, ServerLock } from '../../../shared/domain'
@@ -13,7 +14,12 @@ import {
 } from '../core/storage-paths'
 import { isLatestSave, isServerLock } from '../core/storage-validation'
 import { readJsonFileOrDefault, readOrCreateJsonFile, writeJsonFile } from '../persistence/json-file-store'
-import type { ServerSaveVersionFile, ServerSyncStorageData, StorageAdapter } from './storage-adapter.model'
+import type {
+  ServerSaveVersionFile,
+  ServerSavesReplacement,
+  ServerSyncStorageData,
+  StorageAdapter
+} from './storage-adapter.model'
 
 const SERVER_SAVE_FILE_PATTERN = /^server-v(\d+)\.zip$/
 const MUTATION_LOCK_STALE_MS = 60 * 60 * 1000
@@ -30,6 +36,7 @@ export const localStorageAdapter: StorageAdapter = {
   resetServerSaves,
   runExclusiveStorageMutation,
   serverSaveVersionExists,
+  stageServerSavesReplacement,
   uploadServerSaveVersion,
   writeLatestSave,
   writeServerLock
@@ -92,6 +99,46 @@ function writeServerLock(serverLock: ServerLock): Promise<void> {
 
 function resetServerLock(): Promise<void> {
   return writeServerLock(DEFAULT_SERVER_LOCK)
+}
+
+async function stageServerSavesReplacement(): Promise<ServerSavesReplacement> {
+  await ensureLocalStorage()
+
+  const [previousLatestSave, previousServerLock] = await Promise.all([readLatestSave(), readServerLock()])
+  const backupFolderPath = `${localStorageVersionsFolderPath}.backup-${randomUUID()}`
+
+  await renameWithRetry(localStorageVersionsFolderPath, backupFolderPath)
+
+  try {
+    await mkdir(localStorageVersionsFolderPath, { recursive: true })
+  } catch (error) {
+    await renameWithRetry(backupFolderPath, localStorageVersionsFolderPath)
+    throw error
+  }
+
+  let isResolved = false
+
+  const commit = async (): Promise<void> => {
+    if (isResolved) {
+      return
+    }
+
+    await rm(backupFolderPath, { recursive: true, force: true })
+    isResolved = true
+  }
+
+  const rollback = async (): Promise<void> => {
+    if (isResolved) {
+      return
+    }
+
+    await rm(localStorageVersionsFolderPath, { recursive: true, force: true })
+    await renameWithRetry(backupFolderPath, localStorageVersionsFolderPath)
+    await Promise.all([writeLatestSave(previousLatestSave), writeServerLock(previousServerLock)])
+    isResolved = true
+  }
+
+  return { commit, rollback }
 }
 
 async function acquireExclusiveMutationLock(): Promise<void> {

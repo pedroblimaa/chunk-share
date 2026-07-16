@@ -7,17 +7,25 @@ import {
   type CloudStorageProviderDataSummary,
   type CloudStorageProviderSwitchPreview
 } from '../../../shared/cloud-storage.model'
-import type { StorageAdapter } from '../adapters/storage-adapter.model'
-import { StorageError } from './storage-error'
+import type { LatestSave } from '../../../shared/domain'
 import type {
-  StorageProviderCopyProgressListener,
-  StorageProviderDataBackup
-} from './storage-provider-copy.model'
+  ServerSaveVersionFile,
+  ServerSavesReplacement,
+  StorageAdapter
+} from '../adapters/storage-adapter.model'
+import { StorageError } from './storage-error'
+import type { StorageProviderCopyProgressListener } from './storage-provider-copy.model'
+
+interface CopySource {
+  adapter: StorageAdapter
+  latestSave: Exclude<LatestSave, null>
+  localZipPath: string
+}
 
 export class CopySession {
-  private sourceBackup: StorageProviderDataBackup | null = null
-  private targetBackup: StorageProviderDataBackup | null = null
+  private source: CopySource | null = null
   private targetAdapter: StorageAdapter | null = null
+  private targetReplacement: ServerSavesReplacement | null = null
   private tempFolderPath: string | null = null
   preview: CloudStorageProviderSwitchPreview | null = null
 
@@ -41,41 +49,68 @@ export class CopySession {
     this.tempFolderPath = await mkdtemp(join(tmpdir(), 'chunk-share-provider-copy-'))
 
     try {
-      this.sourceBackup = await this.backupData(
-        sourceAdapter,
-        join(this.tempFolderPath, 'source'),
-        StorageProviderCopyPhase.PreparingSource
-      )
+      const [sourceLatestSave, sourceVersionFiles, targetLatestSave, targetVersionFiles] = await Promise.all([
+        sourceAdapter.readLatestSave(),
+        sourceAdapter.listServerSaveVersions(),
+        targetAdapter.readLatestSave(),
+        targetAdapter.listServerSaveVersions()
+      ])
 
-      assertSourceBackupIsValid(this.sourceBackup)
+      assertSourceDataIsValid(sourceLatestSave, sourceVersionFiles)
+      assertSafeVersionFileName(sourceLatestSave.fileName)
 
-      this.targetBackup = await this.backupData(
-        targetAdapter,
-        join(this.tempFolderPath, 'target'),
-        StorageProviderCopyPhase.PreparingTarget
-      )
-
-      this.preview = createSwitchPreview(sourceProvider, this.sourceBackup, targetProvider, this.targetBackup)
+      this.source = {
+        adapter: sourceAdapter,
+        latestSave: sourceLatestSave,
+        localZipPath: join(this.tempFolderPath, sourceLatestSave.fileName)
+      }
+      this.preview = {
+        source: createProviderDataSummary(sourceProvider, sourceLatestSave, sourceVersionFiles),
+        target: createProviderDataSummary(targetProvider, targetLatestSave, targetVersionFiles)
+      }
     } catch (error) {
       await this.dispose()
       throw error
     }
   }
 
-  replaceTarget(): Promise<void> {
-    if (!this.targetAdapter || !this.sourceBackup) {
+  async replaceTarget(): Promise<void> {
+    if (!this.source || !this.targetAdapter) {
       throw new StorageError('Cannot replace target data before preparing the copy session.')
     }
 
-    return this.replaceData(this.targetAdapter, this.sourceBackup, StorageProviderCopyPhase.Copying)
+    await mkdir(this.tempFolderPath!, { recursive: true })
+    this.report(StorageProviderCopyPhase.PreparingSource, 0, 1)
+    await this.source.adapter.downloadServerSaveVersion(
+      this.source.latestSave.fileName,
+      this.source.localZipPath
+    )
+    this.report(StorageProviderCopyPhase.PreparingSource, 1, 1)
+
+    this.report(StorageProviderCopyPhase.PreparingTarget, 0, 0)
+    this.targetReplacement = await this.targetAdapter.stageServerSavesReplacement()
+
+    this.report(StorageProviderCopyPhase.Copying, 0, 1)
+    await this.targetAdapter.uploadServerSaveVersion(
+      this.source.latestSave.fileName,
+      this.source.localZipPath
+    )
+    this.report(StorageProviderCopyPhase.Copying, 1, 1)
+    await this.targetAdapter.writeLatestSave(this.source.latestSave)
+    await this.targetAdapter.resetServerLock()
+  }
+
+  commitTarget(): Promise<void> {
+    return this.targetReplacement?.commit() ?? Promise.resolve()
   }
 
   restoreTarget(): Promise<void> {
-    if (!this.targetAdapter || !this.targetBackup) {
-      throw new StorageError('Cannot restore target data before preparing the copy session.')
+    if (!this.targetReplacement) {
+      return Promise.resolve()
     }
 
-    return this.replaceData(this.targetAdapter, this.targetBackup, StorageProviderCopyPhase.Restoring)
+    this.report(StorageProviderCopyPhase.Restoring, 0, 0)
+    return this.targetReplacement.rollback()
   }
 
   async dispose(): Promise<void> {
@@ -88,95 +123,37 @@ export class CopySession {
 
     return rm(tempFolderPath, { recursive: true, force: true }).catch(() => undefined)
   }
-
-  private async backupData(
-    storageAdapter: StorageAdapter,
-    versionsFolderPath: string,
-    phase: StorageProviderCopyPhase
-  ): Promise<StorageProviderDataBackup> {
-    const [latestSave, versionFiles] = await Promise.all([
-      storageAdapter.readLatestSave(),
-      storageAdapter.listServerSaveVersions()
-    ])
-
-    await mkdir(versionsFolderPath, { recursive: true })
-    this.report(phase, 0, versionFiles.length)
-
-    for (const [index, versionFile] of versionFiles.entries()) {
-      assertSafeVersionFileName(versionFile.fileName)
-      await storageAdapter.downloadServerSaveVersion(
-        versionFile.fileName,
-        join(versionsFolderPath, versionFile.fileName)
-      )
-      this.report(phase, index + 1, versionFiles.length)
-    }
-
-    return { latestSave, versionFiles, versionsFolderPath }
-  }
-
-  private async replaceData(
-    storageAdapter: StorageAdapter,
-    backup: StorageProviderDataBackup,
-    phase: StorageProviderCopyPhase
-  ): Promise<void> {
-    this.report(phase, 0, backup.versionFiles.length)
-    await storageAdapter.resetServerSaves()
-
-    for (const [index, versionFile] of backup.versionFiles.entries()) {
-      await storageAdapter.uploadServerSaveVersion(
-        versionFile.fileName,
-        join(backup.versionsFolderPath, versionFile.fileName)
-      )
-      this.report(phase, index + 1, backup.versionFiles.length)
-    }
-
-    await storageAdapter.writeLatestSave(backup.latestSave)
-    await storageAdapter.resetServerLock()
-  }
-}
-
-function createSwitchPreview(
-  sourceProvider: CloudStorageProvider,
-  sourceBackup: StorageProviderDataBackup,
-  targetProvider: CloudStorageProvider,
-  targetBackup: StorageProviderDataBackup
-): CloudStorageProviderSwitchPreview {
-  return {
-    source: createProviderDataSummary(sourceProvider, sourceBackup),
-    target: createProviderDataSummary(targetProvider, targetBackup)
-  }
 }
 
 function createProviderDataSummary(
   provider: CloudStorageProvider,
-  backup: StorageProviderDataBackup
+  latestSave: LatestSave,
+  versionFiles: ServerSaveVersionFile[]
 ): CloudStorageProviderDataSummary {
   return {
     provider,
-    latestSaveVersion: backup.latestSave?.saveVersion ?? null,
-    latestSaveRecordedAt: backup.latestSave?.uploadedAt ?? null,
-    versionCount: backup.versionFiles.length
+    latestSaveVersion: latestSave?.saveVersion ?? null,
+    latestSaveRecordedAt: latestSave?.uploadedAt ?? null,
+    versionCount: versionFiles.length
   }
 }
 
-function assertSourceBackupIsValid(backup: StorageProviderDataBackup): void {
-  if (!backup.latestSave && backup.versionFiles.length === 0) {
-    throw new StorageError('Cannot copy saves because the source provider is empty.')
+function assertSourceDataIsValid(
+  latestSave: LatestSave,
+  versionFiles: ServerSaveVersionFile[]
+): asserts latestSave is Exclude<LatestSave, null> {
+  if (!latestSave) {
+    throw new StorageError('Cannot copy saves because the source provider has no latest save.')
   }
 
-  if (!backup.latestSave) {
-    return
-  }
-
-  const latestVersionExists = backup.versionFiles.some(
+  const latestVersionExists = versionFiles.some(
     (versionFile) =>
-      versionFile.fileName === backup.latestSave?.fileName &&
-      versionFile.saveVersion === backup.latestSave.saveVersion
+      versionFile.fileName === latestSave.fileName && versionFile.saveVersion === latestSave.saveVersion
   )
 
   if (!latestVersionExists) {
     throw new StorageError(
-      `Cannot copy saves because ${backup.latestSave.fileName} is missing from the source provider.`
+      `Cannot copy saves because ${latestSave.fileName} is missing from the source provider.`
     )
   }
 }

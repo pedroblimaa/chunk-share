@@ -19,11 +19,17 @@ import { GoogleDriveError } from '../../cloud-storage/google-drive-error'
 import { DEFAULT_LATEST_SAVE, DEFAULT_SERVER_LOCK } from '../core/storage-defaults'
 import { isLatestSave, isServerLock } from '../core/storage-validation'
 import { readCloudStorageSettings } from '../persistence/cloud-storage-settings-store'
-import type { ServerSaveVersionFile, ServerSyncStorageData, StorageAdapter } from './storage-adapter.model'
+import type {
+  ServerSaveVersionFile,
+  ServerSavesReplacement,
+  ServerSyncStorageData,
+  StorageAdapter
+} from './storage-adapter.model'
 
 const LATEST_SAVE_FILE_NAME = 'latest.json'
 const SERVER_LOCK_FILE_NAME = 'lock.json'
 const VERSIONS_FOLDER_NAME = 'versions'
+const VERSIONS_BACKUP_FOLDER_PREFIX = 'versions-backup-'
 const MUTATION_LOCK_CONTENDER_PREFIX = 'storage-operation-lock-'
 const JSON_MIME_TYPE = 'application/json'
 const ZIP_MIME_TYPE = 'application/zip'
@@ -42,6 +48,7 @@ export const googleDriveStorageAdapter: StorageAdapter = {
   resetServerSaves,
   runExclusiveStorageMutation,
   serverSaveVersionExists,
+  stageServerSavesReplacement,
   uploadServerSaveVersion,
   writeLatestSave,
   writeServerLock
@@ -134,6 +141,70 @@ async function writeServerLock(serverLock: ServerLock): Promise<void> {
 
 function resetServerLock(): Promise<void> {
   return writeServerLock(DEFAULT_SERVER_LOCK)
+}
+
+async function stageServerSavesReplacement(): Promise<ServerSavesReplacement> {
+  const oauthClient = await createAuthenticatedDriveClient()
+  const storageFolderId = await getConfiguredDriveFolderId()
+  const [previousLatestSave, previousServerLock, versionsFolder] = await Promise.all([
+    readLatestSave(),
+    readServerLock(),
+    findFileInFolder(oauthClient, storageFolderId, VERSIONS_FOLDER_NAME)
+  ])
+  const backupFolderName = `${VERSIONS_BACKUP_FOLDER_PREFIX}${randomUUID()}`
+  const backupFolderId = versionsFolder?.id
+
+  if (backupFolderId) {
+    await renameDriveFile(oauthClient, backupFolderId, backupFolderName)
+  }
+
+  let replacementFolderId: string
+
+  try {
+    replacementFolderId = await createDriveFile(
+      oauthClient,
+      storageFolderId,
+      VERSIONS_FOLDER_NAME,
+      GOOGLE_DRIVE_FOLDER_MIME_TYPE
+    )
+  } catch (error) {
+    if (backupFolderId) {
+      await renameDriveFile(oauthClient, backupFolderId, VERSIONS_FOLDER_NAME)
+    }
+
+    throw error
+  }
+
+  let isResolved = false
+
+  const commit = async (): Promise<void> => {
+    if (isResolved) {
+      return
+    }
+
+    if (backupFolderId) {
+      await deleteDriveFile(oauthClient, backupFolderId)
+    }
+
+    isResolved = true
+  }
+
+  const rollback = async (): Promise<void> => {
+    if (isResolved) {
+      return
+    }
+
+    await deleteDriveFile(oauthClient, replacementFolderId)
+
+    if (backupFolderId) {
+      await renameDriveFile(oauthClient, backupFolderId, VERSIONS_FOLDER_NAME)
+    }
+
+    await Promise.all([writeLatestSave(previousLatestSave), writeServerLock(previousServerLock)])
+    isResolved = true
+  }
+
+  return { commit, rollback }
 }
 
 async function acquireMutationLockContender(
@@ -484,6 +555,16 @@ async function uploadDriveFileMedia(
     },
     method: 'PATCH',
     url: `https://www.googleapis.com/upload/drive/v3/files/${encodeURIComponent(fileId)}?uploadType=media`
+  })
+}
+
+async function renameDriveFile(oauthClient: OAuth2Client, fileId: string, name: string): Promise<void> {
+  await oauthClient.fetch(`${GOOGLE_DRIVE_API_BASE_URL}/files/${encodeURIComponent(fileId)}`, {
+    body: JSON.stringify({ name }),
+    headers: {
+      'Content-Type': JSON_MIME_TYPE
+    },
+    method: 'PATCH'
   })
 }
 

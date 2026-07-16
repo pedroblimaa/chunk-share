@@ -11,6 +11,11 @@ export interface ServerSyncStorageData {
   versionFiles: ServerSaveVersionFile[]
 }
 
+export interface ServerSavesReplacement {
+  commit(): Promise<void>
+  rollback(): Promise<void>
+}
+
 export interface StorageAdapter {
   assertNoStorageMutationInProgress(): Promise<void>
   runExclusiveStorageMutation<Result>(executeMutation: () => Promise<Result>): Promise<Result>
@@ -22,6 +27,8 @@ export interface StorageAdapter {
   readServerLock(): Promise<ServerLock>
   writeServerLock(serverLock: ServerLock): Promise<void>
   resetServerLock(): Promise<void>
+
+  stageServerSavesReplacement(): Promise<ServerSavesReplacement>
 
   listServerSaveVersions(): Promise<ServerSaveVersionFile[]>
   serverSaveVersionExists(fileName: string): Promise<boolean>
