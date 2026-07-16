@@ -9,9 +9,9 @@ import {
 import { ServerLockStatus } from '../../../shared/domain'
 import { getStorageAdapterForProvider } from '../adapters/storage-adapter-service'
 import type { StorageAdapter } from '../adapters/storage-adapter.model'
-import { StorageError } from './storage-error'
-import type { StorageProviderCopyProgressListener } from './storage-provider-copy.model'
-import { CopySession } from './copy-session'
+import { CopySession } from './provider-copy/copy-session'
+import type { StorageProviderCopyProgressListener } from './provider-copy/provider-copy.model'
+import { StorageError } from './support/storage-error'
 
 export async function executeStorageProviderCopy(
   currentSettings: CloudStorageSettings,

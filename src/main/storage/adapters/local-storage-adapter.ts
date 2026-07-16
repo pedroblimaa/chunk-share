@@ -2,17 +2,17 @@ import { randomUUID } from 'crypto'
 import { copyFile, mkdir, open, readdir, rm, stat } from 'fs/promises'
 import { dirname, join } from 'path'
 import type { LatestSave, ServerLock } from '../../../shared/domain'
-import { renameWithRetry } from '../core/file-system-utils'
-import { DEFAULT_LATEST_SAVE, DEFAULT_SERVER_LOCK } from '../core/storage-defaults'
-import { StorageError } from '../core/storage-error'
+import { renameWithRetry } from '../core/support/file-system-utils'
+import { DEFAULT_LATEST_SAVE, DEFAULT_SERVER_LOCK } from '../core/support/storage-defaults'
+import { StorageError } from '../core/support/storage-error'
 import {
   latestSaveFilePath,
   localStorageFolderPath,
   localStorageMutationLockFilePath,
   localStorageVersionsFolderPath,
   serverLockFilePath
-} from '../core/storage-paths'
-import { isLatestSave, isServerLock } from '../core/storage-validation'
+} from '../core/support/storage-paths'
+import { isLatestSave, isServerLock } from '../core/support/storage-validation'
 import { readJsonFileOrDefault, readOrCreateJsonFile, writeJsonFile } from '../persistence/json-file-store'
 import type {
   ServerSaveVersionFile,

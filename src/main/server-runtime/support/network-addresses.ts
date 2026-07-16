@@ -1,5 +1,5 @@
 import { networkInterfaces } from 'os'
-import type { ServerConnectionAddress } from '../../shared/server-runtime'
+import type { ServerConnectionAddress } from '../../../shared/server-runtime'
 
 export function getConnectionAddresses(port: number): ServerConnectionAddress[] {
   const addresses = Object.entries(networkInterfaces()).flatMap(([interfaceName, entries]) =>

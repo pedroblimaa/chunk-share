@@ -1,4 +1,4 @@
-import { ServerHostingStatus, ServerLockStatus } from '../../../shared/domain'
+import { ServerHostingStatus, ServerLockStatus } from '../../../../shared/domain'
 import {
   CloudStorageProvider,
   StorageSwitchDataMode,
@@ -9,7 +9,7 @@ import {
   type CloudStorageSettings,
   type GoogleDriveFolderConfig,
   type GoogleDriveStorageState
-} from '../../../shared/cloud-storage.model'
+} from '../../../../shared/cloud-storage.model'
 import type {
   JavaConfig,
   LatestSave,
@@ -20,7 +20,7 @@ import type {
   ServerLock,
   ServerSetupState,
   ServerType
-} from '../../../shared/domain'
+} from '../../../../shared/domain'
 
 type StorageRecord = Record<string, unknown>
 

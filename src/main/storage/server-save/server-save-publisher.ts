@@ -5,10 +5,10 @@ import { ZipArchive } from 'archiver'
 import type { LatestSave, LocalState, Player } from '../../../shared/domain'
 import { getActiveStorageAdapter } from '../adapters/storage-adapter-service'
 import type { ServerSaveVersionFile, StorageAdapter } from '../adapters/storage-adapter.model'
-import { renameWithRetry } from '../core/file-system-utils'
+import { renameWithRetry } from '../core/support/file-system-utils'
 import { readLocalState, saveLocalSaveVersion } from '../persistence/local-state-store'
-import { StorageError } from '../core/storage-error'
-import { localServerFolderPath } from '../core/storage-paths'
+import { StorageError } from '../core/support/storage-error'
+import { localServerFolderPath } from '../core/support/storage-paths'
 
 const MAX_RETAINED_SAVE_VERSIONS = 3
 

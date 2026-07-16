@@ -1,8 +1,8 @@
 import { randomUUID } from 'crypto'
 import { mkdir, readFile, rm, writeFile } from 'fs/promises'
 import { dirname } from 'path'
-import { renameWithRetry } from '../core/file-system-utils'
-import { StorageError } from '../core/storage-error'
+import { renameWithRetry } from '../core/support/file-system-utils'
+import { StorageError } from '../core/support/storage-error'
 
 type Validator<T> = (value: unknown) => value is T
 

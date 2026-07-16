@@ -6,15 +6,15 @@ import {
   StorageProviderCopyPhase,
   type CloudStorageProviderDataSummary,
   type CloudStorageProviderSwitchPreview
-} from '../../../shared/cloud-storage.model'
-import type { LatestSave } from '../../../shared/domain'
+} from '../../../../shared/cloud-storage.model'
+import type { LatestSave } from '../../../../shared/domain'
 import type {
   ServerSaveVersionFile,
   ServerSavesReplacement,
   StorageAdapter
-} from '../adapters/storage-adapter.model'
-import { StorageError } from './storage-error'
-import type { StorageProviderCopyProgressListener } from './storage-provider-copy.model'
+} from '../../adapters/storage-adapter.model'
+import { StorageError } from '../support/storage-error'
+import type { StorageProviderCopyProgressListener } from './provider-copy.model'
 
 interface CopySource {
   adapter: StorageAdapter

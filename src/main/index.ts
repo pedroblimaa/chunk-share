@@ -2,11 +2,7 @@ import { app, shell, BrowserWindow } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
-import { registerAuthIpcHandlers } from './ipc/auth-ipc'
-import { registerDashboardIpcHandlers } from './ipc/dashboard-ipc'
-import { registerServerRuntimeIpcHandlers } from './ipc/server-runtime-ipc'
-import { registerServerSetupIpcHandlers } from './ipc/server-setup-ipc'
-import { registerStorageIpcHandlers } from './ipc/storage-ipc'
+import { registerIpcHandlers } from './ipc/register-ipc-handlers'
 
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
@@ -46,11 +42,7 @@ app.whenReady().then(() => {
     optimizer.watchWindowShortcuts(window)
   })
 
-  registerDashboardIpcHandlers()
-  registerAuthIpcHandlers()
-  registerStorageIpcHandlers()
-  registerServerSetupIpcHandlers()
-  registerServerRuntimeIpcHandlers()
+  registerIpcHandlers()
 
   createWindow()
 

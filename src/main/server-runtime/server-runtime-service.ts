@@ -16,10 +16,10 @@ import { getServerSyncSnapshot } from '../server-sync/server-sync-service'
 import { getSyncStartBlockedMessage } from '../server-sync/server-sync-messages'
 import { publishServerSave } from '../storage/server-save/server-save-publisher'
 import { restoreLatestServerSave } from '../storage/server-save/server-save-restorer'
-import { runExclusiveStorageOperation } from '../storage/core/storage-operation-coordinator'
-import { ExclusiveStorageOperation } from '../storage/core/storage-operation.model'
-import { localServerFolderPath, localServerJarFilePath } from '../storage/core/storage-paths'
-import { parseMinecraftOutput, type MinecraftOutputEvent } from './minecraft-output-parser'
+import { runExclusiveStorageOperation } from '../storage/core/operations/operation-coordinator'
+import { ExclusiveStorageOperation } from '../storage/core/operations/operation.model'
+import { localServerFolderPath, localServerJarFilePath } from '../storage/core/support/storage-paths'
+import { startHeartbeat, stopHeartbeat } from './lifecycle/heartbeat-manager'
 import {
   clearHostingLockAfterCleanStop,
   clearHostingLockAfterStartFailure,
@@ -27,12 +27,12 @@ import {
   markHostingLockRunning,
   markHostingLockStopping,
   updateHostingLockSaveVersion
-} from './server-hosting-lock-manager'
-import { startHeartbeat, stopHeartbeat } from './server-heartbeat-manager'
-import { startPlayerPolling, stopPlayerPolling } from './server-player-poller'
-import { getConnectionAddresses } from './server-network-addresses'
-import { assertFileExists, assertFolderExists, isMissingFileError } from './server-runtime-file-checks'
-import { ServerRuntimeError } from './server-runtime-error'
+} from './lifecycle/hosting-lock-manager'
+import { startPlayerPolling, stopPlayerPolling } from './lifecycle/player-poller'
+import { parseMinecraftOutput, type MinecraftOutputEvent } from './support/minecraft-output-parser'
+import { getConnectionAddresses } from './support/network-addresses'
+import { ServerRuntimeError } from './support/runtime-error'
+import { assertFileExists, assertFolderExists, isMissingFileError } from './support/runtime-file-checks'
 
 type ServerRuntimeListener = (event: ServerRuntimeEvent) => void
 type RuntimeLogTone = ServerRuntimeLogLine['tone']

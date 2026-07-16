@@ -3,8 +3,8 @@ import { getServerSyncSnapshot } from '../../server-sync/server-sync-service'
 import { getActiveStorageAdapter } from '../adapters/storage-adapter-service'
 import { resetConfiguredServer, saveServerConfig } from '../persistence/local-state-store'
 import { backupServerFolder } from '../server-save/server-folder-backup'
-import { StorageError } from './storage-error'
-import { localServerFolderPath } from './storage-paths'
+import { StorageError } from './support/storage-error'
+import { localServerFolderPath } from './support/storage-paths'
 
 export async function getStorageSnapshot(): Promise<ServerStorageSnapshot> {
   return getServerSyncSnapshot()

@@ -21,11 +21,11 @@ import {
   localServerFolderPath,
   localServerJarFilePath,
   localServerPropertiesFilePath
-} from '../storage/core/storage-paths'
+} from '../storage/core/support/storage-paths'
 import { getActiveStorageAdapter } from '../storage/adapters/storage-adapter-service'
 import { getServerSyncSnapshot } from '../server-sync/server-sync-service'
-import { ExclusiveStorageOperation } from '../storage/core/storage-operation.model'
-import { runExclusiveStorageOperation } from '../storage/core/storage-operation-coordinator'
+import { runExclusiveStorageOperation } from '../storage/core/operations/operation-coordinator'
+import { ExclusiveStorageOperation } from '../storage/core/operations/operation.model'
 import { backupServerFolder } from '../storage/server-save/server-folder-backup'
 import { restoreLatestServerSave } from '../storage/server-save/server-save-restorer'
 import { ServerSetupError } from './server-setup-error'

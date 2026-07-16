@@ -1,5 +1,5 @@
 import { stat } from 'fs/promises'
-import { ServerRuntimeError } from './server-runtime-error'
+import { ServerRuntimeError } from './runtime-error'
 
 export async function assertFolderExists(folderPath: string): Promise<void> {
   const fileStats = await stat(folderPath).catch((error: unknown) => {

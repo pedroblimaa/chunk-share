@@ -23,13 +23,15 @@ import {
   writeCloudStorageSettings
 } from '../persistence/cloud-storage-settings-store'
 import { saveLocalSaveVersion } from '../persistence/local-state-store'
-import { GOOGLE_DRIVE_NOT_READY_ERROR_MESSAGE } from './cloud-storage-messages'
-import { StorageError } from './storage-error'
-import { runExclusiveStorageOperation } from './storage-operation-coordinator'
-import { ExclusiveStorageOperation } from './storage-operation.model'
-import type { StorageProviderCopyProgressListener } from './storage-provider-copy.model'
-import { executeStorageProviderCopy, createVisibleProgressReporter } from './storage-provider-copy-service'
-import { hasValidGoogleDriveFolder } from './storage-validation'
+import { runExclusiveStorageOperation } from './operations/operation-coordinator'
+import { ExclusiveStorageOperation } from './operations/operation.model'
+import type { StorageProviderCopyProgressListener } from './provider-copy/provider-copy.model'
+import { executeStorageProviderCopy, createVisibleProgressReporter } from './provider-copy-service'
+import { StorageError } from './support/storage-error'
+import { hasValidGoogleDriveFolder } from './support/storage-validation'
+
+const GOOGLE_DRIVE_NOT_READY_ERROR_MESSAGE =
+  'Google Drive storage cannot be activated until the Drive folder is valid.'
 
 export async function getCloudStorageSettings(): Promise<CloudStorageSettings> {
   return readCloudStorageSettings()

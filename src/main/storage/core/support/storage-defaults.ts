@@ -1,6 +1,6 @@
-import { ServerLockStatus } from '../../../shared/domain'
-import { CloudStorageProvider, GoogleDriveSetupStatus } from '../../../shared/cloud-storage.model'
-import type { CloudStorageSettings } from '../../../shared/cloud-storage.model'
+import { ServerLockStatus } from '../../../../shared/domain'
+import { CloudStorageProvider, GoogleDriveSetupStatus } from '../../../../shared/cloud-storage.model'
+import type { CloudStorageSettings } from '../../../../shared/cloud-storage.model'
 import type {
   JavaConfig,
   LatestSave,
@@ -8,7 +8,7 @@ import type {
   ServerConfig,
   ServerLock,
   ServerSetupState
-} from '../../../shared/domain'
+} from '../../../../shared/domain'
 
 export const DEFAULT_SERVER_CONFIG: ServerConfig = {
   name: 'Vanilla Survival',

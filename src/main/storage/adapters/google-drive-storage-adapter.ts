@@ -16,8 +16,8 @@ import {
   type GoogleDriveFileResponse
 } from '../../cloud-storage/google-drive.model'
 import { GoogleDriveError } from '../../cloud-storage/google-drive-error'
-import { DEFAULT_LATEST_SAVE, DEFAULT_SERVER_LOCK } from '../core/storage-defaults'
-import { isLatestSave, isServerLock } from '../core/storage-validation'
+import { DEFAULT_LATEST_SAVE, DEFAULT_SERVER_LOCK } from '../core/support/storage-defaults'
+import { isLatestSave, isServerLock } from '../core/support/storage-validation'
 import { readCloudStorageSettings } from '../persistence/cloud-storage-settings-store'
 import type {
   ServerSaveVersionFile,

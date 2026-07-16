@@ -10,7 +10,7 @@ import {
   STORAGE_SETUP_GOOGLE_DRIVE_FOLDER_CHANNEL,
   STORAGE_SNAPSHOT_CHANNEL,
   STORAGE_VALIDATE_GOOGLE_DRIVE_FOLDER_CHANNEL
-} from '../../shared/ipc-channels'
+} from '../../../shared/ipc-channels'
 // TODO: Standardize service imports across auth, dashboard, server-runtime, server-setup,
 // cloud-storage, and storage IPC handlers with namespace imports such as `* as storageService`.
 import {
@@ -20,20 +20,20 @@ import {
   setCloudStorageProvider,
   setupGoogleDriveFolder,
   validateGoogleDriveFolder
-} from '../storage/core/cloud-storage-service'
+} from '../../storage/core/cloud-storage-service'
 import {
   deleteConfiguredServer,
   getStorageSnapshot,
   resetServerLock,
   updateServerConfig
-} from '../storage/core/storage-service'
-import { StorageError } from '../storage/core/storage-error'
+} from '../../storage/core/storage-service'
+import { StorageError } from '../../storage/core/support/storage-error'
 import {
   isCloudStorageProvider as isValidProvider,
   isValidProviderSwitchRequest,
   isServerConfig
-} from '../storage/core/storage-validation'
-import { createCopyProgressSender } from './storage-progress-sender'
+} from '../../storage/core/support/storage-validation'
+import { createCopyProgressSender } from '../support/storage-progress-sender'
 
 export function registerStorageIpcHandlers(): void {
   ipcMain.handle(STORAGE_SNAPSHOT_CHANNEL, () => getStorageSnapshot())

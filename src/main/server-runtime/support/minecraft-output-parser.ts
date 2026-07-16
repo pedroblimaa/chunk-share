@@ -1,4 +1,4 @@
-import type { ServerRuntimeLogLine, ServerRuntimePlayers } from '../../shared/server-runtime'
+import type { ServerRuntimeLogLine, ServerRuntimePlayers } from '../../../shared/server-runtime'
 
 type RuntimeLogTone = ServerRuntimeLogLine['tone']
 

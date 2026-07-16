@@ -3,17 +3,17 @@ import {
   type DownloadSharedServerInput,
   type ServerSetupProgressEvent,
   type SetupVanillaServerInput
-} from '../../shared/server-setup'
+} from '../../../shared/server-setup'
 import {
   SERVER_SETUP_LIST_VANILLA_VERSIONS_CHANNEL,
   SERVER_SETUP_DOWNLOAD_SHARED_SERVER_CHANNEL,
   SERVER_SETUP_PROGRESS_CHANNEL,
   SERVER_SETUP_SETUP_VANILLA_SERVER_CHANNEL
-} from '../../shared/ipc-channels'
-import { downloadSharedServer, setupVanillaServer } from '../server-setup/server-setup-service'
-import { listVanillaReleaseVersions } from '../server-setup/vanilla-version-resolver'
-import { StorageError } from '../storage/core/storage-error'
-import { getStorageSnapshot } from '../storage/core/storage-service'
+} from '../../../shared/ipc-channels'
+import { downloadSharedServer, setupVanillaServer } from '../../server-setup/server-setup-service'
+import { listVanillaReleaseVersions } from '../../server-setup/vanilla-version-resolver'
+import { StorageError } from '../../storage/core/support/storage-error'
+import { getStorageSnapshot } from '../../storage/core/storage-service'
 
 export function registerServerSetupIpcHandlers(): void {
   ipcMain.handle(SERVER_SETUP_LIST_VANILLA_VERSIONS_CHANNEL, () => listVanillaReleaseVersions())

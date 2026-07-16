@@ -5,11 +5,11 @@ import {
   type Player,
   type ServerConnectionAddress,
   type ServerStorageSnapshot
-} from '../../shared/domain'
-import { STALE_LOCK_THRESHOLD_MS } from '../../shared/server-sync'
-import { getActiveStorageAdapter } from '../storage/adapters/storage-adapter-service'
-import { saveActiveSessionId } from '../storage/persistence/local-state-store'
-import { ServerRuntimeError } from './server-runtime-error'
+} from '../../../shared/domain'
+import { STALE_LOCK_THRESHOLD_MS } from '../../../shared/server-sync'
+import { getActiveStorageAdapter } from '../../storage/adapters/storage-adapter-service'
+import { saveActiveSessionId } from '../../storage/persistence/local-state-store'
+import { ServerRuntimeError } from '../support/runtime-error'
 
 let activeRuntimeSessionId: string | null = null
 

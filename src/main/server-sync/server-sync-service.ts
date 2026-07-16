@@ -9,7 +9,7 @@ import { STALE_LOCK_THRESHOLD_MS, ServerSyncStatus, type ServerSyncSnapshot } fr
 import { getActiveStorageAdapter } from '../storage/adapters/storage-adapter-service'
 import type { ServerSaveVersionFile } from '../storage/adapters/storage-adapter.model'
 import { readLocalState } from '../storage/persistence/local-state-store'
-import { getActiveRuntimeSessionId } from '../server-runtime/server-hosting-lock-manager'
+import { getActiveRuntimeSessionId } from '../server-runtime/lifecycle/hosting-lock-manager'
 
 interface ServerSyncContext {
   latestSave: LatestSave

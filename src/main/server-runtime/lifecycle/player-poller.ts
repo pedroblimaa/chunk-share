@@ -1,5 +1,5 @@
 import type { ChildProcessWithoutNullStreams } from 'child_process'
-import type { ServerRuntimePlayers, ServerRuntimeStatus } from '../../shared/server-runtime'
+import type { ServerRuntimePlayers, ServerRuntimeStatus } from '../../../shared/server-runtime'
 
 const PLAYER_LIST_PATTERN = /There are (\d+) of a max of (\d+) players online/
 const PLAYER_POLL_INTERVAL_MS = 10_000

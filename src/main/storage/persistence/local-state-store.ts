@@ -4,10 +4,10 @@ import {
   DEFAULT_LOCAL_STATE,
   DEFAULT_SERVER_CONFIG,
   DEFAULT_SERVER_SETUP_STATE
-} from '../core/storage-defaults'
-import { StorageError } from '../core/storage-error'
-import { localStateFilePath } from '../core/storage-paths'
-import { isLocalState, isServerConfig } from '../core/storage-validation'
+} from '../core/support/storage-defaults'
+import { StorageError } from '../core/support/storage-error'
+import { localStateFilePath } from '../core/support/storage-paths'
+import { isLocalState, isServerConfig } from '../core/support/storage-validation'
 
 type LocalStateChanges = Partial<
   Pick<

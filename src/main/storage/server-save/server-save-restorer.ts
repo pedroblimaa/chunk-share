@@ -3,10 +3,10 @@ import { mkdir, rm, stat } from 'fs/promises'
 import { basename, dirname, join } from 'path'
 import type { ServerStorageSnapshot } from '../../../shared/domain'
 import { getActiveStorageAdapter } from '../adapters/storage-adapter-service'
-import { renameWithRetry } from '../core/file-system-utils'
+import { renameWithRetry } from '../core/support/file-system-utils'
 import { saveLocalSaveVersion } from '../persistence/local-state-store'
-import { StorageError } from '../core/storage-error'
-import { localServerBackupsFolderPath, localServerFolderPath } from '../core/storage-paths'
+import { StorageError } from '../core/support/storage-error'
+import { localServerBackupsFolderPath, localServerFolderPath } from '../core/support/storage-paths'
 
 export async function restoreLatestServerSave(storageSnapshot: ServerStorageSnapshot): Promise<void> {
   const { latestSave, localState } = storageSnapshot

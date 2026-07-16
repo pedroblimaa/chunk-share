@@ -1,7 +1,7 @@
 import { mkdir, stat } from 'fs/promises'
 import { join } from 'path'
-import { renameWithRetry } from '../core/file-system-utils'
-import { localServerBackupsFolderPath } from '../core/storage-paths'
+import { renameWithRetry } from '../core/support/file-system-utils'
+import { localServerBackupsFolderPath } from '../core/support/storage-paths'
 
 export async function backupServerFolder(serverFolderPath: string, serverName: string): Promise<void> {
   if (!(await folderExists(serverFolderPath))) {

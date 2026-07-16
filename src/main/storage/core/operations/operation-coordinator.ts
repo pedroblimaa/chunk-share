@@ -1,4 +1,4 @@
-import { ExclusiveStorageOperation } from './storage-operation.model'
+import { ExclusiveStorageOperation } from './operation.model'
 
 let activeOperation: ExclusiveStorageOperation | null = null
 
