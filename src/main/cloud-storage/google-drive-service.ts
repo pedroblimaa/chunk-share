@@ -16,11 +16,20 @@ import {
 
 export async function ensureGoogleDriveFolder(configuredFolderId?: string): Promise<GoogleDriveFolderConfig> {
   const oauthClient = await createAuthenticatedDriveClient()
-  const folderId = configuredFolderId ?? (await resolveDefaultGoogleDriveFolderId(oauthClient))
+  let folderId = configuredFolderId ?? (await resolveDefaultGoogleDriveFolderId(oauthClient))
+  let folder: GoogleDriveFileResponse
 
-  const folder = await readGoogleDriveFolder(oauthClient, folderId)
+  try {
+    folder = await readUsableGoogleDriveFolder(oauthClient, folderId)
+  } catch (error) {
+    if (!configuredFolderId || !isGoogleDriveFolderNotFound(error)) {
+      throw error
+    }
 
-  assertUsableGoogleDriveFolder(folder)
+    folderId = await resolveDefaultGoogleDriveFolderId(oauthClient)
+    folder = await readUsableGoogleDriveFolder(oauthClient, folderId)
+  }
+
   await validateGoogleDriveFolderWriteAccess(oauthClient, folderId)
 
   const now = new Date().toISOString()
@@ -31,6 +40,16 @@ export async function ensureGoogleDriveFolder(configuredFolderId?: string): Prom
     configuredAt: now,
     validatedAt: now
   }
+}
+
+async function readUsableGoogleDriveFolder(
+  oauthClient: OAuth2Client,
+  folderId: string
+): Promise<GoogleDriveFileResponse> {
+  const folder = await readGoogleDriveFolder(oauthClient, folderId)
+  assertUsableGoogleDriveFolder(folder)
+
+  return folder
 }
 
 async function resolveDefaultGoogleDriveFolderId(oauthClient: OAuth2Client): Promise<string> {
@@ -86,11 +105,7 @@ async function readGoogleDriveFolder(
 
     return response.data
   } catch (error) {
-    throw createGoogleDriveRequestError(
-      error,
-      'Unable to read this Google Drive folder.',
-      GoogleDriveErrorCode.FolderNotFound
-    )
+    throw createGoogleDriveFolderReadError(error)
   }
 }
 
@@ -169,11 +184,7 @@ function escapeGoogleDriveQueryValue(value: string): string {
   return value.replaceAll('\\', '\\\\').replaceAll("'", "\\'")
 }
 
-function createGoogleDriveRequestError(
-  error: unknown,
-  fallbackMessage: string,
-  errorCode: GoogleDriveErrorCode
-): GoogleDriveError {
+function createGoogleDriveFolderReadError(error: unknown): GoogleDriveError {
   if (error instanceof GoogleDriveError) {
     return error
   }
@@ -185,7 +196,33 @@ function createGoogleDriveRequestError(
     )
   }
 
-  return new GoogleDriveError(fallbackMessage, errorCode)
+  if (isGoogleApiResponseStatus(error, 404)) {
+    return new GoogleDriveError(
+      'Unable to find this Google Drive folder.',
+      GoogleDriveErrorCode.FolderNotFound
+    )
+  }
+
+  return new GoogleDriveError('Unable to read this Google Drive folder.', GoogleDriveErrorCode.RequestFailed)
+}
+
+function isGoogleDriveFolderNotFound(error: unknown): boolean {
+  return error instanceof GoogleDriveError && error.code === GoogleDriveErrorCode.FolderNotFound
+}
+
+function isGoogleApiResponseStatus(error: unknown, expectedStatus: number): boolean {
+  if (typeof error !== 'object' || error === null || !('response' in error)) {
+    return false
+  }
+
+  const response = error.response
+
+  return (
+    typeof response === 'object' &&
+    response !== null &&
+    'status' in response &&
+    response.status === expectedStatus
+  )
 }
 
 function isGoogleApiPermissionError(error: unknown): boolean {
