@@ -1,5 +1,9 @@
 appId: com.electron.app
 productName: chunk-share
+protocols:
+  - name: ChunkShare join link
+    schemes:
+      - chunkshare
 directories:
   buildResources: build
 files:

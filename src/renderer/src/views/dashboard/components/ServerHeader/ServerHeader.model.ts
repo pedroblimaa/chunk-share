@@ -33,9 +33,16 @@ export interface ServerHeaderDownloadEula {
   onChange: (accepted: boolean) => void
 }
 
+export interface ServerHeaderSharingAction {
+  disabled: boolean
+  tooltip?: string
+  onClick: () => void
+}
+
 export interface ServerHeaderProps {
   server: ServerHeaderServer
   connection: ServerHeaderConnection
   primaryAction: ServerHeaderPrimaryAction
   downloadEula?: ServerHeaderDownloadEula
+  sharingAction?: ServerHeaderSharingAction
 }

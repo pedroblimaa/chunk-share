@@ -13,8 +13,12 @@ import { isServerActiveStatus } from '../../../shared/server-runtime'
 import { AuthError } from '../../auth/auth-error'
 import { AuthErrorCode } from '../../auth/auth-model'
 import { GoogleDriveError } from '../../cloud-storage/google-drive-error'
-import { ensureGoogleDriveFolder } from '../../cloud-storage/google-drive-service'
+import {
+  ensureGoogleDriveFolder,
+  validateGoogleDriveFolderById
+} from '../../cloud-storage/google-drive-service'
 import { getServerRuntimeSnapshot } from '../../server-runtime/server-runtime-service'
+import { readGoogleDriveStorageData } from '../adapters/google-drive-storage-adapter'
 import { getStorageAdapterForProvider } from '../adapters/storage-adapter-service'
 import { ensureLocalStorage } from '../adapters/local-storage-adapter'
 import type { StorageAdapter } from '../adapters/storage-adapter.model'
@@ -35,6 +39,10 @@ const GOOGLE_DRIVE_NOT_READY_ERROR_MESSAGE =
 
 export async function getCloudStorageSettings(): Promise<CloudStorageSettings> {
   return readCloudStorageSettings()
+}
+
+export function activateSharedGoogleDriveWorld(folderId: string): Promise<CloudStorageSettings> {
+  return runStorageSettingsChange(() => saveSharedGoogleDriveWorld(folderId))
 }
 
 export async function getCloudStorageProviderSwitchPreview(
@@ -152,6 +160,39 @@ async function switchCloudStorageProvider(
   return activateCloudStorageProvider(validatedSettings, provider)
 }
 
+async function saveSharedGoogleDriveWorld(folderId: string): Promise<CloudStorageSettings> {
+  const settings = await readCloudStorageSettings()
+  assertServerIsNotActive()
+
+  const folder = await validateGoogleDriveFolderById(folderId)
+  const world = await readGoogleDriveStorageData(folderId)
+  const latestSave = world.latestSave
+
+  if (!latestSave) {
+    throw new StorageError('This Google Drive folder does not contain a shared ChunkShare world.')
+  }
+
+  const hasLatestVersion = world.versionFiles.some(
+    (version) => version.fileName === latestSave.fileName && version.saveVersion === latestSave.saveVersion
+  )
+
+  if (!hasLatestVersion) {
+    throw new StorageError('The latest shared world version is unavailable in Google Drive.')
+  }
+
+  await saveLocalSaveVersion(null)
+
+  return writeAndReturnCloudStorageSettings({
+    ...settings,
+    activeProvider: CloudStorageProvider.GoogleDrive,
+    googleDrive: {
+      status: GoogleDriveSetupStatus.Valid,
+      folder,
+      errorMessage: null
+    }
+  })
+}
+
 async function activateCloudStorageProvider(
   settings: CloudStorageSettings,
   provider: CloudStorageProvider
@@ -176,11 +217,11 @@ async function ensureAndSaveGoogleDriveFolder(
   }
 }
 
-function saveValidGoogleDriveFolder(
+async function saveValidGoogleDriveFolder(
   settings: CloudStorageSettings,
   folder: GoogleDriveFolderConfig
 ): Promise<CloudStorageSettings> {
-  return writeAndReturnCloudStorageSettings({
+  const savedSettings = await writeAndReturnCloudStorageSettings({
     ...settings,
     googleDrive: {
       status: GoogleDriveSetupStatus.Valid,
@@ -188,6 +229,10 @@ function saveValidGoogleDriveFolder(
       errorMessage: null
     }
   })
+
+  console.info(`[Google Drive] Saved ChunkShare folder ID ${folder.folderId} in storage settings.`)
+
+  return savedSettings
 }
 
 function saveGoogleDriveFolderFailure(

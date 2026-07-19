@@ -2,6 +2,10 @@ import './DashboardView.css'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ServerDisplayState } from '../../../../../shared/dashboard'
+import type {
+  GoogleDriveSharingAvailability,
+  GoogleDriveSharingState
+} from '../../../../../shared/drive-sharing.model'
 import { isServerActiveStatus, type ServerRuntimeSnapshot } from '../../../../../shared/server-runtime'
 import AppSidebar from '../../../components/shared/AppSidebar/AppSidebar'
 import Card from '../../../components/shared/Card/Card'
@@ -17,6 +21,7 @@ import { getDashboardPrimaryActionView } from '../dashboard-header-action'
 import type { DashboardPrimaryActionKind } from '../dashboard-header-action.model'
 import ConsoleOutput from '../components/ConsoleOutput/ConsoleOutput'
 import DashboardStatCard from '../components/DashboardStatCard/DashboardStatCard'
+import DriveSharingDialog from '../components/DriveSharingDialog/DriveSharingDialog'
 import ServerHeader from '../components/ServerHeader/ServerHeader'
 import ServerStatePanel from '../components/ServerStatePanel/ServerStatePanel'
 import TopBar from '../components/TopBar/TopBar'
@@ -43,8 +48,6 @@ const COPY_STATUS_ICONS: Record<CopyStatus, string> = {
   idle: 'content_copy'
 }
 
-const DASHBOARD_REFRESH_INTERVAL_MS = 3_000
-
 function DashboardView({
   serverDisplayState,
   onServerDisplayStateChange,
@@ -61,10 +64,23 @@ function DashboardView({
   const [connectionDetailsOpen, setConnectionDetailsOpen] = useState(false)
   const [downloadEulaAccepted, setDownloadEulaAccepted] = useState(false)
   const [isInitialSnapshotRefreshing, setIsInitialSnapshotRefreshing] = useState(true)
+  const [isDashboardRefreshing, setIsDashboardRefreshing] = useState(false)
+  const [driveSharingAvailability, setDriveSharingAvailability] =
+    useState<GoogleDriveSharingAvailability | null>(null)
+  const [sharingAvailabilityIsLoaded, setSharingAvailabilityIsLoaded] = useState(false)
+  const [sharingDialogIsOpen, setSharingDialogIsOpen] = useState(false)
 
   useEffect(() => {
     serverDisplayStateRef.current = serverDisplayState
   }, [serverDisplayState])
+
+  useEffect(() => {
+    window.chunkShare.driveSharing
+      .getAvailability()
+      .then(setDriveSharingAvailability)
+      .catch(() => setDriveSharingAvailability(null))
+      .finally(() => setSharingAvailabilityIsLoaded(true))
+  }, [])
 
   const updateServerDisplayState = useCallback(
     (nextServerDisplayState: ServerDisplayState): void => {
@@ -160,14 +176,6 @@ function DashboardView({
   }, [applyRuntimeSnapshotToDisplayState, refreshServerDisplayState])
 
   useEffect(() => {
-    const refreshTimer = window.setInterval(() => {
-      void refreshServerDisplayState()
-    }, DASHBOARD_REFRESH_INTERVAL_MS)
-
-    return () => window.clearInterval(refreshTimer)
-  }, [refreshServerDisplayState])
-
-  useEffect(() => {
     if (!isServerToggleAnimating) {
       return undefined
     }
@@ -216,6 +224,17 @@ function DashboardView({
       applyRuntimeSnapshotToDisplayState(nextRuntimeSnapshot)
     } catch (error: unknown) {
       setRuntimeErrorMessage(getErrorMessage(error, 'Unable to toggle server.'))
+    }
+  }
+
+  async function refreshDashboard(): Promise<void> {
+    setRuntimeErrorMessage(null)
+    setIsDashboardRefreshing(true)
+
+    try {
+      await refreshServerDisplayState()
+    } finally {
+      setIsDashboardRefreshing(false)
     }
   }
 
@@ -298,6 +317,10 @@ function DashboardView({
     setErrorCopyStatus('idle')
   }
 
+  function updateDriveSharingState(sharingState: GoogleDriveSharingState): void {
+    setDriveSharingAvailability({ isGoogleDriveActive: true, sharingState })
+  }
+
   function handleHeaderServerAction(): void {
     if (primaryActionView.kind === 'none') {
       return
@@ -337,6 +360,8 @@ function DashboardView({
   const lastActiveLabel = isServerActiveStatus(dashboardSnapshot.serverStatus)
     ? 'Active now'
     : latestSaveLabel
+  const driveSharingState = driveSharingAvailability?.sharingState ?? null
+  const sharingTooltip = getSharingTooltip(sharingAvailabilityIsLoaded, driveSharingAvailability)
 
   return (
     <div
@@ -361,6 +386,11 @@ function DashboardView({
           ]}
           createInstanceDisabled
           createInstanceTitle="Only one server is supported in the MVP."
+          refreshAction={{
+            isRefreshing: isDashboardRefreshing,
+            label: 'Refresh server',
+            onClick: refreshDashboard
+          }}
           onOpenSettings={onOpenSettings}
           onSignOut={onSignOut}
         />
@@ -405,6 +435,11 @@ function DashboardView({
               tone: primaryActionView.tone,
               tooltip: primaryActionView.tooltip,
               onClick: handleHeaderServerAction
+            }}
+            sharingAction={{
+              disabled: driveSharingState === null,
+              tooltip: sharingTooltip,
+              onClick: () => setSharingDialogIsOpen(true)
             }}
             downloadEula={{
               accepted: downloadEulaAccepted,
@@ -462,9 +497,38 @@ function DashboardView({
             </div>
           )}
         </main>
+
+        {sharingDialogIsOpen && driveSharingState && (
+          <DriveSharingDialog
+            sharingState={driveSharingState}
+            onChange={updateDriveSharingState}
+            onClose={() => setSharingDialogIsOpen(false)}
+          />
+        )}
       </div>
     </div>
   )
+}
+
+function getSharingTooltip(
+  sharingAvailabilityIsLoaded: boolean,
+  sharingAvailability: GoogleDriveSharingAvailability | null
+): string | undefined {
+  if (!sharingAvailabilityIsLoaded) {
+    return 'Checking sharing availability...'
+  }
+
+  if (!sharingAvailability) {
+    return 'Unable to check sharing availability.'
+  }
+
+  if (!sharingAvailability.isGoogleDriveActive) {
+    return 'Sharing is available only when this world uses Google Drive.'
+  }
+
+  return sharingAvailability.sharingState
+    ? undefined
+    : 'Only the Google Drive folder owner can invite friends.'
 }
 
 export default DashboardView

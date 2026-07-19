@@ -1,0 +1,62 @@
+.drive-join-description {
+  color: var(--color-text-secondary);
+}
+
+.drive-join-form {
+  display: grid;
+  gap: 10px;
+}
+
+.drive-join-form label {
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-semibold);
+}
+
+.drive-join-input {
+  position: relative;
+}
+
+.drive-join-input .material-symbols-outlined {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-icon-md);
+  left: 12px;
+  pointer-events: none;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.drive-join-input input {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 4px;
+  color: var(--color-text-primary);
+  font-family: var(--font-family-mono);
+  min-height: 42px;
+  padding: 0 12px 0 40px;
+  width: 100%;
+}
+
+.drive-join-input input:focus {
+  border-color: var(--color-border-accent);
+  outline: 0;
+}
+
+.drive-join-error {
+  background: var(--color-danger-glow);
+  border: 1px solid var(--color-danger);
+  border-radius: 6px;
+  color: var(--color-danger-text);
+  font-size: var(--font-size-caption);
+  padding: 10px 12px;
+}
+
+.drive-join-button-loading .material-symbols-outlined {
+  animation: drive-join-button-spin 900ms linear infinite;
+}
+
+@keyframes drive-join-button-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

@@ -1,0 +1,4 @@
+interface:
+  display_name: 'Select Review Scope'
+  short_description: 'Review AI changes in a few minutes'
+  default_prompt: 'Use $select-review-scope to give me a quick, high-value review of this implementation.'

@@ -13,6 +13,15 @@ import {
   type GoogleUserProfile
 } from './auth-model'
 
+const GOOGLE_DRIVE_FOLDER_MIME_TYPE = 'application/vnd.google-apps.folder'
+const GOOGLE_DRIVE_ABOUT_ENDPOINT = 'https://www.googleapis.com/drive/v3/about?fields=user(emailAddress)'
+
+interface GoogleDriveAboutResponse {
+  user?: {
+    emailAddress?: string
+  }
+}
+
 export function createGoogleOAuthClient(redirectUri?: string): OAuth2Client {
   const { clientId, clientSecret } = getGoogleOAuthConfig()
 
@@ -35,12 +44,13 @@ export async function createGoogleAuthorizationUrl(
       code_challenge_method: CodeChallengeMethod.S256,
       prompt: GOOGLE_AUTH_PROMPT,
       include_granted_scopes: input.includeGrantedScopes,
+      login_hint: input.loginHint,
       scope: input.scopes,
       state: input.state
     })
 
     return {
-      authorizationUrl,
+      authorizationUrl: addPickerParameters(authorizationUrl, input.pickerFolderId),
       codeVerifier
     }
   } catch (error) {
@@ -126,6 +136,24 @@ export async function fetchGoogleUserProfile(tokens: GoogleAuthTokens): Promise<
   }
 }
 
+export async function fetchGoogleDriveUserEmail(tokens: GoogleAuthTokens): Promise<string> {
+  const oauthClient = createAuthenticatedGoogleOAuthClient(tokens)
+  const response = await runGoogleRequest(
+    () => oauthClient.fetch<GoogleDriveAboutResponse>(GOOGLE_DRIVE_ABOUT_ENDPOINT),
+    'Unable to verify the Google Drive account. Try again.'
+  )
+  const email = response.data.user?.emailAddress
+
+  if (!email) {
+    throw new AuthError(
+      'Google Drive did not return the authorized account email.',
+      AuthErrorCode.GoogleRequestFailed
+    )
+  }
+
+  return email
+}
+
 function createGoogleAuthTokens(
   credentials: Credentials,
   refreshToken: string,
@@ -148,6 +176,20 @@ export function createAuthenticatedGoogleOAuthClient(tokens: GoogleAuthTokens): 
   oauthClient.setCredentials(toGoogleCredentials(tokens))
 
   return oauthClient
+}
+
+function addPickerParameters(authorizationUrl: string, folderId?: string): string {
+  if (!folderId) {
+    return authorizationUrl
+  }
+
+  const pickerUrl = new URL(authorizationUrl)
+  pickerUrl.searchParams.set('allow_folder_selection', 'true')
+  pickerUrl.searchParams.set('file_ids', folderId)
+  pickerUrl.searchParams.set('mimetypes', GOOGLE_DRIVE_FOLDER_MIME_TYPE)
+  pickerUrl.searchParams.set('trigger_onepick', 'true')
+
+  return pickerUrl.toString()
 }
 
 function toGoogleCredentials(tokens: GoogleAuthTokens): Credentials {

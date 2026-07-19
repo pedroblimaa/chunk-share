@@ -1,5 +1,6 @@
 import './ServerHeader.css'
 
+import { useState } from 'react'
 import type { ServerStatus } from '../../../../../../shared/dashboard'
 import MaterialIcon from '../../../../components/shared/MaterialIcon/MaterialIcon'
 import Popover from '../../../../components/shared/Popover/Popover'
@@ -36,8 +37,10 @@ function ServerHeader({
   server,
   connection,
   primaryAction,
-  downloadEula
+  downloadEula,
+  sharingAction
 }: ServerHeaderProps): React.JSX.Element {
+  const [actionsMenuOpen, setActionsMenuOpen] = useState(false)
   const serverIsRunning = isServerRunning(server.status)
   const serverIsBusy =
     server.status === 'starting' || server.status === 'stopping' || server.status === 'updating'
@@ -46,6 +49,11 @@ function ServerHeader({
   const toggleButtonTone = primaryAction.tone ?? 'default'
   const copyConnectionDetailsLabel = connection.copyConnectionDetailsLabel ?? 'Copy Connection'
   const copyConnectionDetailsStateClass = connection.copyConnectionDetailsStateClass ?? ''
+
+  function inviteMember(): void {
+    setActionsMenuOpen(false)
+    sharingAction?.onClick()
+  }
 
   const getPopOverContent = (): React.JSX.Element => {
     return (
@@ -60,6 +68,27 @@ function ServerHeader({
           <MaterialIcon name="content_copy" />
         </button>
       </>
+    )
+  }
+
+  const getActionsMenuContent = (): React.JSX.Element | null => {
+    if (!sharingAction) {
+      return null
+    }
+
+    return (
+      <Tooltip content={sharingAction.tooltip} placement="left">
+        <button
+          className="server-actions-menu-item"
+          disabled={sharingAction.disabled}
+          role="menuitem"
+          type="button"
+          onClick={inviteMember}
+        >
+          <MaterialIcon name="person_add" />
+          <span>Invite</span>
+        </button>
+      </Tooltip>
     )
   }
 
@@ -131,9 +160,26 @@ function ServerHeader({
             </label>
           )}
         </div>
-        <button className="overflow-button" type="button" aria-label="More server actions">
-          <MaterialIcon name="more_vert" />
-        </button>
+        <Popover
+          ariaLabel="Server actions"
+          className="server-actions-menu"
+          contentClassName="server-actions-popover is-right"
+          contentRole="menu"
+          isOpen={actionsMenuOpen}
+          onClose={() => setActionsMenuOpen(false)}
+          content={getActionsMenuContent()}
+        >
+          <button
+            aria-expanded={actionsMenuOpen}
+            aria-haspopup="menu"
+            aria-label="More server actions"
+            className="overflow-button"
+            type="button"
+            onClick={() => setActionsMenuOpen((isOpen) => !isOpen)}
+          >
+            <MaterialIcon name="more_vert" />
+          </button>
+        </Popover>
       </div>
     </section>
   )

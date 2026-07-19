@@ -18,14 +18,14 @@ Keep renderer work UI-only. Filesystem, Java validation, Minecraft server proces
 
 ## Build, Test, and Development Commands
 
-* `pnpm install`: install dependencies and Electron native app deps.
-* `pnpm dev`: run the Electron Vite development app.
-* `pnpm start`: preview the built Electron app.
-* `pnpm lint`: run ESLint with cache over the repository.
-* `pnpm format`: format files with Prettier.
-* `pnpm typecheck`: run both Node and web TypeScript checks.
-* `pnpm build`: typecheck and build the app.
-* `pnpm build:win`, `pnpm build:mac`, `pnpm build:linux`: create platform packages with electron-builder.
+- `pnpm install`: install dependencies and Electron native app deps.
+- `pnpm dev`: run the Electron Vite development app.
+- `pnpm start`: preview the built Electron app.
+- `pnpm lint`: run ESLint with cache over the repository.
+- `pnpm format`: format files with Prettier.
+- `pnpm typecheck`: run both Node and web TypeScript checks.
+- `pnpm build`: typecheck and build the app.
+- `pnpm build:win`, `pnpm build:mac`, `pnpm build:linux`: create platform packages with electron-builder.
 
 ## Coding Style & Naming Conventions
 
@@ -35,13 +35,15 @@ Use TypeScript for application code and `.tsx` for React components.
 
 Follow file conventions:
 
-* React components: `PascalCase` folders/files, e.g. `ServerHeader/ServerHeader.tsx`
-* Utilities, services, IPC, and storage modules: `kebab-case`, e.g. `storage-service.ts`
-* Shared/reusable types and constants: nearby `*.model.ts` files or existing shared files
+- React components: `PascalCase` folders/files, e.g. `ServerHeader/ServerHeader.tsx`
+- Utilities, services, IPC, and storage modules: `kebab-case`, e.g. `storage-service.ts`
+- Shared/reusable types and constants: nearby `*.model.ts` files or existing shared files
 
 Prefer domain-based model names, such as `auth.model.ts`, instead of implementation-specific names like `useAuthSession.model.ts`.
 
 Keep small local types close to where they are used. Move them out only when reused, exported, or making the file noisy.
+
+Organize functions in reading order: exported entry points first, followed by their direct helpers in call order, with low-level utilities and type guards last.
 
 Avoid `void` before promise calls unless the call is intentionally fire-and-forget or linting requires it.
 
@@ -67,13 +69,13 @@ Check changes against the repository structure, coding conventions, Electron pro
 
 Focus especially on:
 
-* Bugs, broken flows, data loss risk, or unsafe behavior
-* Renderer/main boundary violations
-* Missing validation at IPC, config, file path, server address, or external-response boundaries
-* Sensitive data stored insecurely instead of using Electron `safeStorage` when appropriate
-* Resource leaks in timers, sockets, streams, servers, subscriptions, or child processes
-* Over-engineering, speculative abstractions, large files, long functions, hidden side effects, duplicated logic, or unclear state ownership
-* High-risk changes without a clear validation path
+- Bugs, broken flows, data loss risk, or unsafe behavior
+- Renderer/main boundary violations
+- Missing validation at IPC, config, file path, server address, or external-response boundaries
+- Sensitive data stored insecurely instead of using Electron `safeStorage` when appropriate
+- Resource leaks in timers, sockets, streams, servers, subscriptions, or child processes
+- Over-engineering, speculative abstractions, large files, long functions, hidden side effects, duplicated logic, or unclear state ownership
+- High-risk changes without a clear validation path
 
 Classify findings as **Must fix**, **Should fix**, or **Nit**.
 
@@ -87,6 +89,8 @@ For new tasks, inspect relevant files first, explain what you found, propose a c
 
 Keep messages concise: summarize findings, decisions, changes, and next steps in a few bullets when useful.
 
+Do not use em dashes in user-facing messages. Prefer commas, colons, parentheses, or separate sentences.
+
 Proceed in focused implementation steps. Ask for approval before broad architectural, data, security, dependency, or project-structure changes.
 
 Write maintainable code: clear names, small focused functions, explicit types, isolated side effects, predictable error handling, and validation at system boundaries.
@@ -97,4 +101,4 @@ Do not rewrite unrelated files, introduce dependencies, silently change behavior
 
 Keep the app buildable when practical. After implementation, summarize changed files as:
 
-`file/path.ts` — changed X **Because** Y.
+`file/path.ts`: changed X **Because** Y.

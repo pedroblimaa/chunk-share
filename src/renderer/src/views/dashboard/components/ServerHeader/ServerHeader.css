@@ -195,11 +195,14 @@
 
 .server-toggle-button,
 .overflow-button {
+  align-items: center;
   border-radius: 4px;
   color: var(--color-text-inverse);
+  display: inline-flex;
   font-size: var(--font-size-action);
   font-weight: var(--font-weight-bold);
   gap: 10px;
+  justify-content: center;
   min-height: 56px;
   padding: 0 24px;
 }
@@ -295,6 +298,48 @@
 .overflow-button:hover {
   background: var(--color-surface-raised);
   color: var(--color-text-primary);
+}
+
+.server-actions-popover {
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 8px;
+  box-shadow: 0 16px 34px rgb(0 0 0 / 28%);
+  min-width: 180px;
+  padding: 8px;
+}
+
+.server-actions-popover .tooltip {
+  width: 100%;
+}
+
+.server-actions-menu-item {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  display: flex;
+  font: inherit;
+  gap: 8px;
+  padding: 10px;
+  width: 100%;
+  transition:
+    background-color 140ms ease,
+    color 140ms ease;
+}
+
+.server-actions-menu-item:hover,
+.server-actions-menu-item:focus-visible {
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  outline: 0;
+}
+
+.server-actions-menu-item:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
 }
 
 @media (max-width: 1040px) {

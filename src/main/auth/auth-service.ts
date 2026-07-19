@@ -11,6 +11,7 @@ import { AuthErrorCode, type AuthSession, type GoogleAuthTokens, type GoogleUser
 import {
   createGoogleAuthorizationUrl,
   exchangeAuthorizationCode,
+  fetchGoogleDriveUserEmail,
   fetchGoogleUserProfile,
   refreshGoogleAuthTokens
 } from './google-oauth-client'
@@ -38,8 +39,80 @@ export async function ensureGoogleDriveAuthSession(): Promise<AuthSession> {
   return signInWithGoogleScopes(GOOGLE_DRIVE_OAUTH_SCOPES, currentSession?.tokens.refreshToken ?? null, true)
 }
 
+export async function authorizeGoogleDriveFolder(folderId: string): Promise<void> {
+  const currentSession = await getCurrentAuthSession()
+
+  if (!currentSession) {
+    throw new AuthError('Sign in with the invited Google account first.', AuthErrorCode.ExpiredSession)
+  }
+
+  const state = createOAuthState()
+  const authorizationServer = await createGoogleAuthorizationServer({ expectedState: state })
+  const { authorizationUrl, codeVerifier } = await createGoogleAuthorizationUrl({
+    includeGrantedScopes: false,
+    loginHint: currentSession.player.email,
+    pickerFolderId: folderId,
+    redirectUri: authorizationServer.redirectUri,
+    scopes: [GOOGLE_DRIVE_SCOPE],
+    state
+  })
+
+  try {
+    await shell.openExternal(authorizationUrl)
+
+    const authorizationCode = await authorizationServer.waitForCode
+    assertPickedGoogleDriveFolder(authorizationCode.pickedFileIds, folderId)
+
+    const tokens = await exchangeAuthorizationCode({
+      code: authorizationCode.code,
+      codeVerifier,
+      fallbackRefreshToken: currentSession.tokens.refreshToken,
+      scopes: [GOOGLE_DRIVE_SCOPE],
+      redirectUri: authorizationCode.redirectUri
+    })
+
+    const driveUserEmail = await fetchGoogleDriveUserEmail(tokens)
+    assertGoogleDriveAccountMatchesPlayer(driveUserEmail, currentSession.player.email)
+
+    await writeStoredGoogleAuthTokens(tokens)
+  } catch (error) {
+    if (error instanceof AuthError && error.code === AuthErrorCode.Cancelled) {
+      throw new AuthError(
+        'Google Drive did not confirm this folder. Make sure you use an invited account.',
+        AuthErrorCode.Cancelled
+      )
+    }
+
+    throw error
+  } finally {
+    await authorizationServer.close().catch(() => undefined)
+  }
+}
+
 export function googleTokensIncludeScope(tokens: GoogleAuthTokens, scope: string): boolean {
   return tokens.scope.split(/\s+/).includes(scope)
+}
+
+function assertPickedGoogleDriveFolder(pickedFileIds: string[], expectedFolderId: string): void {
+  const folderIdsMatch = pickedFileIds.length === 1 && pickedFileIds[0] === expectedFolderId
+
+  if (!folderIdsMatch) {
+    throw new AuthError(
+      'The confirmed Google Drive folder does not match this join link.',
+      AuthErrorCode.InvalidCallback
+    )
+  }
+}
+
+function assertGoogleDriveAccountMatchesPlayer(driveUserEmail: string, playerEmail: string): void {
+  if (driveUserEmail.toLowerCase() === playerEmail.toLowerCase()) {
+    return
+  }
+
+  throw new AuthError(
+    `Google Drive was authorized with ${driveUserEmail}, but ChunkShare is signed in as ${playerEmail}.`,
+    AuthErrorCode.InvalidCallback
+  )
 }
 
 function googleTokensIncludeDriveAccess(tokens: GoogleAuthTokens): boolean {

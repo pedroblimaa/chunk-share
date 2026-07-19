@@ -4,6 +4,14 @@ export const AUTH_SIGN_OUT_CHANNEL = 'auth:sign-out'
 
 export const DASHBOARD_SNAPSHOT_CHANNEL = 'dashboard:get-snapshot'
 
+export const DRIVE_SHARING_GET_AVAILABILITY_CHANNEL = 'driveSharing:get-availability'
+export const DRIVE_SHARING_INVITE_MEMBER_CHANNEL = 'driveSharing:invite-member'
+export const DRIVE_SHARING_REVOKE_MEMBER_CHANNEL = 'driveSharing:revoke-member'
+
+export const DRIVE_JOIN_CONSUME_PENDING_LINK_CHANNEL = 'driveJoin:consume-pending-link'
+export const DRIVE_JOIN_LINK_AVAILABLE_CHANNEL = 'driveJoin:link-available'
+export const DRIVE_JOIN_WORLD_CHANNEL = 'driveJoin:join-world'
+
 export const STORAGE_SNAPSHOT_CHANNEL = 'storage:get-snapshot'
 export const STORAGE_CLOUD_SETTINGS_CHANNEL = 'storage:get-cloud-settings'
 export const STORAGE_SETUP_GOOGLE_DRIVE_FOLDER_CHANNEL = 'storage:setup-google-drive-folder'

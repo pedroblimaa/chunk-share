@@ -1,7 +1,7 @@
 import './StorageProviderSwitchDialog.css'
 
-import { useEffect, useRef } from 'react'
 import Button from '../../../../components/shared/Button/Button'
+import Dialog from '../../../../components/shared/Dialog/Dialog'
 import MaterialIcon from '../../../../components/shared/MaterialIcon/MaterialIcon'
 import { StorageSettingsOperation } from '../../settings.model'
 import StorageProviderSwitchChoice from './StorageProviderSwitchChoice'
@@ -18,7 +18,6 @@ function StorageProviderSwitchDialog({
   onCopyCurrentData,
   onRetry
 }: StorageProviderSwitchDialogProps): React.JSX.Element | null {
-  const dialogRef = useRef<HTMLDialogElement>(null)
   const dialogIsBusy = operation !== StorageSettingsOperation.Idle
   const dialogContent = renderDialogContent({
     errorMessage,
@@ -31,47 +30,20 @@ function StorageProviderSwitchDialog({
     onRetry
   })
 
-  useEffect(() => {
-    const dialog = dialogRef.current
-
-    if (dialog && !dialog.open) {
-      dialog.showModal()
-    }
-  }, [])
-
-  useEffect(() => {
-    const dialog = dialogRef.current
-
-    const handleCancel = (event: Event): void => {
-      if (dialogIsBusy) {
-        event.preventDefault()
-        return
-      }
-
-      onCancel()
-    }
-
-    dialog?.addEventListener('cancel', handleCancel)
-
-    return () => dialog?.removeEventListener('cancel', handleCancel)
-  }, [dialogIsBusy, onCancel])
-
   if (!dialogContent) {
     return null
   }
 
   return (
-    <dialog
+    <Dialog
       className="settings-provider-switch-dialog"
-      ref={dialogRef}
-      aria-labelledby="settings-provider-switch-title"
+      icon="swap_horiz"
+      isBusy={dialogIsBusy}
+      title="Switch Storage Mode"
+      onClose={onCancel}
     >
-      <div className="settings-provider-switch-heading">
-        <MaterialIcon name="swap_horiz" />
-        <h3 id="settings-provider-switch-title">Switch Storage Mode</h3>
-      </div>
-      <div className="settings-provider-switch-content">{dialogContent}</div>
-    </dialog>
+      {dialogContent}
+    </Dialog>
   )
 }
 

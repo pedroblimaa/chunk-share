@@ -17,18 +17,30 @@ import {
 export async function ensureGoogleDriveFolder(configuredFolderId?: string): Promise<GoogleDriveFolderConfig> {
   const oauthClient = await createAuthenticatedDriveClient()
   let folderId = configuredFolderId ?? (await resolveDefaultGoogleDriveFolderId(oauthClient))
-  let folder: GoogleDriveFileResponse
 
   try {
-    folder = await readUsableGoogleDriveFolder(oauthClient, folderId)
+    return await validateGoogleDriveFolderWithClient(oauthClient, folderId)
   } catch (error) {
     if (!configuredFolderId || !isGoogleDriveFolderNotFound(error)) {
       throw error
     }
 
     folderId = await resolveDefaultGoogleDriveFolderId(oauthClient)
-    folder = await readUsableGoogleDriveFolder(oauthClient, folderId)
+    return validateGoogleDriveFolderWithClient(oauthClient, folderId)
   }
+}
+
+export async function validateGoogleDriveFolderById(folderId: string): Promise<GoogleDriveFolderConfig> {
+  const oauthClient = await createAuthenticatedDriveClient()
+
+  return validateGoogleDriveFolderWithClient(oauthClient, folderId)
+}
+
+async function validateGoogleDriveFolderWithClient(
+  oauthClient: OAuth2Client,
+  folderId: string
+): Promise<GoogleDriveFolderConfig> {
+  const folder = await readUsableGoogleDriveFolder(oauthClient, folderId)
 
   await validateGoogleDriveFolderWriteAccess(oauthClient, folderId)
 
@@ -56,14 +68,18 @@ async function resolveDefaultGoogleDriveFolderId(oauthClient: OAuth2Client): Pro
   const existingFolder = await findGoogleDriveFolder(oauthClient)
 
   if (existingFolder?.id) {
+    console.info(`[Google Drive] Found ChunkShare folder with ID ${existingFolder.id}.`)
     return existingFolder.id
   }
 
   const createdFolder = await createGoogleDriveFolder(oauthClient, {
     name: DEFAULT_GOOGLE_DRIVE_FOLDER_NAME
   })
+  const folderId = resolveGoogleDriveFileId(createdFolder)
 
-  return resolveGoogleDriveFileId(createdFolder)
+  console.info(`[Google Drive] Created ChunkShare folder with ID ${folderId}.`)
+
+  return folderId
 }
 
 async function createAuthenticatedDriveClient(): Promise<OAuth2Client> {

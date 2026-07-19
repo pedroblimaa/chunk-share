@@ -16,9 +16,11 @@ export interface GoogleDriveFileResponse {
   name?: string
   mimeType?: string
   trashed?: boolean
+  ownedByMe?: boolean
   capabilities?: {
     canAddChildren?: boolean
     canEdit?: boolean
+    canShare?: boolean
   }
 }
 

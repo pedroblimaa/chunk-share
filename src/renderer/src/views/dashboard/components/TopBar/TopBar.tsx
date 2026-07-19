@@ -12,11 +12,18 @@ interface BreadcrumbItem {
   onClick?: () => void
 }
 
+interface TopBarRefreshAction {
+  isRefreshing: boolean
+  label: string
+  onClick: () => void
+}
+
 interface TopBarProps {
   user: SignedInUser | null
   breadcrumbs: BreadcrumbItem[]
   createInstanceDisabled?: boolean
   createInstanceTitle?: string
+  refreshAction?: TopBarRefreshAction
   onCreateInstance?: () => void
   onOpenSettings?: () => void
   onSignOut?: () => void
@@ -27,6 +34,7 @@ function TopBar({
   breadcrumbs,
   createInstanceDisabled = false,
   createInstanceTitle,
+  refreshAction,
   onCreateInstance,
   onOpenSettings,
   onSignOut
@@ -66,9 +74,20 @@ function TopBar({
       </div>
 
       <div className="dashboard-topbar-actions">
-        <button className="icon-button" type="button" aria-label="Notifications">
-          <MaterialIcon name="notifications" />
-        </button>
+        {refreshAction && (
+          <Tooltip content={refreshAction.label}>
+            <button
+              aria-busy={refreshAction.isRefreshing}
+              aria-label={refreshAction.label}
+              className={`icon-button refresh-button${refreshAction.isRefreshing ? ' is-refreshing' : ''}`}
+              disabled={refreshAction.isRefreshing}
+              type="button"
+              onClick={refreshAction.onClick}
+            >
+              <MaterialIcon name="refresh" />
+            </button>
+          </Tooltip>
+        )}
         <button className="icon-button" type="button" aria-label="Settings" onClick={onOpenSettings}>
           <MaterialIcon name="settings" />
         </button>
