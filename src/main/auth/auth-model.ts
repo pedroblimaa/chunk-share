@@ -48,6 +48,8 @@ export interface ExchangeAuthorizationCodeInput {
 
 export interface CreateGoogleAuthorizationUrlInput {
   includeGrantedScopes: boolean
+  loginHint?: string
+  pickerFolderId?: string
   redirectUri: string
   scopes: string[]
   state: string
@@ -78,6 +80,7 @@ export interface StoredGoogleAuthTokens {
 
 export interface GoogleAuthorizationCodeResult {
   code: string
+  pickedFileIds: string[]
   redirectUri: string
 }
 
@@ -110,6 +113,7 @@ export type GoogleCallbackResult =
   | {
       type: 'success'
       code: string
+      pickedFileIds: string[]
     }
 
 export type GoogleCallbackFailureReason = 'cancelled' | 'invalid-state' | 'missing-code'

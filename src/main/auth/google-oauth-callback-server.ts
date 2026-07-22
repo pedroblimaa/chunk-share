@@ -148,6 +148,7 @@ function handleGoogleCallbackRequest(input: GoogleCallbackRequestHandlerInput): 
 
   input.resolve({
     code: callbackResult.code,
+    pickedFileIds: callbackResult.pickedFileIds,
     redirectUri: getRedirectUri(input.callbackServer)
   })
 }
@@ -190,7 +191,8 @@ function parseGoogleCallback(requestUrl: URL, expectedState: string): GoogleCall
 
   return {
     type: 'success',
-    code
+    code,
+    pickedFileIds: requestUrl.searchParams.get('picked_file_ids')?.split(',').filter(Boolean) ?? []
   }
 }
 

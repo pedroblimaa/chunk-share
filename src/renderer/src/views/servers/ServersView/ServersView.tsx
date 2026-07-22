@@ -17,6 +17,7 @@ import ServerCard, { type ServerCardSummary } from '../components/ServerCard/Ser
 interface ServersViewProps {
   onCreateServer: () => void
   onDeleteServer: () => Promise<void>
+  onJoinSharedWorld: () => void
   serverDisplayState: ServerDisplayState
   onOpenServer: () => void
   onOpenSettings: () => void
@@ -25,7 +26,6 @@ interface ServersViewProps {
 }
 
 const SINGLE_SERVER_DISABLED_REASON = 'Only one server is supported in the MVP.'
-const STORAGE_REFRESH_INTERVAL_MS = 3_000
 type CopyStatus = 'idle' | 'copied' | 'failed'
 
 function isServerLocked(serverDisplayState: ServerDisplayState): boolean {
@@ -86,6 +86,7 @@ function ServersView({
   serverDisplayState,
   onCreateServer,
   onDeleteServer,
+  onJoinSharedWorld,
   onOpenServer,
   onOpenSettings,
   onSignOut,
@@ -98,9 +99,10 @@ function ServersView({
     serverDisplayState.signedInUser?.name ?? null
   )
   const hasServers = servers.length > 0
-  const [deleteErrorMessage, setDeleteErrorMessage] = useState<string | null>(null)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [copyStatus, setCopyStatus] = useState<CopyStatus>('idle')
   const [isDeletingServer, setIsDeletingServer] = useState(false)
+  const [isRefreshing, setIsRefreshing] = useState(false)
   const [serverPendingDelete, setServerPendingDelete] = useState<ServerCardSummary | null>(null)
 
   useEffect(() => {
@@ -128,12 +130,6 @@ function ServersView({
 
   useEffect(() => {
     void onRefreshServerDisplayState().catch(() => undefined)
-
-    const refreshTimer = window.setInterval(() => {
-      void onRefreshServerDisplayState().catch(() => undefined)
-    }, STORAGE_REFRESH_INTERVAL_MS)
-
-    return () => window.clearInterval(refreshTimer)
   }, [onRefreshServerDisplayState])
 
   useEffect(() => {
@@ -148,13 +144,13 @@ function ServersView({
     return () => window.clearTimeout(resetCopyStatusTimer)
   }, [copyStatus])
 
-  async function copyDeleteError(): Promise<void> {
-    if (!deleteErrorMessage) {
+  async function copyError(): Promise<void> {
+    if (!errorMessage) {
       return
     }
 
     try {
-      await navigator.clipboard.writeText(deleteErrorMessage)
+      await navigator.clipboard.writeText(errorMessage)
       setCopyStatus('copied')
     } catch {
       setCopyStatus('failed')
@@ -163,15 +159,28 @@ function ServersView({
 
   async function confirmDeleteServer(): Promise<void> {
     setIsDeletingServer(true)
-    setDeleteErrorMessage(null)
+    setErrorMessage(null)
 
     try {
       await onDeleteServer()
     } catch (error: unknown) {
-      setDeleteErrorMessage(getErrorMessage(error, 'Unable to delete server.'))
+      setErrorMessage(getErrorMessage(error, 'Unable to delete server.'))
     } finally {
       setIsDeletingServer(false)
       setServerPendingDelete(null)
+    }
+  }
+
+  async function refreshServers(): Promise<void> {
+    setErrorMessage(null)
+    setIsRefreshing(true)
+
+    try {
+      await onRefreshServerDisplayState()
+    } catch (error: unknown) {
+      setErrorMessage(getErrorMessage(error, 'Unable to refresh servers.'))
+    } finally {
+      setIsRefreshing(false)
     }
   }
 
@@ -203,21 +212,22 @@ function ServersView({
           breadcrumbs={[{ label: 'Servers' }]}
           createInstanceDisabled={hasServers}
           createInstanceTitle={hasServers ? SINGLE_SERVER_DISABLED_REASON : undefined}
+          refreshAction={{ isRefreshing, label: 'Refresh servers', onClick: refreshServers }}
           onCreateInstance={hasServers ? undefined : onCreateServer}
           onOpenSettings={onOpenSettings}
           onSignOut={onSignOut}
         />
 
         <main className="dashboard-content servers-content">
-          {deleteErrorMessage && (
+          {errorMessage && (
             <div className="servers-error-message" role="alert">
               <MaterialIcon name="error" />
-              <span>{deleteErrorMessage}</span>
+              <span>{errorMessage}</span>
               <button
                 aria-label={copyButtonLabel}
                 className={`servers-error-copy-button${copyButtonStateClass}`}
                 type="button"
-                onClick={copyDeleteError}
+                onClick={copyError}
               >
                 <MaterialIcon
                   name={
@@ -251,9 +261,14 @@ function ServersView({
               <MaterialIcon name="dns" />
               <h3>No servers yet</h3>
               <p>Create your first managed Minecraft server to start sharing a world.</p>
-              <Button icon="add" className="servers-empty-action" onClick={onCreateServer}>
-                Create Instance
-              </Button>
+              <div className="servers-empty-actions">
+                <Button icon="add" onClick={onCreateServer}>
+                  Create Instance
+                </Button>
+                <Button icon="link" variant="secondary" onClick={onJoinSharedWorld}>
+                  Join Shared World
+                </Button>
+              </div>
             </section>
           )}
         </main>

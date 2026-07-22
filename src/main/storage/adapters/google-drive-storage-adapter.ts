@@ -54,6 +54,46 @@ export const googleDriveStorageAdapter: StorageAdapter = {
   writeServerLock
 }
 
+export async function readGoogleDriveStorageData(folderId: string): Promise<ServerSyncStorageData> {
+  const oauthClient = await createAuthenticatedDriveClient()
+  const storageFiles = await listFilesInFolder(oauthClient, folderId)
+  const versionsFolder = findFileByName(storageFiles, VERSIONS_FOLDER_NAME)
+
+  const readDriveFile = <T>(
+    fileName: string,
+    defaultValue: T,
+    validate: (value: unknown) => value is T
+  ): Promise<T> =>
+    readJsonDriveFileWithClient(
+      oauthClient,
+      findFileByName(storageFiles, fileName),
+      fileName,
+      defaultValue,
+      validate
+    )
+
+  const resolveVersions = async (): Promise<ServerSaveVersionFile[]> => {
+    if (!versionsFolder?.id) {
+      return []
+    }
+
+    const fileList = await listFilesInFolder(oauthClient, versionsFolder.id)
+    return toServerSaveVersionFiles(fileList)
+  }
+
+  const [latestSave, serverLock, versionFiles] = await Promise.all([
+    readDriveFile(LATEST_SAVE_FILE_NAME, DEFAULT_LATEST_SAVE, isLatestSave),
+    readDriveFile(SERVER_LOCK_FILE_NAME, DEFAULT_SERVER_LOCK, isServerLock),
+    resolveVersions()
+  ])
+
+  return {
+    latestSave,
+    serverLock,
+    versionFiles
+  }
+}
+
 async function runExclusiveStorageMutation<Result>(executeMutation: () => Promise<Result>): Promise<Result> {
   const oauthClient = await createAuthenticatedDriveClient()
   const storageFolderId = await getConfiguredDriveFolderId()
@@ -95,44 +135,9 @@ async function readServerLock(): Promise<ServerLock> {
 }
 
 async function readServerSyncData(): Promise<ServerSyncStorageData> {
-  const oauthClient = await createAuthenticatedDriveClient()
   const storageFolderId = await getConfiguredDriveFolderId()
-  const storageFiles = await listFilesInFolder(oauthClient, storageFolderId)
-  const versionsFolder = findFileByName(storageFiles, VERSIONS_FOLDER_NAME)
 
-  const readDriveFile = <T>(
-    fileName: string,
-    defaultValue: T,
-    validate: (value: unknown) => value is T
-  ): Promise<T> =>
-    readJsonDriveFileWithClient(
-      oauthClient,
-      findFileByName(storageFiles, fileName),
-      fileName,
-      defaultValue,
-      validate
-    )
-
-  const resolveVersionsFolder = async (): Promise<ServerSaveVersionFile[]> => {
-    if (!versionsFolder?.id) {
-      return []
-    }
-
-    const fileList = await listFilesInFolder(oauthClient, versionsFolder.id)
-    return toServerSaveVersionFiles(fileList)
-  }
-
-  const [latestSave, serverLock, versionFiles] = await Promise.all([
-    readDriveFile(LATEST_SAVE_FILE_NAME, DEFAULT_LATEST_SAVE, isLatestSave),
-    readDriveFile(SERVER_LOCK_FILE_NAME, DEFAULT_SERVER_LOCK, isServerLock),
-    resolveVersionsFolder()
-  ])
-
-  return {
-    latestSave,
-    serverLock,
-    versionFiles
-  }
+  return readGoogleDriveStorageData(storageFolderId)
 }
 
 async function writeServerLock(serverLock: ServerLock): Promise<void> {
@@ -358,12 +363,16 @@ async function downloadServerSaveVersion(fileName: string, localDestinationPath:
     )
   }
 
+  const fileId = file.id
+
   await mkdir(dirname(localDestinationPath), { recursive: true })
 
-  const response = await oauthClient.request<Readable>({
-    responseType: 'stream',
-    url: `${GOOGLE_DRIVE_API_BASE_URL}/files/${encodeURIComponent(file.id)}?alt=media`
-  })
+  const response = await runGoogleDriveFileRequest(() =>
+    oauthClient.request<Readable>({
+      responseType: 'stream',
+      url: `${GOOGLE_DRIVE_API_BASE_URL}/files/${encodeURIComponent(fileId)}?alt=media`
+    })
+  )
 
   await pipeline(response.data, createWriteStream(localDestinationPath))
 }
@@ -415,10 +424,13 @@ async function readJsonDriveFileWithClient<T>(
     return defaultValue
   }
 
-  const response = await oauthClient.request<string>({
-    responseType: 'text',
-    url: `${GOOGLE_DRIVE_API_BASE_URL}/files/${encodeURIComponent(file.id)}?alt=media`
-  })
+  const fileId = file.id
+  const response = await runGoogleDriveFileRequest(() =>
+    oauthClient.request<string>({
+      responseType: 'text',
+      url: `${GOOGLE_DRIVE_API_BASE_URL}/files/${encodeURIComponent(fileId)}?alt=media`
+    })
+  )
   const parsedJson: unknown = JSON.parse(response.data)
 
   if (!validate(parsedJson)) {
@@ -511,11 +523,56 @@ async function listFilesInFolder(
     q: queryParts.join(' and '),
     spaces: 'drive'
   })
-  const response = await oauthClient.fetch<GoogleDriveFileListResponse>(
-    `${GOOGLE_DRIVE_API_BASE_URL}/files?${searchParams.toString()}`
+  const response = await runGoogleDriveFileRequest(() =>
+    oauthClient.fetch<GoogleDriveFileListResponse>(
+      `${GOOGLE_DRIVE_API_BASE_URL}/files?${searchParams.toString()}`
+    )
   )
 
+  if (!response.data.files?.length) {
+    await assertGoogleDriveFolderIsAccessible(oauthClient, parentFolderId)
+  }
+
   return response.data.files ?? []
+}
+
+async function assertGoogleDriveFolderIsAccessible(
+  oauthClient: OAuth2Client,
+  folderId: string
+): Promise<void> {
+  await runGoogleDriveFileRequest(() =>
+    oauthClient.fetch(`${GOOGLE_DRIVE_API_BASE_URL}/files/${encodeURIComponent(folderId)}?fields=id`)
+  )
+}
+
+async function runGoogleDriveFileRequest<Result>(request: () => Promise<Result>): Promise<Result> {
+  try {
+    return await request()
+  } catch (error) {
+    if (isGoogleDriveAccessError(error)) {
+      throw new GoogleDriveError(
+        'Your access to this shared world was revoked, or its Google Drive files are unavailable.',
+        GoogleDriveErrorCode.PermissionDenied
+      )
+    }
+
+    throw error
+  }
+}
+
+function isGoogleDriveAccessError(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null || !('response' in error)) {
+    return false
+  }
+
+  const response = error.response
+
+  return (
+    typeof response === 'object' &&
+    response !== null &&
+    'status' in response &&
+    (response.status === 403 || response.status === 404)
+  )
 }
 
 async function createDriveFile(
@@ -524,9 +581,8 @@ async function createDriveFile(
   fileName: string,
   mimeType: string
 ): Promise<string> {
-  const response = await oauthClient.fetch<GoogleDriveFileResponse>(
-    `${GOOGLE_DRIVE_API_BASE_URL}/files?fields=id,name,mimeType`,
-    {
+  const response = await runGoogleDriveFileRequest(() =>
+    oauthClient.fetch<GoogleDriveFileResponse>(`${GOOGLE_DRIVE_API_BASE_URL}/files?fields=id,name,mimeType`, {
       body: JSON.stringify({
         mimeType,
         name: fileName,
@@ -536,7 +592,7 @@ async function createDriveFile(
         'Content-Type': JSON_MIME_TYPE
       },
       method: 'POST'
-    }
+    })
   )
 
   return resolveGoogleDriveFileId(response.data, fileName)
@@ -548,30 +604,36 @@ async function uploadDriveFileMedia(
   body: NodeJS.ReadableStream | string,
   mimeType: string
 ): Promise<void> {
-  await oauthClient.request({
-    data: body,
-    headers: {
-      'Content-Type': mimeType
-    },
-    method: 'PATCH',
-    url: `https://www.googleapis.com/upload/drive/v3/files/${encodeURIComponent(fileId)}?uploadType=media`
-  })
+  await runGoogleDriveFileRequest(() =>
+    oauthClient.request({
+      data: body,
+      headers: {
+        'Content-Type': mimeType
+      },
+      method: 'PATCH',
+      url: `https://www.googleapis.com/upload/drive/v3/files/${encodeURIComponent(fileId)}?uploadType=media`
+    })
+  )
 }
 
 async function renameDriveFile(oauthClient: OAuth2Client, fileId: string, name: string): Promise<void> {
-  await oauthClient.fetch(`${GOOGLE_DRIVE_API_BASE_URL}/files/${encodeURIComponent(fileId)}`, {
-    body: JSON.stringify({ name }),
-    headers: {
-      'Content-Type': JSON_MIME_TYPE
-    },
-    method: 'PATCH'
-  })
+  await runGoogleDriveFileRequest(() =>
+    oauthClient.fetch(`${GOOGLE_DRIVE_API_BASE_URL}/files/${encodeURIComponent(fileId)}`, {
+      body: JSON.stringify({ name }),
+      headers: {
+        'Content-Type': JSON_MIME_TYPE
+      },
+      method: 'PATCH'
+    })
+  )
 }
 
 async function deleteDriveFile(oauthClient: OAuth2Client, fileId: string): Promise<void> {
-  await oauthClient.fetch(`${GOOGLE_DRIVE_API_BASE_URL}/files/${encodeURIComponent(fileId)}`, {
-    method: 'DELETE'
-  })
+  await runGoogleDriveFileRequest(() =>
+    oauthClient.fetch(`${GOOGLE_DRIVE_API_BASE_URL}/files/${encodeURIComponent(fileId)}`, {
+      method: 'DELETE'
+    })
+  )
 }
 
 function parseServerSaveVersionFile(fileName: string): ServerSaveVersionFile | null {

@@ -8,11 +8,22 @@ import type {
 } from '../shared/cloud-storage.model'
 import type { ServerDisplayState } from '../shared/dashboard'
 import type { ServerConfig, ServerStorageSnapshot } from '../shared/domain'
+import type {
+  GoogleDriveInviteResult,
+  GoogleDriveRevokeResult,
+  GoogleDriveSharingAvailability
+} from '../shared/drive-sharing.model'
 import {
   AUTH_GET_SESSION_CHANNEL,
   AUTH_SIGN_IN_WITH_GOOGLE_CHANNEL,
   AUTH_SIGN_OUT_CHANNEL,
   DASHBOARD_SNAPSHOT_CHANNEL,
+  DRIVE_JOIN_CONSUME_PENDING_LINK_CHANNEL,
+  DRIVE_JOIN_LINK_AVAILABLE_CHANNEL,
+  DRIVE_JOIN_WORLD_CHANNEL,
+  DRIVE_SHARING_GET_AVAILABILITY_CHANNEL,
+  DRIVE_SHARING_INVITE_MEMBER_CHANNEL,
+  DRIVE_SHARING_REVOKE_MEMBER_CHANNEL,
   SERVER_RUNTIME_EVENTS_CHANNEL,
   SERVER_RUNTIME_DOWNLOAD_SHARED_SAVE_CHANNEL,
   SERVER_RUNTIME_SNAPSHOT_CHANNEL,
@@ -50,6 +61,27 @@ const chunkShareApi = {
   },
   dashboard: {
     getSnapshot: (): Promise<ServerDisplayState> => ipcRenderer.invoke(DASHBOARD_SNAPSHOT_CHANNEL)
+  },
+  driveJoin: {
+    consumePendingLink: (): Promise<string | null> =>
+      ipcRenderer.invoke(DRIVE_JOIN_CONSUME_PENDING_LINK_CHANNEL),
+    joinWorld: (joinLink: string): Promise<ServerDisplayState> =>
+      ipcRenderer.invoke(DRIVE_JOIN_WORLD_CHANNEL, joinLink),
+    onLinkAvailable: (listener: () => void): (() => void) => {
+      const joinLinkListener = (): void => listener()
+
+      ipcRenderer.on(DRIVE_JOIN_LINK_AVAILABLE_CHANNEL, joinLinkListener)
+
+      return () => ipcRenderer.removeListener(DRIVE_JOIN_LINK_AVAILABLE_CHANNEL, joinLinkListener)
+    }
+  },
+  driveSharing: {
+    getAvailability: (): Promise<GoogleDriveSharingAvailability> =>
+      ipcRenderer.invoke(DRIVE_SHARING_GET_AVAILABILITY_CHANNEL),
+    inviteMember: (email: string): Promise<GoogleDriveInviteResult> =>
+      ipcRenderer.invoke(DRIVE_SHARING_INVITE_MEMBER_CHANNEL, email),
+    revokeMember: (permissionId: string): Promise<GoogleDriveRevokeResult> =>
+      ipcRenderer.invoke(DRIVE_SHARING_REVOKE_MEMBER_CHANNEL, permissionId)
   },
   serverRuntime: {
     getSnapshot: (): Promise<ServerRuntimeSnapshot> => ipcRenderer.invoke(SERVER_RUNTIME_SNAPSHOT_CHANNEL),

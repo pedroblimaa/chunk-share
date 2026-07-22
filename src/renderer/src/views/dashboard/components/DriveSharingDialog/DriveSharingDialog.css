@@ -1,0 +1,223 @@
+.drive-sharing-dialog .chunk-dialog-heading .chunk-button-icon {
+  background: transparent;
+  border: 0;
+  color: var(--color-text-muted);
+}
+
+.drive-sharing-section,
+.drive-sharing-member {
+  display: grid;
+  gap: 8px;
+}
+
+.drive-sharing-members {
+  display: grid;
+  gap: 12px;
+}
+
+.drive-sharing-section label,
+.drive-sharing-members h4 {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-semibold);
+}
+
+.drive-sharing-email-input {
+  position: relative;
+}
+
+.drive-sharing-email-input > .material-symbols-outlined {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-icon-md);
+  left: 12px;
+  pointer-events: none;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.drive-sharing-section input {
+  color: var(--color-text-primary);
+  min-width: 0;
+}
+
+.drive-sharing-email-input input {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 4px;
+  min-height: 42px;
+  padding: 0 12px 0 40px;
+  width: 100%;
+}
+
+.drive-sharing-email-input input:focus {
+  border-color: var(--color-border-accent);
+  outline: 0;
+}
+
+.drive-sharing-section > .chunk-button-primary {
+  background: var(--color-accent-button);
+  color: var(--color-text-inverse);
+}
+
+.drive-sharing-section > .chunk-button-primary:hover:not(:disabled) {
+  background: var(--color-accent-brand);
+}
+
+.drive-sharing-link-row {
+  align-items: center;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 4px;
+  display: flex;
+  gap: 8px;
+  padding: 6px;
+}
+
+.drive-sharing-link-row input {
+  background: transparent;
+  border: 0;
+  color: var(--color-text-secondary);
+  flex: 1;
+  font-family: var(--font-family-mono);
+  min-height: 32px;
+  outline: 0;
+  padding: 0 6px;
+}
+
+.drive-sharing-link-row .chunk-button {
+  flex: 0 0 auto;
+  text-transform: none;
+  white-space: nowrap;
+}
+
+.drive-sharing-link-row .chunk-button-secondary {
+  background: var(--color-surface-hover);
+}
+
+.drive-sharing-link-row .chunk-button-secondary:hover:not(:disabled) {
+  background: var(--color-surface-muted);
+}
+
+.drive-sharing-link-row .material-symbols-outlined {
+  font-size: var(--font-size-icon-sm);
+}
+
+.drive-sharing-error {
+  background: var(--color-danger-glow);
+  border: 1px solid var(--color-danger);
+  border-radius: 6px;
+  color: var(--color-danger-text);
+  font-size: var(--font-size-caption);
+  padding: 10px 12px;
+}
+
+.drive-sharing-warning {
+  background: color-mix(in srgb, var(--color-warning) 12%, transparent);
+  border-color: var(--color-warning);
+  color: var(--color-text-primary);
+}
+
+.drive-sharing-members p,
+.drive-sharing-member span {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-caption);
+}
+
+.drive-sharing-members ul {
+  display: grid;
+  gap: 12px;
+  list-style: none;
+  margin: 0;
+  max-height: 192px;
+  overflow-y: auto;
+  padding: 0 4px 0 0;
+}
+
+.drive-sharing-members li,
+.drive-sharing-member-details,
+.drive-sharing-row {
+  align-items: center;
+  display: flex;
+}
+
+.drive-sharing-members li {
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.drive-sharing-member-details {
+  gap: 12px;
+  min-width: 0;
+}
+
+.drive-sharing-member-avatar {
+  align-items: center;
+  background: var(--color-accent-glow);
+  border-radius: 50%;
+  color: var(--color-accent);
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-bold);
+  height: 36px;
+  justify-content: center;
+  width: 36px;
+}
+
+.drive-sharing-member {
+  min-width: 0;
+}
+
+.drive-sharing-member strong,
+.drive-sharing-member span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.drive-sharing-row {
+  gap: 8px;
+}
+
+.drive-sharing-revoke-button,
+.drive-sharing-revoke-button:hover:not(:disabled) {
+  border: 0;
+  color: var(--color-danger-text);
+}
+
+.drive-sharing-revoke-button {
+  padding: 0 4px;
+  text-transform: none;
+}
+
+.drive-sharing-button-loading .material-symbols-outlined {
+  animation: drive-sharing-button-spin 900ms linear infinite;
+}
+
+.drive-sharing-members ul::-webkit-scrollbar {
+  width: 6px;
+}
+
+.drive-sharing-members ul::-webkit-scrollbar-thumb {
+  background: var(--color-border-emphasis);
+  border-radius: 4px;
+}
+
+@media (max-width: 520px) {
+  .drive-sharing-link-row,
+  .drive-sharing-members li {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .drive-sharing-row {
+    justify-content: flex-end;
+  }
+}
+
+@keyframes drive-sharing-button-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
