@@ -34,7 +34,7 @@ export function getServerSyncView(syncStatus: ServerSyncSnapshot): ServerSyncVie
   if (syncStatus.status === ServerSyncStatus.MissingCloudFile && syncStatus.latestSave) {
     return {
       ...view,
-      message: `The latest save metadata points to ${syncStatus.latestSave.fileName}, but the file was not found.`
+      message: 'The shared world file was not found.'
     }
   }
 

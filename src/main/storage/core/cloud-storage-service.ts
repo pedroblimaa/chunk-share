@@ -172,12 +172,8 @@ async function saveSharedGoogleDriveWorld(folderId: string): Promise<CloudStorag
     throw new StorageError('This Google Drive folder does not contain a shared ChunkShare world.')
   }
 
-  const hasLatestVersion = world.versionFiles.some(
-    (version) => version.fileName === latestSave.fileName && version.saveVersion === latestSave.saveVersion
-  )
-
-  if (!hasLatestVersion) {
-    throw new StorageError('The latest shared world version is unavailable in Google Drive.')
+  if (!world.worldFileExists) {
+    throw new StorageError('The shared world file is unavailable in Google Drive.')
   }
 
   await saveLocalSaveVersion(null)
@@ -230,8 +226,6 @@ async function saveValidGoogleDriveFolder(
     }
   })
 
-  console.info(`[Google Drive] Saved ChunkShare folder ID ${folder.folderId} in storage settings.`)
-
   return savedSettings
 }
 
@@ -269,16 +263,16 @@ async function createCloudStorageProviderDataSummary(
   provider: CloudStorageProvider,
   storageAdapter: StorageAdapter
 ): Promise<CloudStorageProviderDataSummary> {
-  const [latestSave, versionFiles] = await Promise.all([
+  const [latestSave, hasWorldFile] = await Promise.all([
     storageAdapter.readLatestSave(),
-    storageAdapter.listServerSaveVersions()
+    storageAdapter.worldFileExists()
   ])
 
   return {
     provider,
     latestSaveVersion: latestSave?.saveVersion ?? null,
     latestSaveRecordedAt: latestSave?.uploadedAt ?? null,
-    versionCount: versionFiles.length
+    hasWorldFile
   }
 }
 

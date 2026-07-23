@@ -1,54 +1,55 @@
 import { randomUUID } from 'crypto'
-import { copyFile, mkdir, open, readdir, rm, stat } from 'fs/promises'
-import { dirname, join } from 'path'
+import { copyFile, mkdir, rm, stat } from 'fs/promises'
+import { dirname } from 'path'
 import type { LatestSave, ServerLock } from '../../../shared/domain'
 import { renameWithRetry } from '../core/support/file-system-utils'
-import { DEFAULT_LATEST_SAVE, DEFAULT_SERVER_LOCK } from '../core/support/storage-defaults'
+import {
+  DEFAULT_LATEST_SAVE,
+  DEFAULT_SERVER_LOCK,
+  DEFAULT_STORAGE_CONTROL
+} from '../core/support/storage-defaults'
 import { StorageError } from '../core/support/storage-error'
 import {
-  latestSaveFilePath,
   localStorageFolderPath,
-  localStorageMutationLockFilePath,
-  localStorageVersionsFolderPath,
-  serverLockFilePath
+  localStorageWorldFilePath,
+  storageControlFilePath
 } from '../core/support/storage-paths'
-import { isLatestSave, isServerLock } from '../core/support/storage-validation'
+import { isStorageControl } from '../core/support/storage-validation'
 import { readJsonFileOrDefault, readOrCreateJsonFile, writeJsonFile } from '../persistence/json-file-store'
 import type {
-  ServerSaveVersionFile,
+  ServerLockUpdate,
   ServerSavesReplacement,
   ServerSyncStorageData,
+  StorageControl,
   StorageAdapter
 } from './storage-adapter.model'
 
-const SERVER_SAVE_FILE_PATTERN = /^server-v(\d+)\.zip$/
 const MUTATION_LOCK_STALE_MS = 60 * 60 * 1000
 
 export const localStorageAdapter: StorageAdapter = {
   assertNoStorageMutationInProgress,
-  deleteServerSaveVersion,
-  downloadServerSaveVersion,
-  listServerSaveVersions,
+  downloadWorld,
   readLatestSave,
   readServerLock,
   readServerSyncData,
   resetServerLock,
   resetServerSaves,
   runExclusiveStorageMutation,
-  serverSaveVersionExists,
   stageServerSavesReplacement,
-  uploadServerSaveVersion,
-  writeLatestSave,
-  writeServerLock
+  uploadWorld,
+  updateServerLock,
+  worldFileExists,
+  writeLatestSave
 }
 
 async function runExclusiveStorageMutation<Result>(executeMutation: () => Promise<Result>): Promise<Result> {
-  await acquireExclusiveMutationLock()
+  const operationId = randomUUID()
+  await acquireExclusiveMutationLock(operationId)
 
   try {
     return await executeMutation()
   } finally {
-    await releaseExclusiveMutationLock()
+    await releaseExclusiveMutationLock(operationId)
   }
 }
 
@@ -60,60 +61,56 @@ async function assertNoStorageMutationInProgress(): Promise<void> {
 
 export async function ensureLocalStorage(): Promise<void> {
   await mkdir(localStorageFolderPath, { recursive: true })
-  await mkdir(localStorageVersionsFolderPath, { recursive: true })
-  await Promise.all([
-    readOrCreateJsonFile(latestSaveFilePath, DEFAULT_LATEST_SAVE, isLatestSave),
-    readOrCreateJsonFile(serverLockFilePath, DEFAULT_SERVER_LOCK, isServerLock)
-  ])
+  await readOrCreateJsonFile(storageControlFilePath, DEFAULT_STORAGE_CONTROL, isStorageControl)
 }
 
 async function readServerSyncData(): Promise<ServerSyncStorageData> {
-  const [latestSave, serverLock, versionFiles] = await Promise.all([
-    readLatestSave(),
-    readServerLock(),
-    listServerSaveVersions()
-  ])
+  const [control, hasWorldFile] = await Promise.all([readStorageControl(), worldFileExists()])
 
   return {
-    latestSave,
-    serverLock,
-    versionFiles
+    latestSave: control.latestSave,
+    serverLock: control.serverLock,
+    worldFileExists: hasWorldFile
   }
 }
 
-function readLatestSave(): Promise<LatestSave> {
-  return readJsonFileOrDefault(latestSaveFilePath, DEFAULT_LATEST_SAVE, isLatestSave)
+async function readLatestSave(): Promise<LatestSave> {
+  return (await readStorageControl()).latestSave
 }
 
-function writeLatestSave(latestSave: LatestSave): Promise<void> {
-  return writeJsonFile(latestSaveFilePath, latestSave, isLatestSave)
+async function writeLatestSave(latestSave: LatestSave): Promise<void> {
+  await updateStorageControl((control) => ({ ...control, latestSave }))
 }
 
-function readServerLock(): Promise<ServerLock> {
-  return readJsonFileOrDefault(serverLockFilePath, DEFAULT_SERVER_LOCK, isServerLock)
+async function readServerLock(): Promise<ServerLock> {
+  return (await readStorageControl()).serverLock
 }
 
-function writeServerLock(serverLock: ServerLock): Promise<void> {
-  return writeJsonFile(serverLockFilePath, serverLock, isServerLock)
+async function updateServerLock(update: ServerLockUpdate): Promise<boolean> {
+  return updateStorageControl((control) => {
+    const serverLock = update(control.serverLock)
+
+    if (!serverLock) {
+      return control
+    }
+
+    return { ...control, serverLock }
+  })
 }
 
-function resetServerLock(): Promise<void> {
-  return writeServerLock(DEFAULT_SERVER_LOCK)
+async function resetServerLock(): Promise<void> {
+  await updateServerLock(() => DEFAULT_SERVER_LOCK)
 }
 
 async function stageServerSavesReplacement(): Promise<ServerSavesReplacement> {
   await ensureLocalStorage()
 
-  const [previousLatestSave, previousServerLock] = await Promise.all([readLatestSave(), readServerLock()])
-  const backupFolderPath = `${localStorageVersionsFolderPath}.backup-${randomUUID()}`
+  const previousControl = await readStorageControl()
+  const previousWorldExists = await worldFileExists()
+  const backupFilePath = `${localStorageWorldFilePath}.backup-${randomUUID()}`
 
-  await renameWithRetry(localStorageVersionsFolderPath, backupFolderPath)
-
-  try {
-    await mkdir(localStorageVersionsFolderPath, { recursive: true })
-  } catch (error) {
-    await renameWithRetry(backupFolderPath, localStorageVersionsFolderPath)
-    throw error
+  if (previousWorldExists) {
+    await copyFile(localStorageWorldFilePath, backupFilePath)
   }
 
   let isResolved = false
@@ -123,7 +120,7 @@ async function stageServerSavesReplacement(): Promise<ServerSavesReplacement> {
       return
     }
 
-    await rm(backupFolderPath, { recursive: true, force: true })
+    await rm(backupFilePath, { force: true })
     isResolved = true
   }
 
@@ -132,71 +129,84 @@ async function stageServerSavesReplacement(): Promise<ServerSavesReplacement> {
       return
     }
 
-    await rm(localStorageVersionsFolderPath, { recursive: true, force: true })
-    await renameWithRetry(backupFolderPath, localStorageVersionsFolderPath)
-    await Promise.all([writeLatestSave(previousLatestSave), writeServerLock(previousServerLock)])
+    if (previousWorldExists) {
+      await renameWithRetry(backupFilePath, localStorageWorldFilePath)
+    } else {
+      await rm(localStorageWorldFilePath, { force: true })
+    }
+    await updateStorageControl((control) => ({
+      ...control,
+      latestSave: previousControl.latestSave,
+      serverLock: previousControl.serverLock
+    }))
     isResolved = true
   }
 
   return { commit, rollback }
 }
 
-async function acquireExclusiveMutationLock(): Promise<void> {
-  await mkdir(localStorageFolderPath, { recursive: true })
+async function acquireExclusiveMutationLock(operationId: string): Promise<void> {
+  await updateStorageControl((control) => {
+    if (storageMutationIsActive(control)) {
+      throw new StorageError('Storage data is already being moved. Try again after it finishes.')
+    }
 
-  if (await activeMutationLockExists()) {
-    throw new StorageError('Storage data is already being moved. Try again after it finishes.')
-  }
-
-  const lockFile = await open(localStorageMutationLockFilePath, 'wx')
-  await lockFile.close()
+    return {
+      ...control,
+      storageMutation: {
+        operationId,
+        startedAt: new Date().toISOString()
+      }
+    }
+  })
 }
 
-async function releaseExclusiveMutationLock(): Promise<void> {
-  await rm(localStorageMutationLockFilePath, { force: true })
+async function releaseExclusiveMutationLock(operationId: string): Promise<void> {
+  await updateStorageControl((control) =>
+    control.storageMutation?.operationId === operationId ? { ...control, storageMutation: null } : control
+  )
 }
 
 async function activeMutationLockExists(): Promise<boolean> {
-  try {
-    const lockStats = await stat(localStorageMutationLockFilePath)
-    const lockAgeMs = Date.now() - lockStats.mtimeMs
+  const control = await readStorageControl()
 
-    if (lockAgeMs > MUTATION_LOCK_STALE_MS) {
-      await releaseExclusiveMutationLock()
-      return false
-    }
-
-    return true
-  } catch (error) {
-    if (isMissingFileError(error)) {
-      return false
-    }
-
-    throw error
+  if (!storageMutationIsActive(control) && control.storageMutation) {
+    await releaseExclusiveMutationLock(control.storageMutation.operationId)
+    return false
   }
+
+  return control.storageMutation !== null
 }
 
-async function listServerSaveVersions(): Promise<ServerSaveVersionFile[]> {
-  try {
-    const entries = await readdir(localStorageVersionsFolderPath, { withFileTypes: true })
-
-    return entries
-      .filter((entry) => entry.isFile())
-      .map((entry) => parseServerSaveVersionFile(entry.name))
-      .filter((entry): entry is ServerSaveVersionFile => entry !== null)
-      .sort((a, b) => a.saveVersion - b.saveVersion)
-  } catch (error) {
-    if (isMissingFileError(error)) {
-      return []
-    }
-
-    throw error
+function storageMutationIsActive(control: StorageControl): boolean {
+  if (!control.storageMutation) {
+    return false
   }
+
+  const lockAgeMs = Date.now() - Date.parse(control.storageMutation.startedAt)
+
+  return Number.isFinite(lockAgeMs) && lockAgeMs <= MUTATION_LOCK_STALE_MS
 }
 
-async function serverSaveVersionExists(fileName: string): Promise<boolean> {
+function readStorageControl(): Promise<StorageControl> {
+  return readJsonFileOrDefault(storageControlFilePath, DEFAULT_STORAGE_CONTROL, isStorageControl)
+}
+
+async function updateStorageControl(update: (control: StorageControl) => StorageControl): Promise<boolean> {
+  const control = await readStorageControl()
+  const nextControl = update(control)
+
+  if (nextControl === control) {
+    return false
+  }
+
+  await writeJsonFile(storageControlFilePath, nextControl, isStorageControl)
+  return true
+}
+
+async function worldFileExists(): Promise<boolean> {
   try {
-    const fileStats = await stat(getServerSaveVersionPath(fileName))
+    const fileStats = await stat(localStorageWorldFilePath)
 
     return fileStats.isFile()
   } catch (error) {
@@ -208,59 +218,31 @@ async function serverSaveVersionExists(fileName: string): Promise<boolean> {
   }
 }
 
-async function uploadServerSaveVersion(fileName: string, localZipPath: string): Promise<void> {
-  await mkdir(localStorageVersionsFolderPath, { recursive: true })
-
-  if (await serverSaveVersionExists(fileName)) {
-    throw new StorageError(`Server save version ${fileName} already exists.`)
-  }
-
-  const destinationPath = getServerSaveVersionPath(fileName)
-  const tempDestinationPath = `${destinationPath}.${process.pid}.tmp`
+async function uploadWorld(localZipPath: string): Promise<Error | null> {
+  await mkdir(dirname(localStorageWorldFilePath), { recursive: true })
+  const tempDestinationPath = `${localStorageWorldFilePath}.${process.pid}.${randomUUID()}.tmp`
 
   await copyFile(localZipPath, tempDestinationPath)
 
   try {
-    await renameWithRetry(tempDestinationPath, destinationPath)
+    await renameWithRetry(tempDestinationPath, localStorageWorldFilePath)
   } catch (error) {
     await rm(tempDestinationPath, { force: true })
     throw error
   }
+
+  return null
 }
 
-async function downloadServerSaveVersion(fileName: string, localDestinationPath: string): Promise<void> {
+async function downloadWorld(localDestinationPath: string): Promise<void> {
   await mkdir(dirname(localDestinationPath), { recursive: true })
-  await copyFile(getServerSaveVersionPath(fileName), localDestinationPath)
-}
-
-async function deleteServerSaveVersion(fileName: string): Promise<void> {
-  await rm(getServerSaveVersionPath(fileName), { force: true })
+  await copyFile(localStorageWorldFilePath, localDestinationPath)
 }
 
 async function resetServerSaves(): Promise<void> {
   await ensureLocalStorage()
 
-  const versions = await listServerSaveVersions()
-
-  await Promise.all(versions.map((version) => deleteServerSaveVersion(version.fileName)))
   await writeLatestSave(DEFAULT_LATEST_SAVE)
-}
-
-function getServerSaveVersionPath(fileName: string): string {
-  return join(localStorageVersionsFolderPath, fileName)
-}
-
-function parseServerSaveVersionFile(fileName: string): ServerSaveVersionFile | null {
-  const match = fileName.match(SERVER_SAVE_FILE_PATTERN)
-
-  if (!match) {
-    return null
-  }
-
-  return {
-    fileName,
-    saveVersion: Number(match[1])
-  }
 }
 
 function isMissingFileError(error: unknown): boolean {

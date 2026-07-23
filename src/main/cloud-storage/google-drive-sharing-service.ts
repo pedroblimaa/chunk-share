@@ -97,20 +97,19 @@ export async function revokeGoogleDriveMember(permissionId: string): Promise<Goo
   }
 
   const storageAdapter = await getStorageAdapterForProvider(CloudStorageProvider.GoogleDrive)
-  const serverLock = await storageAdapter.readServerLock()
-  const memberIsHosting =
-    serverLock.status === ServerLockStatus.Locked &&
-    serverLock.lockedBy.email.toLowerCase() === member.email.toLowerCase()
+  const memberIsHosting = await storageAdapter
+    .updateServerLock((serverLock) => {
+      const isMemberLock =
+        serverLock.status === ServerLockStatus.Locked &&
+        serverLock.lockedBy.email.toLowerCase() === member.email.toLowerCase()
 
-  if (memberIsHosting) {
-    try {
-      await storageAdapter.resetServerLock()
-    } catch {
+      return isMemberLock ? { status: ServerLockStatus.Unlocked } : null
+    })
+    .catch(() => {
       throw new GoogleDriveError(
         "Access was revoked, but ChunkShare could not clear this member's hosting lock."
       )
-    }
-  }
+    })
 
   return {
     revokedMemberWasHosting: memberIsHosting,

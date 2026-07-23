@@ -52,6 +52,7 @@ class ServerRuntime {
   private serverProcess: ChildProcessWithoutNullStreams | null = null
   private stopTimeout: NodeJS.Timeout | null = null
   private sessionId: string | null = null
+  private lockActivation: Promise<void> | null = null
   private stdoutBuffer = ''
   private stderrBuffer = ''
   private userRequestedStop = false
@@ -311,10 +312,11 @@ class ServerRuntime {
     }
 
     if (!this.serverProcess) {
+      await this.waitForLockActivation()
       this.status = 'stopped'
       this.errorMessage = null
       this.players = { ...this.players, online: 0 }
-      stopHeartbeat()
+      await stopHeartbeat()
       this.emitRuntimeEvent()
       return this.getSnapshot()
     }
@@ -323,9 +325,10 @@ class ServerRuntime {
     this.errorMessage = null
     this.userRequestedStop = true
     stopPlayerPolling()
-    stopHeartbeat()
+    await this.waitForLockActivation()
+    await stopHeartbeat()
     this.emitRuntimeEvent()
-    this.markHostingLockStopping()
+    await this.markHostingLockStopping()
 
     this.addLogLine('ChunkShare', 'Saving world before shutdown.')
     this.serverProcess.stdin.write('save-all flush\n')
@@ -372,12 +375,7 @@ class ServerRuntime {
     })
 
     minecraftProcess.once('error', (error) => {
-      this.serverProcess = null
-      this.sessionId = null
-      this.userRequestedStop = false
-      stopHeartbeat()
-      void clearHostingLockAfterStartFailure()
-      this.finishWithError(getProcessStartErrorMessage(error))
+      void this.handleServerProcessError(error)
     })
 
     minecraftProcess.once('close', (exitCode) => {
@@ -385,10 +383,25 @@ class ServerRuntime {
     })
   }
 
+  private async handleServerProcessError(error: Error): Promise<void> {
+    const message = getProcessStartErrorMessage(error)
+    this.serverProcess = null
+    this.sessionId = null
+    this.userRequestedStop = false
+    this.status = 'error'
+    this.errorMessage = message
+    stopPlayerPolling()
+    this.addLogLine('ChunkShare', message, 'error')
+    await this.waitForLockActivation()
+    await stopHeartbeat()
+    await clearHostingLockAfterStartFailure().catch(() => undefined)
+  }
+
   private async handleServerProcessClose(exitCode: number | null): Promise<void> {
     this.clearStopTimeout()
     stopPlayerPolling()
-    stopHeartbeat()
+    await this.waitForLockActivation()
+    await stopHeartbeat()
     this.flushServerOutputBuffers()
 
     if (this.status === 'error') {
@@ -529,7 +542,13 @@ class ServerRuntime {
 
   private markServerReady(sessionId: string): void {
     this.status = 'running'
-    void this.startHeartbeatAfterLockPromotion(sessionId)
+    const lockActivation = this.startHeartbeatAfterLockActivation(sessionId)
+    this.lockActivation = lockActivation
+    void lockActivation.finally(() => {
+      if (this.lockActivation === lockActivation) {
+        this.lockActivation = null
+      }
+    })
     startPlayerPolling({
       getServerProcess: () => this.serverProcess,
       getStatus: () => this.status,
@@ -538,7 +557,11 @@ class ServerRuntime {
     this.emitRuntimeEvent()
   }
 
-  private async startHeartbeatAfterLockPromotion(sessionId: string): Promise<void> {
+  private async waitForLockActivation(): Promise<void> {
+    await this.lockActivation
+  }
+
+  private async startHeartbeatAfterLockActivation(sessionId: string): Promise<void> {
     if (this.status !== 'running') {
       return
     }
@@ -565,18 +588,20 @@ class ServerRuntime {
     })
   }
 
-  private markHostingLockStopping(): void {
+  private async markHostingLockStopping(): Promise<void> {
     if (!this.sessionId) {
       return
     }
 
-    void markHostingLockStopping(this.sessionId).catch((error: unknown) => {
+    try {
+      await markHostingLockStopping(this.sessionId)
+    } catch (error: unknown) {
       this.addLogLine(
         'ChunkShare',
         `Unable to mark hosting lock as stopping: ${getErrorMessage(error)}`,
         'warning'
       )
-    })
+    }
   }
 
   private updatePlayers(nextPlayers: ServerRuntimePlayers): void {
@@ -601,7 +626,7 @@ class ServerRuntime {
     this.status = 'error'
     this.errorMessage = message
     stopPlayerPolling()
-    stopHeartbeat()
+    void stopHeartbeat()
     this.addLogLine('ChunkShare', message, 'error')
   }
 

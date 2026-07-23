@@ -4,13 +4,13 @@ import { basename, dirname, join } from 'path'
 import { ZipArchive } from 'archiver'
 import type { LatestSave, LocalState, Player } from '../../../shared/domain'
 import { getActiveStorageAdapter } from '../adapters/storage-adapter-service'
-import type { ServerSaveVersionFile, StorageAdapter } from '../adapters/storage-adapter.model'
+import type { StorageAdapter } from '../adapters/storage-adapter.model'
 import { renameWithRetry } from '../core/support/file-system-utils'
 import { readLocalState, saveLocalSaveVersion } from '../persistence/local-state-store'
 import { StorageError } from '../core/support/storage-error'
 import { localServerFolderPath } from '../core/support/storage-paths'
 
-const MAX_RETAINED_SAVE_VERSIONS = 3
+const WORLD_FILE_NAME = 'world.zip'
 
 export interface PublishServerSaveResult {
   latestSave: NonNullable<LatestSave>
@@ -20,71 +20,56 @@ export interface PublishServerSaveResult {
 export async function publishServerSave(): Promise<PublishServerSaveResult> {
   const storageAdapter = await getActiveStorageAdapter()
   const latestSave = await storageAdapter.readLatestSave()
-  const existingVersionFiles = await storageAdapter.listServerSaveVersions()
-  const nextSaveVersion = getNextSaveVersion(latestSave, existingVersionFiles)
+  const nextSaveVersion = (latestSave?.saveVersion ?? 0) + 1
   const localState = await readLocalState()
   const serverFolderPath = localServerFolderPath
-  const fileName = createServerSaveFileName(nextSaveVersion)
-  const zipFilePath = getTempServerSaveZipPath(fileName)
+  const zipFilePath = getTempServerSaveZipPath()
 
   await assertServerFolderExists(serverFolderPath)
 
   try {
     await zipFolder(serverFolderPath, zipFilePath)
-    await storageAdapter.uploadServerSaveVersion(fileName, zipFilePath)
+    const result = await publishWorldUpdate(storageAdapter, zipFilePath, nextSaveVersion, localState)
 
-    const nextLatestSave = {
-      saveVersion: nextSaveVersion,
-      fileName,
-      uploadedAt: new Date().toISOString(),
-      uploadedBy: getUploadedBy(localState),
-      serverName: localState.serverConfig.name,
-      minecraftVersion: localState.serverConfig.minecraftVersion,
-      serverType: localState.serverConfig.serverType
-    }
-
-    await saveLocalSaveVersion(nextLatestSave.saveVersion)
-    await storageAdapter.writeLatestSave(nextLatestSave)
-    const cleanupError = await pruneOldServerSaveVersions(storageAdapter, nextSaveVersion)
-
-    return { latestSave: nextLatestSave, cleanupError }
+    return result
   } finally {
     await rm(zipFilePath, { force: true })
   }
 }
 
-function getNextSaveVersion(latestSave: LatestSave, versionFiles: ServerSaveVersionFile[]): number {
-  const highestFileVersion = versionFiles.reduce(
-    (highestVersion, versionFile) => Math.max(highestVersion, versionFile.saveVersion),
-    0
-  )
-  const highestKnownVersion = Math.max(latestSave?.saveVersion ?? 0, highestFileVersion)
-
-  return highestKnownVersion + 1
-}
-
-function createServerSaveFileName(saveVersion: number): string {
-  return `server-v${saveVersion.toString().padStart(3, '0')}.zip`
-}
-
-async function pruneOldServerSaveVersions(
+async function publishWorldUpdate(
   storageAdapter: StorageAdapter,
-  latestSaveVersion: number
-): Promise<Error | null> {
-  try {
-    const lastVersionToPrune = latestSaveVersion - MAX_RETAINED_SAVE_VERSIONS
-    const versionsToDelete = (await storageAdapter.listServerSaveVersions()).filter(
-      (versionFile) => versionFile.saveVersion <= lastVersionToPrune
-    )
-
-    for (const versionFile of versionsToDelete) {
-      await storageAdapter.deleteServerSaveVersion(versionFile.fileName)
-    }
-
-    return null
-  } catch (error) {
-    return error instanceof Error ? error : new Error('Unable to clean up old server save versions.')
+  zipFilePath: string,
+  nextSaveVersion: number,
+  localState: LocalState
+): Promise<PublishServerSaveResult> {
+  const nextLatestSave = {
+    saveVersion: nextSaveVersion,
+    uploadedAt: new Date().toISOString(),
+    uploadedBy: getUploadedBy(localState),
+    serverName: localState.serverConfig.name,
+    minecraftVersion: localState.serverConfig.minecraftVersion,
+    serverType: localState.serverConfig.serverType
   }
+  const replacement = await storageAdapter.stageServerSavesReplacement()
+  let cleanupError: Error | null
+
+  try {
+    cleanupError = await storageAdapter.uploadWorld(zipFilePath)
+    await storageAdapter.writeLatestSave(nextLatestSave)
+    await saveLocalSaveVersion(nextLatestSave.saveVersion)
+  } catch (error) {
+    await replacement.rollback()
+    throw error
+  }
+
+  try {
+    await replacement.commit()
+  } catch (error) {
+    cleanupError ??= toError(error, 'Unable to clean up the previous server save.')
+  }
+
+  return { latestSave: nextLatestSave, cleanupError }
 }
 
 async function assertServerFolderExists(serverFolderPath: string): Promise<void> {
@@ -130,10 +115,10 @@ async function zipFolder(sourceFolderPath: string, destinationFilePath: string):
   }
 }
 
-function getTempServerSaveZipPath(fileName: string): string {
+function getTempServerSaveZipPath(): string {
   return join(
     dirname(localServerFolderPath),
-    `${basename(fileName, '.zip')}.${process.pid}.${Date.now()}.tmp.zip`
+    `${basename(WORLD_FILE_NAME, '.zip')}.${process.pid}.${Date.now()}.tmp.zip`
   )
 }
 
@@ -143,6 +128,10 @@ function getUploadedBy(localState: LocalState): Player {
   }
 
   return localState.player
+}
+
+function toError(error: unknown, fallbackMessage: string): Error {
+  return error instanceof Error ? error : new Error(fallbackMessage)
 }
 
 function isMissingFileError(error: unknown): boolean {

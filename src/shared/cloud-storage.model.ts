@@ -45,7 +45,7 @@ export interface CloudStorageProviderDataSummary {
   provider: CloudStorageProvider
   latestSaveVersion: number | null
   latestSaveRecordedAt: string | null
-  versionCount: number
+  hasWorldFile: boolean
 }
 
 export interface CloudStorageProviderSwitchPreview {

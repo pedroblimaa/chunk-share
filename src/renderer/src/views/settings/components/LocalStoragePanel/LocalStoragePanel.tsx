@@ -17,7 +17,7 @@ function LocalStoragePanel({ onActivate }: LocalStoragePanelProps): React.JSX.El
       <div className={`settings-storage-panel${isActive ? ' is-active' : ''}`}>
         <div>
           <strong>Local Storage</strong>
-          <span>Server saves, locks, and versions are stored on this device.</span>
+          <span>The current server save and control data are stored on this device.</span>
         </div>
         {isActive && <Badge dot>Active</Badge>}
       </div>

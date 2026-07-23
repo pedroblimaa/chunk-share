@@ -11,9 +11,7 @@ export function getSyncStartBlockedMessage(serverSync: ServerSyncSnapshot): stri
     'stale-lock': 'The previous host lock is stale. Starting is allowed.',
     incompatible: 'The shared save does not match this local server version or type.',
     'local-newer': 'This device has a newer save. ChunkShare will publish it before hosting.',
-    'missing-cloud-file': serverSync.latestSave
-      ? `The shared save file ${serverSync.latestSave.fileName} is missing.`
-      : 'The shared save file is missing.'
+    'missing-cloud-file': 'The shared world file is missing.'
   }
 
   return blockedMessages[serverSync.status]

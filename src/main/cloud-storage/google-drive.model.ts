@@ -28,6 +28,16 @@ export interface GoogleDriveFileListResponse {
   files?: GoogleDriveFileResponse[]
 }
 
+export interface GoogleDriveRevisionResponse {
+  id?: string
+  keepForever?: boolean
+  modifiedTime?: string
+}
+
+export interface GoogleDriveRevisionListResponse {
+  revisions?: GoogleDriveRevisionResponse[]
+}
+
 export interface GoogleDriveCreateFolderInput {
   name: string
   parentFolderId?: string

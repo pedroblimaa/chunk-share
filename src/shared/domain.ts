@@ -64,7 +64,6 @@ export interface ServerSetupState {
 
 export type LatestSave = {
   saveVersion: number
-  fileName: string
   uploadedAt: string
   uploadedBy: Player
   serverName?: string

@@ -4,10 +4,12 @@ import {
   ServerLockStatus,
   type Player,
   type ServerConnectionAddress,
+  type ServerLock,
   type ServerStorageSnapshot
 } from '../../../shared/domain'
 import { STALE_LOCK_THRESHOLD_MS } from '../../../shared/server-sync'
 import { getActiveStorageAdapter } from '../../storage/adapters/storage-adapter-service'
+import type { StorageAdapter } from '../../storage/adapters/storage-adapter.model'
 import { saveActiveSessionId } from '../../storage/persistence/local-state-store'
 import { ServerRuntimeError } from '../support/runtime-error'
 
@@ -21,32 +23,33 @@ export async function createHostingLock(
   storageSnapshot: ServerStorageSnapshot,
   connectionAddresses: ServerConnectionAddress[]
 ): Promise<string> {
-  await assertHostingLockCanBeAcquired()
-
   const sessionId = randomUUID()
   const now = new Date().toISOString()
   const saveVersion =
     storageSnapshot.latestSave?.saveVersion ?? storageSnapshot.localState.localSaveVersion ?? 0
   const storageAdapter = await getActiveStorageAdapter()
+  const hostingPlayer = getHostingPlayer(storageSnapshot)
+
+  await storageAdapter.assertNoStorageMutationInProgress()
 
   try {
-    await storageAdapter.writeServerLock({
-      status: ServerLockStatus.Locked,
-      lockedBy: getHostingPlayer(storageSnapshot),
-      sessionId,
-      saveVersion,
-      hostingStatus: ServerHostingStatus.Starting,
-      startedAt: now,
-      lastHeartbeat: now,
-      connectionAddresses
+    await storageAdapter.updateServerLock((serverLock) => {
+      assertHostingLockCanBeAcquired(serverLock)
+
+      return {
+        status: ServerLockStatus.Locked,
+        lockedBy: hostingPlayer,
+        sessionId,
+        saveVersion,
+        hostingStatus: ServerHostingStatus.Starting,
+        startedAt: now,
+        lastHeartbeat: now,
+        connectionAddresses
+      }
     })
     await saveActiveSessionId(sessionId)
   } catch (error) {
-    await storageAdapter
-      .writeServerLock({
-        status: ServerLockStatus.Unlocked
-      })
-      .catch(() => undefined)
+    await clearHostingLockForSession(storageAdapter, sessionId).catch(() => undefined)
 
     throw error
   }
@@ -69,16 +72,17 @@ export async function markHostingLockStopping(sessionId: string): Promise<void> 
 
 export async function updateHostingLockSaveVersion(sessionId: string, saveVersion: number): Promise<void> {
   const storageAdapter = await getActiveStorageAdapter()
-  const serverLock = await storageAdapter.readServerLock()
 
-  if (serverLock.status !== ServerLockStatus.Locked || serverLock.sessionId !== sessionId) {
-    throw new ServerRuntimeError('Cannot update hosting save version because the lock changed.')
-  }
+  await storageAdapter.updateServerLock((serverLock) => {
+    if (serverLock.status !== ServerLockStatus.Locked || serverLock.sessionId !== sessionId) {
+      throw new ServerRuntimeError('Cannot update hosting save version because the lock changed.')
+    }
 
-  await storageAdapter.writeServerLock({
-    ...serverLock,
-    saveVersion,
-    lastHeartbeat: new Date().toISOString()
+    return {
+      ...serverLock,
+      saveVersion,
+      lastHeartbeat: new Date().toISOString()
+    }
   })
 }
 
@@ -88,31 +92,27 @@ async function updateHostingLockStatus(
   allowedCurrentStatuses: ServerHostingStatus[]
 ): Promise<void> {
   const storageAdapter = await getActiveStorageAdapter()
-  const serverLock = await storageAdapter.readServerLock()
 
-  if (serverLock.status !== ServerLockStatus.Locked || serverLock.sessionId !== sessionId) {
-    throw new ServerRuntimeError('Cannot update hosting status because the hosting lock changed.')
-  }
+  await storageAdapter.updateServerLock((serverLock) => {
+    if (serverLock.status !== ServerLockStatus.Locked || serverLock.sessionId !== sessionId) {
+      throw new ServerRuntimeError('Cannot update hosting status because the hosting lock changed.')
+    }
 
-  if (!allowedCurrentStatuses.includes(serverLock.hostingStatus)) {
-    throw new ServerRuntimeError(
-      `Cannot update hosting status from ${serverLock.hostingStatus} to ${hostingStatus}.`
-    )
-  }
+    if (!allowedCurrentStatuses.includes(serverLock.hostingStatus)) {
+      throw new ServerRuntimeError(
+        `Cannot update hosting status from ${serverLock.hostingStatus} to ${hostingStatus}.`
+      )
+    }
 
-  await storageAdapter.writeServerLock({
-    ...serverLock,
-    hostingStatus,
-    lastHeartbeat: new Date().toISOString()
+    return {
+      ...serverLock,
+      hostingStatus,
+      lastHeartbeat: new Date().toISOString()
+    }
   })
 }
 
-async function assertHostingLockCanBeAcquired(): Promise<void> {
-  const storageAdapter = await getActiveStorageAdapter()
-  await storageAdapter.assertNoStorageMutationInProgress()
-
-  const serverLock = await storageAdapter.readServerLock()
-
+function assertHostingLockCanBeAcquired(serverLock: ServerLock): void {
   if (serverLock.status === ServerLockStatus.Unlocked) {
     return
   }
@@ -136,7 +136,7 @@ export async function clearHostingLockAfterStartFailure(): Promise<void> {
 
   const storageAdapter = await getActiveStorageAdapter()
 
-  await storageAdapter.writeServerLock({ status: ServerLockStatus.Unlocked })
+  await clearHostingLockForSession(storageAdapter, activeRuntimeSessionId)
   await saveActiveSessionId(null)
 
   activeRuntimeSessionId = null
@@ -148,20 +148,26 @@ export async function clearHostingLockAfterCleanStop(): Promise<void> {
   }
 
   const storageAdapter = await getActiveStorageAdapter()
-  const serverLock = await storageAdapter.readServerLock()
+  await clearHostingLockForSession(storageAdapter, activeRuntimeSessionId)
 
-  if (serverLock.status === ServerLockStatus.Locked) {
-    if (serverLock.sessionId !== activeRuntimeSessionId) {
+  await saveActiveSessionId(null)
+  activeRuntimeSessionId = null
+}
+
+function clearHostingLockForSession(storageAdapter: StorageAdapter, sessionId: string): Promise<boolean> {
+  return storageAdapter.updateServerLock((serverLock) => {
+    if (serverLock.status === ServerLockStatus.Unlocked) {
+      return null
+    }
+
+    if (serverLock.sessionId !== sessionId) {
       throw new ServerRuntimeError(
         'Cannot unlock server because the hosting lock belongs to another session.'
       )
     }
 
-    await storageAdapter.writeServerLock({ status: ServerLockStatus.Unlocked })
-  }
-
-  await saveActiveSessionId(null)
-  activeRuntimeSessionId = null
+    return { status: ServerLockStatus.Unlocked }
+  })
 }
 
 function getHostingPlayer(storageSnapshot: ServerStorageSnapshot): Player {

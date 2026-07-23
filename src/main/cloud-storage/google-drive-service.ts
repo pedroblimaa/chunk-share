@@ -68,7 +68,6 @@ async function resolveDefaultGoogleDriveFolderId(oauthClient: OAuth2Client): Pro
   const existingFolder = await findGoogleDriveFolder(oauthClient)
 
   if (existingFolder?.id) {
-    console.info(`[Google Drive] Found ChunkShare folder with ID ${existingFolder.id}.`)
     return existingFolder.id
   }
 
@@ -76,8 +75,6 @@ async function resolveDefaultGoogleDriveFolderId(oauthClient: OAuth2Client): Pro
     name: DEFAULT_GOOGLE_DRIVE_FOLDER_NAME
   })
   const folderId = resolveGoogleDriveFileId(createdFolder)
-
-  console.info(`[Google Drive] Created ChunkShare folder with ID ${folderId}.`)
 
   return folderId
 }

@@ -1,14 +1,23 @@
 import type { LatestSave, ServerLock } from '../../../shared/domain'
 
-export interface ServerSaveVersionFile {
-  fileName: string
-  saveVersion: number
+export interface StorageMutationLock {
+  operationId: string
+  startedAt: string
 }
+
+export interface StorageControl {
+  formatVersion: 1
+  latestSave: LatestSave
+  serverLock: ServerLock
+  storageMutation: StorageMutationLock | null
+}
+
+export type ServerLockUpdate = (serverLock: ServerLock) => ServerLock | null
 
 export interface ServerSyncStorageData {
   latestSave: LatestSave
   serverLock: ServerLock
-  versionFiles: ServerSaveVersionFile[]
+  worldFileExists: boolean
 }
 
 export interface ServerSavesReplacement {
@@ -25,15 +34,13 @@ export interface StorageAdapter {
   writeLatestSave(latestSave: LatestSave): Promise<void>
 
   readServerLock(): Promise<ServerLock>
-  writeServerLock(serverLock: ServerLock): Promise<void>
+  updateServerLock(update: ServerLockUpdate): Promise<boolean>
   resetServerLock(): Promise<void>
 
   stageServerSavesReplacement(): Promise<ServerSavesReplacement>
 
-  listServerSaveVersions(): Promise<ServerSaveVersionFile[]>
-  serverSaveVersionExists(fileName: string): Promise<boolean>
-  uploadServerSaveVersion(fileName: string, localZipPath: string): Promise<void>
-  downloadServerSaveVersion(fileName: string, localDestinationPath: string): Promise<void>
-  deleteServerSaveVersion(fileName: string): Promise<void>
+  worldFileExists(): Promise<boolean>
+  uploadWorld(localZipPath: string): Promise<Error | null>
+  downloadWorld(localDestinationPath: string): Promise<void>
   resetServerSaves(): Promise<void>
 }
