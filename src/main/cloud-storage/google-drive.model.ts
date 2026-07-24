@@ -15,10 +15,12 @@ export interface GoogleDriveFileResponse {
   id?: string
   name?: string
   mimeType?: string
+  parents?: string[]
   trashed?: boolean
   ownedByMe?: boolean
   capabilities?: {
     canAddChildren?: boolean
+    canDownload?: boolean
     canEdit?: boolean
     canShare?: boolean
   }

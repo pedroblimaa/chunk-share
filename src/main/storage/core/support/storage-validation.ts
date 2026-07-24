@@ -135,9 +135,15 @@ function isGoogleDriveFolderConfig(value: unknown): value is GoogleDriveFolderCo
   return (
     isString(value.folderId) &&
     isString(value.folderName) &&
+    isNullableString(value.ownerAccountId) &&
+    (value.worldFileIds === null || isGoogleDriveWorldFileIds(value.worldFileIds)) &&
     isString(value.configuredAt) &&
     isNullableString(value.validatedAt)
   )
+}
+
+function isGoogleDriveWorldFileIds(value: unknown): boolean {
+  return isRecord(value) && isString(value.controlFileId) && isString(value.worldFileId)
 }
 
 function isGoogleDriveStorageState(value: unknown): value is GoogleDriveStorageState {

@@ -1,14 +1,17 @@
 import { GoogleDriveError } from './google-drive-error'
+import type { GoogleDriveWorldReference } from '../../shared/cloud-storage.model'
 
 const JOIN_LINK_PROTOCOL = 'chunkshare:'
 const JOIN_LINK_HOST = 'join'
 const JOIN_LINK_VERSION = '1'
-const GOOGLE_DRIVE_FOLDER_ID_PATTERN = /^[A-Za-z0-9_-]+$/
-const JOIN_LINK_PARAMETERS = new Set(['folderId', 'v'])
+const GOOGLE_DRIVE_ID_PATTERN = /^[A-Za-z0-9_-]+$/
+const JOIN_LINK_PARAMETERS = new Set(['controlFileId', 'folderId', 'v', 'worldFileId'])
+
+export type GoogleDriveJoinTarget = GoogleDriveWorldReference
 
 let pendingJoinLink: string | null = null
 
-export function parseGoogleDriveJoinLink(value: unknown): string {
+export function parseGoogleDriveJoinLink(value: unknown): GoogleDriveJoinTarget {
   if (typeof value !== 'string' || value.trim().length === 0) {
     throw new GoogleDriveError('Paste a valid ChunkShare join link.')
   }
@@ -25,20 +28,38 @@ export function parseGoogleDriveJoinLink(value: unknown): string {
 
   const versions = joinUrl.searchParams.getAll('v')
   const folderIds = joinUrl.searchParams.getAll('folderId')
+  const controlFileIds = joinUrl.searchParams.getAll('controlFileId')
+  const worldFileIds = joinUrl.searchParams.getAll('worldFileId')
   const folderId = folderIds[0]
+  const controlFileId = controlFileIds[0]
+  const worldFileId = worldFileIds[0]
 
   if (
     versions.length !== 1 ||
     versions[0] !== JOIN_LINK_VERSION ||
     folderIds.length !== 1 ||
-    !folderId ||
-    folderId.length > 200 ||
-    !GOOGLE_DRIVE_FOLDER_ID_PATTERN.test(folderId)
+    controlFileIds.length !== 1 ||
+    worldFileIds.length !== 1 ||
+    !isGoogleDriveId(folderId) ||
+    !isGoogleDriveId(controlFileId) ||
+    !isGoogleDriveId(worldFileId) ||
+    new Set([folderId, controlFileId, worldFileId]).size !== 3
   ) {
     throw new GoogleDriveError('This ChunkShare join link is invalid or unsupported.')
   }
 
-  return folderId
+  return { folderId, controlFileId, worldFileId }
+}
+
+export function createGoogleDriveJoinLink(target: GoogleDriveJoinTarget): string {
+  const searchParams = new URLSearchParams({
+    v: JOIN_LINK_VERSION,
+    folderId: target.folderId,
+    controlFileId: target.controlFileId,
+    worldFileId: target.worldFileId
+  })
+
+  return `chunkshare://join?${searchParams.toString()}`
 }
 
 export function findGoogleDriveJoinLink(argumentsList: string[]): string | null {
@@ -83,4 +104,13 @@ function parseUrl(value: string): URL {
   } catch {
     throw new GoogleDriveError('This ChunkShare join link is invalid.')
   }
+}
+
+function isGoogleDriveId(value: string | undefined): value is string {
+  return (
+    typeof value === 'string' &&
+    value.length > 0 &&
+    value.length <= 200 &&
+    GOOGLE_DRIVE_ID_PATTERN.test(value)
+  )
 }

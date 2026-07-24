@@ -3,11 +3,7 @@ import { copyFile, mkdir, rm, stat } from 'fs/promises'
 import { dirname } from 'path'
 import type { LatestSave, ServerLock } from '../../../shared/domain'
 import { renameWithRetry } from '../core/support/file-system-utils'
-import {
-  DEFAULT_LATEST_SAVE,
-  DEFAULT_SERVER_LOCK,
-  DEFAULT_STORAGE_CONTROL
-} from '../core/support/storage-defaults'
+import { DEFAULT_SERVER_LOCK, DEFAULT_STORAGE_CONTROL } from '../core/support/storage-defaults'
 import { StorageError } from '../core/support/storage-error'
 import {
   localStorageFolderPath,
@@ -240,9 +236,10 @@ async function downloadWorld(localDestinationPath: string): Promise<void> {
 }
 
 async function resetServerSaves(): Promise<void> {
-  await ensureLocalStorage()
-
-  await writeLatestSave(DEFAULT_LATEST_SAVE)
+  await Promise.all([
+    rm(storageControlFilePath, { force: true }),
+    rm(localStorageWorldFilePath, { force: true })
+  ])
 }
 
 function isMissingFileError(error: unknown): boolean {

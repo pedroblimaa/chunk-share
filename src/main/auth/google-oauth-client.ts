@@ -13,7 +13,7 @@ import {
   type GoogleUserProfile
 } from './auth-model'
 
-const GOOGLE_DRIVE_FOLDER_MIME_TYPE = 'application/vnd.google-apps.folder'
+const GOOGLE_DRIVE_PICKER_MIME_TYPES = ['application/json', 'application/zip']
 const GOOGLE_DRIVE_ABOUT_ENDPOINT = 'https://www.googleapis.com/drive/v3/about?fields=user(emailAddress)'
 
 interface GoogleDriveAboutResponse {
@@ -50,7 +50,7 @@ export async function createGoogleAuthorizationUrl(
     })
 
     return {
-      authorizationUrl: addPickerParameters(authorizationUrl, input.pickerFolderId),
+      authorizationUrl: addPickerParameters(authorizationUrl, input.pickerFileIds),
       codeVerifier
     }
   } catch (error) {
@@ -178,15 +178,15 @@ export function createAuthenticatedGoogleOAuthClient(tokens: GoogleAuthTokens): 
   return oauthClient
 }
 
-function addPickerParameters(authorizationUrl: string, folderId?: string): string {
-  if (!folderId) {
+function addPickerParameters(authorizationUrl: string, fileIds?: string[]): string {
+  if (!fileIds?.length) {
     return authorizationUrl
   }
 
   const pickerUrl = new URL(authorizationUrl)
-  pickerUrl.searchParams.set('allow_folder_selection', 'true')
-  pickerUrl.searchParams.set('file_ids', folderId)
-  pickerUrl.searchParams.set('mimetypes', GOOGLE_DRIVE_FOLDER_MIME_TYPE)
+  pickerUrl.searchParams.set('allow_multiple', 'true')
+  pickerUrl.searchParams.set('file_ids', fileIds.join(','))
+  pickerUrl.searchParams.set('mimetypes', GOOGLE_DRIVE_PICKER_MIME_TYPES.join(','))
   pickerUrl.searchParams.set('trigger_onepick', 'true')
 
   return pickerUrl.toString()

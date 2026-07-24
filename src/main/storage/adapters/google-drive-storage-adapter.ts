@@ -7,6 +7,11 @@ import { dirname, join } from 'path'
 import type { Readable } from 'stream'
 import { pipeline } from 'stream/promises'
 import type { LatestSave, ServerLock } from '../../../shared/domain'
+import type {
+  GoogleDriveFolderConfig,
+  GoogleDriveWorldFileIds,
+  GoogleDriveWorldReference
+} from '../../../shared/cloud-storage.model'
 import { ensureGoogleDriveAuthSession } from '../../auth/auth-service'
 import { createAuthenticatedGoogleOAuthClient } from '../../auth/google-oauth-client'
 import {
@@ -56,9 +61,87 @@ export const googleDriveStorageAdapter: StorageAdapter = {
   writeLatestSave
 }
 
-export async function readGoogleDriveStorageData(folderId: string): Promise<ServerSyncStorageData> {
+export async function resolveGoogleDriveWorldFileIds(folderId: string): Promise<GoogleDriveWorldFileIds> {
   const oauthClient = await createAuthenticatedDriveClient()
   const storageFiles = await listFilesInFolder(oauthClient, folderId)
+  const controlFile = findFileByName(storageFiles, CONTROL_FILE_NAME)
+  const worldFile = findFileByName(storageFiles, WORLD_FILE_NAME)
+
+  if (!controlFile?.id || !worldFile?.id) {
+    throw new GoogleDriveError('Publish this world before inviting a friend.')
+  }
+
+  return {
+    controlFileId: controlFile.id,
+    worldFileId: worldFile.id
+  }
+}
+
+export async function deleteGoogleDriveWorldFilesIfOwned(): Promise<void> {
+  const folder = await getConfiguredDriveFolder()
+
+  if (!folder.ownerAccountId) {
+    return
+  }
+
+  const authSession = await ensureGoogleDriveAuthSession()
+
+  if (folder.ownerAccountId !== authSession.player.id) {
+    return
+  }
+
+  const oauthClient = createAuthenticatedGoogleOAuthClient(authSession.tokens)
+  const [controlFile, worldFile] = await Promise.all([
+    findConfiguredFile(oauthClient, folder, CONTROL_FILE_NAME),
+    findConfiguredFile(oauthClient, folder, WORLD_FILE_NAME)
+  ])
+  const fileIds = [controlFile?.id, worldFile?.id].filter((fileId): fileId is string => Boolean(fileId))
+
+  await Promise.all(fileIds.map((fileId) => deleteDriveFileIfExists(oauthClient, fileId)))
+}
+
+export async function validateSharedGoogleDriveWorld(
+  reference: GoogleDriveWorldReference
+): Promise<ServerSyncStorageData & { ownerAccountId: string | null }> {
+  const authSession = await ensureGoogleDriveAuthSession()
+  const oauthClient = createAuthenticatedGoogleOAuthClient(authSession.tokens)
+  const [controlFile, worldFile] = await Promise.all([
+    readDriveFileMetadata(oauthClient, reference.controlFileId),
+    readDriveFileMetadata(oauthClient, reference.worldFileId)
+  ])
+
+  assertSharedWorldFile(
+    controlFile,
+    reference.controlFileId,
+    CONTROL_FILE_NAME,
+    JSON_MIME_TYPE,
+    reference.folderId
+  )
+  assertSharedWorldFile(worldFile, reference.worldFileId, WORLD_FILE_NAME, ZIP_MIME_TYPE, reference.folderId)
+
+  const control = await readJsonDriveFileWithClient(
+    oauthClient,
+    controlFile,
+    CONTROL_FILE_NAME,
+    DEFAULT_STORAGE_CONTROL,
+    isStorageControl
+  )
+
+  return {
+    ownerAccountId: controlFile.ownedByMe ? authSession.player.id : null,
+    latestSave: control.latestSave,
+    serverLock: control.serverLock,
+    worldFileExists: true
+  }
+}
+
+async function readGoogleDriveStorageData(folder: GoogleDriveFolderConfig): Promise<ServerSyncStorageData> {
+  if (folder.worldFileIds) {
+    return validateSharedGoogleDriveWorld({ folderId: folder.folderId, ...folder.worldFileIds })
+  }
+
+  const oauthClient = await createAuthenticatedDriveClient()
+  const storageFiles = await listFilesInFolder(oauthClient, folder.folderId)
   const controlFile = findFileByName(storageFiles, CONTROL_FILE_NAME)
   const worldFile = findFileByName(storageFiles, WORLD_FILE_NAME)
   const control = await readJsonDriveFileWithClient(
@@ -115,9 +198,9 @@ async function readServerLock(): Promise<ServerLock> {
 }
 
 async function readServerSyncData(): Promise<ServerSyncStorageData> {
-  const storageFolderId = await getConfiguredDriveFolderId()
+  const folder = await getConfiguredDriveFolder()
 
-  return readGoogleDriveStorageData(storageFolderId)
+  return readGoogleDriveStorageData(folder)
 }
 
 async function updateServerLock(update: ServerLockUpdate): Promise<boolean> {
@@ -138,10 +221,10 @@ async function resetServerLock(): Promise<void> {
 
 async function stageServerSavesReplacement(): Promise<ServerSavesReplacement> {
   const oauthClient = await createAuthenticatedDriveClient()
-  const storageFolderId = await getConfiguredDriveFolderId()
+  const folder = await getConfiguredDriveFolder()
   const [previousControl, worldFile] = await Promise.all([
     readStorageControl(),
-    findFileInFolder(oauthClient, storageFolderId, WORLD_FILE_NAME)
+    findConfiguredFile(oauthClient, folder, WORLD_FILE_NAME)
   ])
   const worldFileId = worldFile?.id ?? null
   const previousRevisionId = worldFileId ? await getCurrentRevisionId(oauthClient, worldFileId) : null
@@ -164,7 +247,7 @@ async function stageServerSavesReplacement(): Promise<ServerSavesReplacement> {
     if (worldFileId && previousRevisionId) {
       await restoreDriveRevision(oauthClient, worldFileId, previousRevisionId)
     } else if (!worldFileId) {
-      const replacementWorld = await findFileInFolder(oauthClient, storageFolderId, WORLD_FILE_NAME)
+      const replacementWorld = await findFileInFolder(oauthClient, folder.folderId, WORLD_FILE_NAME)
 
       if (replacementWorld?.id) {
         await deleteDriveFile(oauthClient, replacementWorld.id)
@@ -228,17 +311,22 @@ function storageMutationIsActive(control: StorageControl): boolean {
 
 async function worldFileExists(): Promise<boolean> {
   const oauthClient = await createAuthenticatedDriveClient()
-  const storageFolderId = await getConfiguredDriveFolderId()
+  const folder = await getConfiguredDriveFolder()
 
-  return (await findFileInFolder(oauthClient, storageFolderId, WORLD_FILE_NAME)) !== null
+  if (folder.worldFileIds) {
+    await readDriveFileMetadata(oauthClient, folder.worldFileIds.worldFileId)
+    return true
+  }
+
+  return (await findFileInFolder(oauthClient, folder.folderId, WORLD_FILE_NAME)) !== null
 }
 
 async function uploadWorld(localZipPath: string): Promise<Error | null> {
   const oauthClient = await createAuthenticatedDriveClient()
-  const storageFolderId = await getConfiguredDriveFolderId()
-  const existingFile = await findFileInFolder(oauthClient, storageFolderId, WORLD_FILE_NAME)
+  const folder = await getConfiguredDriveFolder()
+  const existingFile = await findConfiguredFile(oauthClient, folder, WORLD_FILE_NAME)
   const fileId =
-    existingFile?.id ?? (await createDriveFile(oauthClient, storageFolderId, WORLD_FILE_NAME, ZIP_MIME_TYPE))
+    existingFile?.id ?? (await createDriveFile(oauthClient, folder.folderId, WORLD_FILE_NAME, ZIP_MIME_TYPE))
 
   await uploadDriveFileMedia(oauthClient, fileId, createReadStream(localZipPath), ZIP_MIME_TYPE, true)
 
@@ -252,8 +340,8 @@ async function uploadWorld(localZipPath: string): Promise<Error | null> {
 
 async function downloadWorld(localDestinationPath: string): Promise<void> {
   const oauthClient = await createAuthenticatedDriveClient()
-  const storageFolderId = await getConfiguredDriveFolderId()
-  const file = await findFileInFolder(oauthClient, storageFolderId, WORLD_FILE_NAME)
+  const folder = await getConfiguredDriveFolder()
+  const file = await findConfiguredFile(oauthClient, folder, WORLD_FILE_NAME)
 
   if (!file?.id) {
     throw new GoogleDriveError(
@@ -271,8 +359,8 @@ async function resetServerSaves(): Promise<void> {
 
 async function readStorageControl(): Promise<StorageControl> {
   const oauthClient = await createAuthenticatedDriveClient()
-  const storageFolderId = await getConfiguredDriveFolderId()
-  const file = await findFileInFolder(oauthClient, storageFolderId, CONTROL_FILE_NAME)
+  const folder = await getConfiguredDriveFolder()
+  const file = await findConfiguredFile(oauthClient, folder, CONTROL_FILE_NAME)
 
   return readJsonDriveFileWithClient(
     oauthClient,
@@ -285,8 +373,8 @@ async function readStorageControl(): Promise<StorageControl> {
 
 async function updateStorageControl(update: (control: StorageControl) => StorageControl): Promise<boolean> {
   const oauthClient = await createAuthenticatedDriveClient()
-  const storageFolderId = await getConfiguredDriveFolderId()
-  const existingFile = await findFileInFolder(oauthClient, storageFolderId, CONTROL_FILE_NAME)
+  const folder = await getConfiguredDriveFolder()
+  const existingFile = await findConfiguredFile(oauthClient, folder, CONTROL_FILE_NAME)
   const control = await readJsonDriveFileWithClient(
     oauthClient,
     existingFile,
@@ -309,7 +397,7 @@ async function updateStorageControl(update: (control: StorageControl) => Storage
 
   const fileId =
     existingFile?.id ??
-    (await createDriveFile(oauthClient, storageFolderId, CONTROL_FILE_NAME, JSON_MIME_TYPE))
+    (await createDriveFile(oauthClient, folder.folderId, CONTROL_FILE_NAME, JSON_MIME_TYPE))
 
   await uploadDriveFileMedia(oauthClient, fileId, `${JSON.stringify(nextControl, null, 2)}\n`, JSON_MIME_TYPE)
   return true
@@ -345,21 +433,55 @@ async function readJsonDriveFileWithClient<T>(
   return parsedJson
 }
 
+async function readDriveFileMetadata(
+  oauthClient: OAuth2Client,
+  fileId: string
+): Promise<GoogleDriveFileResponse> {
+  return runGoogleDriveFileRequest(() => fetchDriveFileMetadata(oauthClient, fileId))
+}
+
+async function fetchDriveFileMetadata(
+  oauthClient: OAuth2Client,
+  fileId: string
+): Promise<GoogleDriveFileResponse> {
+  const fields = 'id,name,mimeType,parents,trashed,ownedByMe,capabilities(canDownload,canEdit)'
+  const response = await oauthClient.fetch<GoogleDriveFileResponse>(
+    `${GOOGLE_DRIVE_API_BASE_URL}/files/${encodeURIComponent(fileId)}?fields=${encodeURIComponent(fields)}`
+  )
+
+  return response.data
+}
+
 async function createAuthenticatedDriveClient(): Promise<OAuth2Client> {
   const authSession = await ensureGoogleDriveAuthSession()
 
   return createAuthenticatedGoogleOAuthClient(authSession.tokens)
 }
 
-async function getConfiguredDriveFolderId(): Promise<string> {
+async function getConfiguredDriveFolder(): Promise<GoogleDriveFolderConfig> {
   const settings = await readCloudStorageSettings()
-  const folderId = settings.googleDrive.folder?.folderId
+  const folder = settings.googleDrive.folder
 
-  if (!folderId) {
+  if (!folder) {
     throw new GoogleDriveError('Google Drive folder is not configured.', GoogleDriveErrorCode.FolderNotFound)
   }
 
-  return folderId
+  return folder
+}
+
+async function findConfiguredFile(
+  oauthClient: OAuth2Client,
+  folder: GoogleDriveFolderConfig,
+  fileName: string
+): Promise<GoogleDriveFileResponse | null> {
+  const configuredFileId =
+    fileName === CONTROL_FILE_NAME ? folder.worldFileIds?.controlFileId : folder.worldFileIds?.worldFileId
+
+  if (configuredFileId) {
+    return { id: configuredFileId, name: fileName }
+  }
+
+  return findFileInFolder(oauthClient, folder.folderId, fileName)
 }
 
 async function findFileInFolder(
@@ -415,15 +537,19 @@ async function runGoogleDriveFileRequest<Result>(request: () => Promise<Result>)
   try {
     return await request()
   } catch (error) {
-    if (isGoogleDriveAccessError(error)) {
-      throw new GoogleDriveError(
-        'Your access to this shared world was revoked, or its Google Drive files are unavailable.',
-        GoogleDriveErrorCode.PermissionDenied
-      )
-    }
-
-    throw error
+    throwGoogleDriveFileRequestError(error)
   }
+}
+
+function throwGoogleDriveFileRequestError(error: unknown): never {
+  if (isGoogleDriveAccessError(error)) {
+    throw new GoogleDriveError(
+      'Your access to this shared world was revoked, or its Google Drive files are unavailable.',
+      GoogleDriveErrorCode.PermissionDenied
+    )
+  }
+
+  throw error
 }
 
 function isGoogleDriveAccessError(error: unknown): boolean {
@@ -575,15 +701,64 @@ async function deleteDriveRevision(
 }
 
 async function deleteDriveFile(oauthClient: OAuth2Client, fileId: string): Promise<void> {
-  await runGoogleDriveFileRequest(() =>
-    oauthClient.fetch(`${GOOGLE_DRIVE_API_BASE_URL}/files/${encodeURIComponent(fileId)}`, {
-      method: 'DELETE'
-    })
+  await runGoogleDriveFileRequest(() => requestDriveFileDeletion(oauthClient, fileId))
+}
+
+async function deleteDriveFileIfExists(oauthClient: OAuth2Client, fileId: string): Promise<void> {
+  try {
+    await requestDriveFileDeletion(oauthClient, fileId)
+  } catch (error) {
+    if (isGoogleApiResponseStatus(error, 404)) {
+      return
+    }
+
+    throwGoogleDriveFileRequestError(error)
+  }
+}
+
+async function requestDriveFileDeletion(oauthClient: OAuth2Client, fileId: string): Promise<void> {
+  await oauthClient.fetch(`${GOOGLE_DRIVE_API_BASE_URL}/files/${encodeURIComponent(fileId)}`, {
+    method: 'DELETE'
+  })
+}
+
+function isGoogleApiResponseStatus(error: unknown, status: number): boolean {
+  if (typeof error !== 'object' || error === null || !('response' in error)) {
+    return false
+  }
+
+  const response = error.response
+
+  return (
+    typeof response === 'object' && response !== null && 'status' in response && response.status === status
   )
 }
 
 function findFileByName(files: GoogleDriveFileResponse[], fileName: string): GoogleDriveFileResponse | null {
   return files.find((file) => file.name === fileName) ?? null
+}
+
+function assertSharedWorldFile(
+  file: GoogleDriveFileResponse,
+  expectedFileId: string,
+  expectedName: string,
+  expectedMimeType: string,
+  expectedFolderId: string
+): void {
+  const isExpectedFile =
+    file.id === expectedFileId &&
+    file.name === expectedName &&
+    file.mimeType === expectedMimeType &&
+    !file.trashed &&
+    file.parents?.includes(expectedFolderId)
+
+  if (!isExpectedFile) {
+    throw new GoogleDriveError(`The selected ${expectedName} does not match this join link.`)
+  }
+
+  if (!file.capabilities?.canDownload || !file.capabilities.canEdit) {
+    throw new GoogleDriveError(`The selected ${expectedName} requires read and write access.`)
+  }
 }
 
 function resolveGoogleDriveFileId(file: GoogleDriveFileResponse, fileName: string): string {

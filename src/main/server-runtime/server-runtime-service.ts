@@ -325,9 +325,9 @@ class ServerRuntime {
     this.errorMessage = null
     this.userRequestedStop = true
     stopPlayerPolling()
+    this.emitRuntimeEvent()
     await this.waitForLockActivation()
     await stopHeartbeat()
-    this.emitRuntimeEvent()
     await this.markHostingLockStopping()
 
     this.addLogLine('ChunkShare', 'Saving world before shutdown.')

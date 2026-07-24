@@ -2,7 +2,6 @@ import './ServersView.css'
 
 import { useEffect, useState } from 'react'
 import { ServerAvailability, type ServerDisplayState } from '../../../../../shared/dashboard'
-import { ServerLockStatus } from '../../../../../shared/domain'
 import { isServerActiveStatus, type ServerRuntimeSnapshot } from '../../../../../shared/server-runtime'
 import { ServerSyncStatus } from '../../../../../shared/server-sync'
 import AppSidebar from '../../../components/shared/AppSidebar/AppSidebar'
@@ -27,10 +26,6 @@ interface ServersViewProps {
 
 const SINGLE_SERVER_DISABLED_REASON = 'Only one server is supported in the MVP.'
 type CopyStatus = 'idle' | 'copied' | 'failed'
-
-function isServerLocked(serverDisplayState: ServerDisplayState): boolean {
-  return serverDisplayState.syncStatus.serverLock.status === ServerLockStatus.Locked
-}
 
 function getCardServerStatus(
   serverDisplayState: ServerDisplayState,
@@ -164,7 +159,7 @@ function ServersView({
     try {
       await onDeleteServer()
     } catch (error: unknown) {
-      setErrorMessage(getErrorMessage(error, 'Unable to delete server.'))
+      setErrorMessage(getErrorMessage(error, 'Unable to remove server.'))
     } finally {
       setIsDeletingServer(false)
       setServerPendingDelete(null)
@@ -187,13 +182,9 @@ function ServersView({
   const copyButtonLabel =
     copyStatus === 'copied' ? 'Copied' : copyStatus === 'failed' ? 'Copy Failed' : 'Copy Error'
   const copyButtonStateClass = copyStatus === 'idle' ? '' : ` is-${copyStatus}`
-  const serverIsRemoteOnly = serverDisplayState.serverAvailability === ServerAvailability.RemoteAvailable
-  const deleteDisabled = isDeletingServer || isServerLocked(serverDisplayState) || serverIsRemoteOnly
-  const deleteDisabledReason = isServerLocked(serverDisplayState)
-    ? 'Stop the hosted server before deleting it.'
-    : serverIsRemoteOnly
-      ? 'Set up this server locally before deleting it.'
-      : undefined
+  const serverIsActive = runtimeSnapshot ? isServerActiveStatus(runtimeSnapshot.status) : false
+  const deleteDisabled = isDeletingServer || serverIsActive
+  const deleteDisabledReason = serverIsActive ? 'Stop the hosted server before removing it.' : undefined
 
   return (
     <div className="dashboard-screen servers-screen">
@@ -276,11 +267,11 @@ function ServersView({
         {serverPendingDelete && (
           <ConfirmationDialog
             confirmIcon="delete"
-            confirmLabel={isDeletingServer ? 'Deleting...' : 'Delete Server'}
-            description="ChunkShare will move the server folder into a local backup before removing it from the server list."
+            confirmLabel={isDeletingServer ? 'Removing...' : 'Remove Server'}
+            description="ChunkShare will keep a local backup. If you own this shared world, it will also be deleted from Google Drive and friends will lose access."
             icon="delete"
             isLoading={isDeletingServer}
-            title={`Delete ${serverPendingDelete.name}?`}
+            title={`Remove ${serverPendingDelete.name}?`}
             onCancel={() => setServerPendingDelete(null)}
             onConfirm={confirmDeleteServer}
           />

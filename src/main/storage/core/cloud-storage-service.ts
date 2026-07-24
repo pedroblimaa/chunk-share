@@ -6,19 +6,17 @@ import {
   type CloudStorageProviderSwitchRequest,
   type CloudStorageProviderSwitchPreview,
   type CloudStorageSettings,
-  type GoogleDriveFolderConfig
+  type GoogleDriveFolderConfig,
+  type GoogleDriveWorldReference
 } from '../../../shared/cloud-storage.model'
 import { ServerLockStatus } from '../../../shared/domain'
 import { isServerActiveStatus } from '../../../shared/server-runtime'
 import { AuthError } from '../../auth/auth-error'
 import { AuthErrorCode } from '../../auth/auth-model'
 import { GoogleDriveError } from '../../cloud-storage/google-drive-error'
-import {
-  ensureGoogleDriveFolder,
-  validateGoogleDriveFolderById
-} from '../../cloud-storage/google-drive-service'
+import { ensureGoogleDriveFolder } from '../../cloud-storage/google-drive-service'
 import { getServerRuntimeSnapshot } from '../../server-runtime/server-runtime-service'
-import { readGoogleDriveStorageData } from '../adapters/google-drive-storage-adapter'
+import { validateSharedGoogleDriveWorld } from '../adapters/google-drive-storage-adapter'
 import { getStorageAdapterForProvider } from '../adapters/storage-adapter-service'
 import { ensureLocalStorage } from '../adapters/local-storage-adapter'
 import type { StorageAdapter } from '../adapters/storage-adapter.model'
@@ -41,8 +39,10 @@ export async function getCloudStorageSettings(): Promise<CloudStorageSettings> {
   return readCloudStorageSettings()
 }
 
-export function activateSharedGoogleDriveWorld(folderId: string): Promise<CloudStorageSettings> {
-  return runStorageSettingsChange(() => saveSharedGoogleDriveWorld(folderId))
+export function activateSharedGoogleDriveWorld(
+  reference: GoogleDriveWorldReference
+): Promise<CloudStorageSettings> {
+  return runStorageSettingsChange(() => saveSharedGoogleDriveWorld(reference))
 }
 
 export async function getCloudStorageProviderSwitchPreview(
@@ -69,9 +69,8 @@ export function setupGoogleDriveFolder(): Promise<CloudStorageSettings> {
   return runStorageSettingsChange(async () => {
     const settings = await readCloudStorageSettings()
     assertServerIsNotActive()
-    const folderId = settings.googleDrive.folder?.folderId
 
-    return ensureAndSaveGoogleDriveFolder(settings, folderId)
+    return ensureAndSaveGoogleDriveFolder(settings, settings.googleDrive.folder)
   })
 }
 
@@ -92,7 +91,7 @@ export function validateGoogleDriveFolder(): Promise<CloudStorageSettings> {
       })
     }
 
-    return ensureAndSaveGoogleDriveFolder(settings, folderId)
+    return ensureAndSaveGoogleDriveFolder(settings, settings.googleDrive.folder)
   })
 }
 
@@ -160,12 +159,13 @@ async function switchCloudStorageProvider(
   return activateCloudStorageProvider(validatedSettings, provider)
 }
 
-async function saveSharedGoogleDriveWorld(folderId: string): Promise<CloudStorageSettings> {
+async function saveSharedGoogleDriveWorld(
+  reference: GoogleDriveWorldReference
+): Promise<CloudStorageSettings> {
   const settings = await readCloudStorageSettings()
   assertServerIsNotActive()
 
-  const folder = await validateGoogleDriveFolderById(folderId)
-  const world = await readGoogleDriveStorageData(folderId)
+  const world = await validateSharedGoogleDriveWorld(reference)
   const latestSave = world.latestSave
 
   if (!latestSave) {
@@ -177,13 +177,24 @@ async function saveSharedGoogleDriveWorld(folderId: string): Promise<CloudStorag
   }
 
   await saveLocalSaveVersion(null)
+  const now = new Date().toISOString()
 
   return writeAndReturnCloudStorageSettings({
     ...settings,
     activeProvider: CloudStorageProvider.GoogleDrive,
     googleDrive: {
       status: GoogleDriveSetupStatus.Valid,
-      folder,
+      folder: {
+        folderId: reference.folderId,
+        folderName: 'Shared ChunkShare world',
+        ownerAccountId: world.ownerAccountId,
+        worldFileIds: {
+          controlFileId: reference.controlFileId,
+          worldFileId: reference.worldFileId
+        },
+        configuredAt: now,
+        validatedAt: now
+      },
       errorMessage: null
     }
   })
@@ -203,13 +214,32 @@ async function activateCloudStorageProvider(
 
 async function ensureAndSaveGoogleDriveFolder(
   settings: CloudStorageSettings,
-  folderId?: string
+  folder?: GoogleDriveFolderConfig | null
 ): Promise<CloudStorageSettings> {
   try {
-    const validatedFolder = await ensureGoogleDriveFolder(folderId)
+    const validatedFolder = await validateConfiguredGoogleDriveFolder(folder)
     return saveValidGoogleDriveFolder(settings, validatedFolder)
   } catch (error) {
     return saveGoogleDriveFolderFailure(settings, error)
+  }
+}
+
+async function validateConfiguredGoogleDriveFolder(
+  folder?: GoogleDriveFolderConfig | null
+): Promise<GoogleDriveFolderConfig> {
+  if (!folder?.worldFileIds) {
+    return ensureGoogleDriveFolder(folder?.folderId)
+  }
+
+  const world = await validateSharedGoogleDriveWorld({
+    folderId: folder.folderId,
+    ...folder.worldFileIds
+  })
+
+  return {
+    ...folder,
+    ownerAccountId: world.ownerAccountId,
+    validatedAt: new Date().toISOString()
   }
 }
 
@@ -328,7 +358,7 @@ async function validateAndPrepareTargetProvider(
   let validatedFolder: GoogleDriveFolderConfig
 
   try {
-    validatedFolder = await ensureGoogleDriveFolder(settings.googleDrive.folder?.folderId)
+    validatedFolder = await validateConfiguredGoogleDriveFolder(settings.googleDrive.folder)
   } catch (error) {
     await saveGoogleDriveFolderFailure(settings, error)
     throw new StorageError(getCloudStorageErrorMessage(error))
