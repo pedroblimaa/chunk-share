@@ -21,6 +21,21 @@ export interface GoogleTestPermission {
   type: 'user'
 }
 
+interface GoogleTestDriveFile {
+  content: string | Uint8Array
+  id: string
+  mimeType: string
+  name: string
+  parents: string[]
+  revisions: GoogleTestDriveRevision[]
+}
+
+interface GoogleTestDriveRevision {
+  content: string | Uint8Array
+  id: string
+  modifiedTime: string
+}
+
 export const GOOGLE_TEST_IDS = {
   controlFile: 'test-control-file-id',
   folder: 'test-world-folder-id',
@@ -60,8 +75,11 @@ const TEST_CONTROL: StorageControl = {
 export class GoogleDriveTestEnvironment {
   private activeAccountName: GoogleTestAccountName = 'owner'
   private appAuthorizedFileIds = new Map<GoogleTestAccountName, Set<string>>()
+  private files = new Map<string, GoogleTestDriveFile>()
   private lastPickerFileIds: string[] | null = null
+  private nextFileNumber = 1
   private nextPermissionNumber = 1
+  private nextRevisionNumber = 1
   private permissions = new Map<string, GoogleTestPermission>()
 
   public writersCanShare = true
@@ -72,8 +90,25 @@ export class GoogleDriveTestEnvironment {
     this.appAuthorizedFileIds = new Map([
       ['owner', new Set([GOOGLE_TEST_IDS.controlFile, GOOGLE_TEST_IDS.folder, GOOGLE_TEST_IDS.worldFile])]
     ])
+    this.files = new Map([
+      [
+        GOOGLE_TEST_IDS.controlFile,
+        createDriveFile(
+          GOOGLE_TEST_IDS.controlFile,
+          'control.json',
+          'application/json',
+          JSON.stringify(TEST_CONTROL)
+        )
+      ],
+      [
+        GOOGLE_TEST_IDS.worldFile,
+        createDriveFile(GOOGLE_TEST_IDS.worldFile, 'world.zip', 'application/zip', 'test-world-zip')
+      ]
+    ])
     this.lastPickerFileIds = null
+    this.nextFileNumber = 1
     this.nextPermissionNumber = 1
+    this.nextRevisionNumber = 1
     this.permissions = new Map([[OWNER_PERMISSION.id, OWNER_PERMISSION]])
     this.writersCanShare = true
     this.lastPermissionNotificationEnabled = null
@@ -89,6 +124,10 @@ export class GoogleDriveTestEnvironment {
 
   public getLastPickerFileIds(): string[] | null {
     return this.lastPickerFileIds
+  }
+
+  public getFileContentByName(fileName: string): string | Uint8Array | null {
+    return [...this.files.values()].find((file) => file.name === fileName)?.content ?? null
   }
 
   public authorizeGoogleDriveFiles(expectedFileIds: string[]): Promise<void> {
@@ -123,15 +162,20 @@ export class GoogleDriveTestEnvironment {
     )
   }
 
-  public listWorldFiles(accountName: GoogleTestAccountName): GoogleDriveFileResponse[] | null {
+  public listWorldFiles(
+    accountName: GoogleTestAccountName,
+    fileName?: string
+  ): GoogleDriveFileResponse[] | null {
     if (!this.accountCanAccessFile(accountName, GOOGLE_TEST_IDS.folder)) {
       return null
     }
 
-    return [
-      this.getFileMetadata(accountName, GOOGLE_TEST_IDS.controlFile),
-      this.getFileMetadata(accountName, GOOGLE_TEST_IDS.worldFile)
-    ].filter((file): file is GoogleDriveFileResponse => file !== null)
+    return [...this.files.values()]
+      .filter(
+        (file) => file.parents.includes(GOOGLE_TEST_IDS.folder) && (!fileName || file.name === fileName)
+      )
+      .map((file) => this.getFileMetadata(accountName, file.id))
+      .filter((file): file is GoogleDriveFileResponse => file !== null)
   }
 
   public getFileMetadata(accountName: GoogleTestAccountName, fileId: string): GoogleDriveFileResponse | null {
@@ -156,9 +200,12 @@ export class GoogleDriveTestEnvironment {
       }
     }
 
+    const file = this.files.get(fileId)
+    if (!file) {
+      return null
+    }
+
     const canEdit = this.getAccountRole(accountName) === 'writer' || ownedByMe
-    const name = fileId === GOOGLE_TEST_IDS.controlFile ? 'control.json' : 'world.zip'
-    const mimeType = fileId === GOOGLE_TEST_IDS.controlFile ? 'application/json' : 'application/zip'
 
     return {
       capabilities: {
@@ -166,24 +213,103 @@ export class GoogleDriveTestEnvironment {
         canEdit
       },
       id: fileId,
-      mimeType,
-      name,
+      mimeType: file.mimeType,
+      name: file.name,
       ownedByMe,
-      parents: [GOOGLE_TEST_IDS.folder],
+      parents: file.parents,
       trashed: false
     }
   }
 
-  public getFileContent(accountName: GoogleTestAccountName, fileId: string): string | null {
+  public getFileContent(
+    accountName: GoogleTestAccountName,
+    fileId: string,
+    revisionId?: string
+  ): string | Uint8Array | null {
     if (!this.accountCanAccessFile(accountName, fileId)) {
       return null
     }
 
-    if (fileId === GOOGLE_TEST_IDS.controlFile) {
-      return JSON.stringify(TEST_CONTROL)
+    const file = this.files.get(fileId)
+    if (!file) {
+      return null
     }
 
-    return fileId === GOOGLE_TEST_IDS.worldFile ? 'test-world-zip' : null
+    if (!revisionId) {
+      return file.content
+    }
+
+    return file.revisions.find((revision) => revision.id === revisionId)?.content ?? null
+  }
+
+  public createFile(
+    accountName: GoogleTestAccountName,
+    input: { mimeType: string; name: string; parents?: string[] }
+  ): GoogleDriveFileResponse | null {
+    if (accountName !== 'owner') {
+      return null
+    }
+
+    const fileId = `created-drive-file-${this.nextFileNumber}`
+    this.nextFileNumber += 1
+    this.files.set(fileId, createDriveFile(fileId, input.name, input.mimeType, '', input.parents ?? []))
+    this.appAuthorizedFileIds.get(accountName)?.add(fileId)
+
+    return this.getFileMetadata(accountName, fileId)
+  }
+
+  public uploadFile(
+    accountName: GoogleTestAccountName,
+    fileId: string,
+    content: string | Uint8Array,
+    keepRevisionForever: boolean
+  ): boolean {
+    const file = this.files.get(fileId)
+    if (accountName !== 'owner' || !file) {
+      return false
+    }
+
+    file.content = content
+
+    if (keepRevisionForever) {
+      file.revisions.push({
+        content,
+        id: `revision-${this.nextRevisionNumber}`,
+        modifiedTime: new Date(this.nextRevisionNumber * 1_000).toISOString()
+      })
+      this.nextRevisionNumber += 1
+    }
+
+    return true
+  }
+
+  public listRevisions(accountName: GoogleTestAccountName, fileId: string): GoogleTestDriveRevision[] | null {
+    const file = this.files.get(fileId)
+    return accountName === 'owner' && file ? [...file.revisions] : null
+  }
+
+  public deleteRevision(accountName: GoogleTestAccountName, fileId: string, revisionId: string): boolean {
+    const file = this.files.get(fileId)
+    if (accountName !== 'owner' || !file) {
+      return false
+    }
+
+    const revisionIndex = file.revisions.findIndex((revision) => revision.id === revisionId)
+    if (revisionIndex === -1) {
+      return false
+    }
+
+    file.revisions.splice(revisionIndex, 1)
+    return true
+  }
+
+  public deleteFile(accountName: GoogleTestAccountName, fileId: string): boolean {
+    if (accountName !== 'owner') {
+      return false
+    }
+
+    this.appAuthorizedFileIds.get(accountName)?.delete(fileId)
+    return this.files.delete(fileId)
   }
 
   public listPermissions(accountName: GoogleTestAccountName): GoogleTestPermission[] | null {
@@ -284,4 +410,21 @@ function sameValues(left: string[], right: string[]): boolean {
     new Set(left).size === right.length &&
     right.every((value) => left.includes(value))
   )
+}
+
+function createDriveFile(
+  id: string,
+  name: string,
+  mimeType: string,
+  content: string | Uint8Array,
+  parents: string[] = [GOOGLE_TEST_IDS.folder]
+): GoogleTestDriveFile {
+  return {
+    content,
+    id,
+    mimeType,
+    name,
+    parents,
+    revisions: []
+  }
 }

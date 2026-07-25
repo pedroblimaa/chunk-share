@@ -12,6 +12,12 @@ interface CreatePermissionBody {
   type?: string
 }
 
+interface CreateFileBody {
+  mimeType?: string
+  name?: string
+  parents?: string[]
+}
+
 export function createGoogleDriveMockHandlers(): HttpHandler[] {
   return [
     http.get(`${GOOGLE_DRIVE_API_BASE_URL}/files`, ({ request }) => {
@@ -20,8 +26,28 @@ export function createGoogleDriveMockHandlers(): HttpHandler[] {
         return permissionDenied()
       }
 
-      const files = googleDriveTestEnvironment.listWorldFiles(accountName)
+      const files = googleDriveTestEnvironment.listWorldFiles(
+        accountName,
+        getRequestedFileName(new URL(request.url).searchParams.get('q'))
+      )
       return files ? HttpResponse.json({ files }) : permissionDenied()
+    }),
+
+    http.post(`${GOOGLE_DRIVE_API_BASE_URL}/files`, async ({ request }) => {
+      const accountName = requireAccount(request)
+      const body = (await request.json()) as CreateFileBody
+
+      if (!accountName || !body.name || !body.mimeType) {
+        return invalidRequest()
+      }
+
+      const file = googleDriveTestEnvironment.createFile(accountName, {
+        mimeType: body.mimeType,
+        name: body.name,
+        parents: body.parents
+      })
+
+      return file ? HttpResponse.json(file) : permissionDenied()
     }),
 
     http.get(`${GOOGLE_DRIVE_API_BASE_URL}/files/:fileId/permissions`, ({ request }) => {
@@ -89,6 +115,65 @@ export function createGoogleDriveMockHandlers(): HttpHandler[] {
       )
     }),
 
+    http.patch('https://www.googleapis.com/upload/drive/v3/files/:fileId', async ({ params, request }) => {
+      const accountName = requireAccount(request)
+      if (!accountName) {
+        return permissionDenied()
+      }
+
+      const fileId = String(params.fileId)
+      const contentType = request.headers.get('content-type')
+      const content = contentType?.startsWith('application/json')
+        ? await request.text()
+        : new Uint8Array(await request.arrayBuffer())
+      const keepRevisionForever = new URL(request.url).searchParams.get('keepRevisionForever') === 'true'
+      const wasUploaded = googleDriveTestEnvironment.uploadFile(
+        accountName,
+        fileId,
+        content,
+        keepRevisionForever
+      )
+
+      return wasUploaded ? HttpResponse.json({ id: fileId }) : permissionDenied()
+    }),
+
+    http.get(`${GOOGLE_DRIVE_API_BASE_URL}/files/:fileId/revisions/:revisionId`, ({ params, request }) => {
+      const accountName = requireAccount(request)
+      if (!accountName || new URL(request.url).searchParams.get('alt') !== 'media') {
+        return invalidRequest()
+      }
+
+      const content = googleDriveTestEnvironment.getFileContent(
+        accountName,
+        String(params.fileId),
+        String(params.revisionId)
+      )
+
+      return content === null ? permissionDenied() : new HttpResponse(content)
+    }),
+
+    http.get(`${GOOGLE_DRIVE_API_BASE_URL}/files/:fileId/revisions`, ({ params, request }) => {
+      const accountName = requireAccount(request)
+      const revisions = accountName
+        ? googleDriveTestEnvironment.listRevisions(accountName, String(params.fileId))
+        : null
+
+      return revisions ? HttpResponse.json({ revisions }) : permissionDenied()
+    }),
+
+    http.delete(`${GOOGLE_DRIVE_API_BASE_URL}/files/:fileId/revisions/:revisionId`, ({ params, request }) => {
+      const accountName = requireAccount(request)
+      const wasDeleted =
+        Boolean(accountName) &&
+        googleDriveTestEnvironment.deleteRevision(
+          accountName as GoogleTestAccountName,
+          String(params.fileId),
+          String(params.revisionId)
+        )
+
+      return wasDeleted ? new HttpResponse(null, { status: 204 }) : permissionDenied()
+    }),
+
     http.get(`${GOOGLE_DRIVE_API_BASE_URL}/files/:fileId`, ({ params, request }) => {
       const accountName = requireAccount(request)
       if (!accountName) {
@@ -105,8 +190,21 @@ export function createGoogleDriveMockHandlers(): HttpHandler[] {
 
       const file = googleDriveTestEnvironment.getFileMetadata(accountName, fileId)
       return file ? HttpResponse.json(file) : permissionDenied()
+    }),
+
+    http.delete(`${GOOGLE_DRIVE_API_BASE_URL}/files/:fileId`, ({ params, request }) => {
+      const accountName = requireAccount(request)
+      const wasDeleted =
+        Boolean(accountName) &&
+        googleDriveTestEnvironment.deleteFile(accountName as GoogleTestAccountName, String(params.fileId))
+
+      return wasDeleted ? new HttpResponse(null, { status: 204 }) : permissionDenied()
     })
   ]
+}
+
+function getRequestedFileName(query: string | null): string | undefined {
+  return query?.match(/name = '([^']+)'/)?.[1]
 }
 
 function requireAccount(request: Request): GoogleTestAccountName | null {
