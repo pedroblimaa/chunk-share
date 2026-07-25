@@ -47,3 +47,19 @@ export async function saveFreshLocalAccount(accountName: GoogleTestAccountName):
     writeCloudStorageSettings(DEFAULT_CLOUD_STORAGE_SETTINGS)
   ])
 }
+
+export async function saveConfiguredLocalAccount(accountName: GoogleTestAccountName): Promise<void> {
+  googleDriveTestEnvironment.setActiveAccount(accountName)
+  await Promise.all([
+    writeLocalState({
+      ...DEFAULT_LOCAL_STATE,
+      player: GOOGLE_TEST_ACCOUNTS[accountName].session.player,
+      serverSetup: {
+        completedAt: '2026-07-25T12:00:00.000Z',
+        errorMessage: null,
+        status: 'ready'
+      }
+    }),
+    writeCloudStorageSettings(DEFAULT_CLOUD_STORAGE_SETTINGS)
+  ])
+}
