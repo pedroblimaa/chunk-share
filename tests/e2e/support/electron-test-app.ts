@@ -37,9 +37,15 @@ const E2E_AUTH_TOKENS: GoogleAuthTokens = {
 
 export interface ElectronE2EPaths {
   controlFile: string
+  localStateFile: string
   root: string
   serverFolder: string
+  userDataFolder: string
   worldFile: string
+}
+
+export interface LaunchChunkShareE2EAppOptions {
+  authenticated?: boolean
 }
 
 export interface ChunkShareE2EApp {
@@ -49,12 +55,15 @@ export interface ChunkShareE2EApp {
   close: () => Promise<void>
 }
 
-export async function launchChunkShareE2EApp(): Promise<ChunkShareE2EApp> {
+export async function launchChunkShareE2EApp(
+  options: LaunchChunkShareE2EAppOptions = {}
+): Promise<ChunkShareE2EApp> {
   const paths = createE2EPaths()
-  await prepareE2EStorage(paths)
+  const authenticated = options.authenticated ?? true
+  await prepareE2EStorage(paths, authenticated)
 
   const electronApp = await electron.launch({
-    args: [`--user-data-dir=${join(paths.root, 'user-data')}`, '--password-store=basic', PROJECT_ROOT],
+    args: [`--user-data-dir=${paths.userDataFolder}`, '--password-store=basic', PROJECT_ROOT],
     chromiumSandbox: false,
     cwd: PROJECT_ROOT,
     env: createE2EEnvironment(paths),
@@ -64,8 +73,13 @@ export async function launchChunkShareE2EApp(): Promise<ChunkShareE2EApp> {
   try {
     const page = await electronApp.firstWindow()
     await installMainProcessMocks(electronApp, paths)
-    await seedAuthTokens(electronApp)
-    await page.reload()
+
+    if (authenticated) {
+      await seedAuthTokens(electronApp)
+      await page.reload()
+    } else {
+      await installGoogleLoginMocks(electronApp)
+    }
 
     return {
       electronApp,
@@ -86,17 +100,26 @@ function createE2EPaths(): ElectronE2EPaths {
 
   return {
     controlFile: join(storageFolder, 'control.json'),
+    localStateFile: join(root, 'localState.json'),
     root,
     serverFolder: join(root, 'server'),
+    userDataFolder: join(root, 'user-data'),
     worldFile: join(storageFolder, 'world.zip')
   }
 }
 
-async function prepareE2EStorage(paths: ElectronE2EPaths): Promise<void> {
+async function prepareE2EStorage(paths: ElectronE2EPaths, authenticated: boolean): Promise<void> {
   await mkdir(paths.root, { recursive: true })
   await writeFile(
-    join(paths.root, 'localState.json'),
-    JSON.stringify({ ...DEFAULT_LOCAL_STATE, player: E2E_PLAYER }, null, 2)
+    paths.localStateFile,
+    JSON.stringify(
+      {
+        ...DEFAULT_LOCAL_STATE,
+        player: authenticated ? E2E_PLAYER : null
+      },
+      null,
+      2
+    )
   )
 }
 
@@ -114,7 +137,9 @@ function createE2EEnvironment(paths: ElectronE2EPaths): Record<string, string> {
     CHUNK_SHARE_SERVER_FOLDER: join(relativeRoot, 'server'),
     CHUNK_SHARE_SERVER_BACKUPS_FOLDER: join(relativeRoot, 'backups'),
     CHUNK_SHARE_LOCAL_STATE_FILE: join(relativeRoot, 'localState.json'),
-    CHUNK_SHARE_CLOUD_STORAGE_SETTINGS_FILE: join(relativeRoot, 'cloudStorageSettings.json')
+    CHUNK_SHARE_CLOUD_STORAGE_SETTINGS_FILE: join(relativeRoot, 'cloudStorageSettings.json'),
+    CHUNKSHARE_GOOGLE_CLIENT_ID: 'e2e-google-client-id',
+    CHUNKSHARE_GOOGLE_CLIENT_SECRET: 'e2e-google-client-secret'
   }
 }
 
@@ -225,6 +250,95 @@ async function installMainProcessMocks(
       versionManifestUrl: VERSION_MANIFEST_URL,
       versionMetadataUrl: VERSION_METADATA_URL,
       worldData: E2E_WORLD_DATA
+    }
+  )
+}
+
+async function installGoogleLoginMocks(electronApp: ElectronApplication): Promise<void> {
+  await electronApp.evaluate(
+    async ({ shell }, fixture) => {
+      const http = process.getBuiltinModule('node:http')
+      const module = process.getBuiltinModule('node:module')
+      const path = process.getBuiltinModule('node:path')
+      const requireFromApp = module.createRequire(path.join(process.cwd(), 'package.json'))
+      const { OAuth2Client } = requireFromApp('google-auth-library')
+
+      Object.defineProperty(OAuth2Client.prototype, 'getToken', {
+        configurable: true,
+        value: async () => ({
+          tokens: {
+            access_token: fixture.accessToken,
+            expiry_date: Date.parse(fixture.expiresAt),
+            refresh_token: fixture.refreshToken,
+            scope: fixture.scope
+          }
+        })
+      })
+
+      Object.defineProperty(OAuth2Client.prototype, 'fetch', {
+        configurable: true,
+        value: async (requestUrl: string) => {
+          if (requestUrl === fixture.userInfoEndpoint) {
+            return {
+              data: {
+                email: fixture.player.email,
+                name: fixture.player.displayName,
+                picture: fixture.player.avatarUrl,
+                sub: fixture.player.id
+              },
+              status: 200
+            }
+          }
+
+          if (requestUrl === fixture.driveAboutEndpoint) {
+            return {
+              data: {
+                user: {
+                  emailAddress: fixture.player.email
+                }
+              },
+              status: 200
+            }
+          }
+
+          throw new Error(`Unexpected E2E Google request: ${requestUrl}`)
+        }
+      })
+
+      Object.defineProperty(shell, 'openExternal', {
+        configurable: true,
+        value: async (authorizationUrl: string) => {
+          const googleAuthorizationUrl = new URL(authorizationUrl)
+          const redirectUri = googleAuthorizationUrl.searchParams.get('redirect_uri')
+          const state = googleAuthorizationUrl.searchParams.get('state')
+
+          if (!redirectUri || !state) {
+            throw new Error('Google authorization URL is missing the E2E callback parameters.')
+          }
+
+          const callbackUrl = new URL(redirectUri)
+          callbackUrl.searchParams.set('code', fixture.authorizationCode)
+          callbackUrl.searchParams.set('state', state)
+
+          await new Promise<void>((resolve, reject) => {
+            const request = http.get(callbackUrl, (response) => {
+              response.resume()
+              response.once('end', resolve)
+            })
+            request.once('error', reject)
+          })
+        }
+      })
+    },
+    {
+      accessToken: E2E_AUTH_TOKENS.accessToken,
+      authorizationCode: 'e2e-authorization-code',
+      driveAboutEndpoint: 'https://www.googleapis.com/drive/v3/about?fields=user(emailAddress)',
+      expiresAt: E2E_AUTH_TOKENS.expiresAt,
+      player: E2E_PLAYER,
+      refreshToken: E2E_AUTH_TOKENS.refreshToken,
+      scope: E2E_AUTH_TOKENS.scope,
+      userInfoEndpoint: 'https://openidconnect.googleapis.com/v1/userinfo'
     }
   )
 }
