@@ -241,7 +241,7 @@ async function installMainProcessMocks(
             stdout
           })
 
-          queueMicrotask(() => {
+          setImmediate(() => {
             stdout.write('[Server thread/INFO]: Done (1.000s)! For help, type "help"\n')
           })
 
