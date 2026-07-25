@@ -1,5 +1,5 @@
 import { HttpResponse, http, type HttpHandler } from 'msw'
-import { GOOGLE_DRIVE_API_BASE_URL } from '../../../src/main/cloud-storage/google-drive.model'
+import { GOOGLE_DRIVE_API_BASE_URL } from '../../../../src/main/cloud-storage/google-drive.model'
 import {
   GOOGLE_TEST_IDS,
   googleDriveTestEnvironment,

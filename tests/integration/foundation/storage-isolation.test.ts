@@ -1,9 +1,12 @@
 import { readFile } from 'fs/promises'
 import { join, resolve } from 'path'
 import { describe, expect, it } from 'vitest'
-import { DEFAULT_LOCAL_STATE } from '../../src/main/storage/core/support/storage-defaults'
-import { readLocalStateSnapshot, writeLocalState } from '../../src/main/storage/persistence/local-state-store'
-import { integrationTestDataPath } from './support/integration-test-storage'
+import { DEFAULT_LOCAL_STATE } from '../../../src/main/storage/core/support/storage-defaults'
+import {
+  readLocalStateSnapshot,
+  writeLocalState
+} from '../../../src/main/storage/persistence/local-state-store'
+import { integrationTestDataPath } from '../support/integration-test-storage'
 
 const DEVELOPMENT_LOCAL_STATE_PATH = resolve('localState.json')
 const TEST_PLAYER = {

@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { GOOGLE_DRIVE_API_BASE_URL } from '../../src/main/cloud-storage/google-drive.model'
+import { GOOGLE_DRIVE_API_BASE_URL } from '../../../src/main/cloud-storage/google-drive.model'
 import {
   GOOGLE_TEST_ACCOUNTS,
   GOOGLE_TEST_IDS,
   googleDriveTestEnvironment
-} from './support/google-drive-test-environment'
+} from '../support/google-drive/google-drive-test-environment'
 
 interface PermissionResponse {
   id: string
