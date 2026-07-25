@@ -4,9 +4,7 @@ import { getActiveStorageAdapter } from '../../storage/adapters/storage-adapter-
 
 type RuntimeLogTone = ServerRuntimeLogLine['tone']
 
-const HEARTBEAT_INTERVAL_MS = 15_000
-
-let heartbeatInterval: NodeJS.Timeout | null = null
+const HEARTBEAT_INTERVAL_MS = 60_000
 
 interface StartHeartbeatInput {
   sessionId: string
@@ -15,54 +13,94 @@ interface StartHeartbeatInput {
 }
 
 export function startHeartbeat(input: StartHeartbeatInput): void {
-  void updateHostingHeartbeat(input)
-
-  if (heartbeatInterval) {
-    return
-  }
-
-  heartbeatInterval = setInterval(() => {
-    void updateHostingHeartbeat(input)
-  }, HEARTBEAT_INTERVAL_MS)
+  heartbeatManager.start(input)
 }
 
-export function stopHeartbeat(): void {
-  if (!heartbeatInterval) {
-    return
-  }
-
-  clearInterval(heartbeatInterval)
-  heartbeatInterval = null
+export function stopHeartbeat(): Promise<void> {
+  return heartbeatManager.stop()
 }
 
-async function updateHostingHeartbeat({
-  sessionId,
-  getStatus,
-  addLogLine
-}: StartHeartbeatInput): Promise<void> {
-  if (getStatus() !== 'running') {
-    return
-  }
+class HeartbeatManager {
+  private interval: NodeJS.Timeout | null = null
+  private activeHeartbeat: Promise<boolean> | null = null
 
-  try {
-    const storageAdapter = await getActiveStorageAdapter()
-    const serverLock = await storageAdapter.readServerLock()
-
-    if (serverLock.status !== ServerLockStatus.Locked || serverLock.sessionId !== sessionId) {
-      stopHeartbeat()
-      addLogLine('ChunkShare', 'Stopped heartbeat because the hosting lock changed.', 'warning')
+  start(input: StartHeartbeatInput): void {
+    if (this.interval) {
       return
     }
 
-    await storageAdapter.writeServerLock({
-      ...serverLock,
-      lastHeartbeat: new Date().toISOString()
-    })
-  } catch (error) {
-    stopHeartbeat()
-    addLogLine('ChunkShare', `Unable to update hosting heartbeat: ${getErrorMessage(error)}`, 'warning')
+    this.interval = setInterval(() => this.runHeartbeat(input), HEARTBEAT_INTERVAL_MS)
+    this.runHeartbeat(input)
+  }
+
+  async stop(): Promise<void> {
+    this.clearInterval()
+    await this.activeHeartbeat
+  }
+
+  private runHeartbeat(input: StartHeartbeatInput): void {
+    if (!this.interval || this.activeHeartbeat) {
+      return
+    }
+
+    const heartbeat = this.updateHeartbeat(input)
+    this.activeHeartbeat = heartbeat
+    void heartbeat.then((shouldContinue) => this.finishHeartbeat(heartbeat, shouldContinue))
+  }
+
+  private async updateHeartbeat({ sessionId, getStatus, addLogLine }: StartHeartbeatInput): Promise<boolean> {
+    try {
+      if (getStatus() !== 'running') {
+        return false
+      }
+
+      const storageAdapter = await getActiveStorageAdapter()
+      const lockUpdated = await storageAdapter.updateServerLock((serverLock) => {
+        if (serverLock.status !== ServerLockStatus.Locked || serverLock.sessionId !== sessionId) {
+          return null
+        }
+
+        return {
+          ...serverLock,
+          lastHeartbeat: new Date().toISOString()
+        }
+      })
+
+      if (!lockUpdated) {
+        addLogLine('ChunkShare', 'Stopped heartbeat because the hosting lock changed.', 'warning')
+        return false
+      }
+
+      return true
+    } catch (error) {
+      addLogLine('ChunkShare', `Unable to update hosting heartbeat: ${getErrorMessage(error)}`, 'warning')
+      return false
+    }
+  }
+
+  private finishHeartbeat(heartbeat: Promise<boolean>, shouldContinue: boolean): void {
+    if (this.activeHeartbeat !== heartbeat) {
+      return
+    }
+
+    this.activeHeartbeat = null
+
+    if (!shouldContinue) {
+      this.clearInterval()
+    }
+  }
+
+  private clearInterval(): void {
+    if (!this.interval) {
+      return
+    }
+
+    clearInterval(this.interval)
+    this.interval = null
   }
 }
+
+const heartbeatManager = new HeartbeatManager()
 
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'Unknown error.'

@@ -101,4 +101,4 @@ Do not rewrite unrelated files, introduce dependencies, silently change behavior
 
 Keep the app buildable when practical. After implementation, summarize changed files as:
 
-`file/path.ts`: changed X **Because** Y.
+`file/path.ts`: changed X **So that** Y.

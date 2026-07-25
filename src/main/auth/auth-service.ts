@@ -39,7 +39,7 @@ export async function ensureGoogleDriveAuthSession(): Promise<AuthSession> {
   return signInWithGoogleScopes(GOOGLE_DRIVE_OAUTH_SCOPES, currentSession?.tokens.refreshToken ?? null, true)
 }
 
-export async function authorizeGoogleDriveFolder(folderId: string): Promise<void> {
+export async function authorizeGoogleDriveFiles(expectedFileIds: string[]): Promise<void> {
   const currentSession = await getCurrentAuthSession()
 
   if (!currentSession) {
@@ -51,7 +51,7 @@ export async function authorizeGoogleDriveFolder(folderId: string): Promise<void
   const { authorizationUrl, codeVerifier } = await createGoogleAuthorizationUrl({
     includeGrantedScopes: false,
     loginHint: currentSession.player.email,
-    pickerFolderId: folderId,
+    pickerFileIds: expectedFileIds,
     redirectUri: authorizationServer.redirectUri,
     scopes: [GOOGLE_DRIVE_SCOPE],
     state
@@ -61,7 +61,7 @@ export async function authorizeGoogleDriveFolder(folderId: string): Promise<void
     await shell.openExternal(authorizationUrl)
 
     const authorizationCode = await authorizationServer.waitForCode
-    assertPickedGoogleDriveFolder(authorizationCode.pickedFileIds, folderId)
+    assertPickedGoogleDriveFiles(authorizationCode.pickedFileIds, expectedFileIds)
 
     const tokens = await exchangeAuthorizationCode({
       code: authorizationCode.code,
@@ -78,7 +78,7 @@ export async function authorizeGoogleDriveFolder(folderId: string): Promise<void
   } catch (error) {
     if (error instanceof AuthError && error.code === AuthErrorCode.Cancelled) {
       throw new AuthError(
-        'Google Drive did not confirm this folder. Make sure you use an invited account.',
+        'Google Drive did not confirm both world files. Make sure you use an invited account.',
         AuthErrorCode.Cancelled
       )
     }
@@ -93,14 +93,15 @@ export function googleTokensIncludeScope(tokens: GoogleAuthTokens, scope: string
   return tokens.scope.split(/\s+/).includes(scope)
 }
 
-function assertPickedGoogleDriveFolder(pickedFileIds: string[], expectedFolderId: string): void {
-  const folderIdsMatch = pickedFileIds.length === 1 && pickedFileIds[0] === expectedFolderId
+function assertPickedGoogleDriveFiles(pickedFileIds: string[], expectedFileIds: string[]): void {
+  const pickedFileIdSet = new Set(pickedFileIds)
+  const filesMatch =
+    pickedFileIds.length === expectedFileIds.length &&
+    pickedFileIdSet.size === expectedFileIds.length &&
+    expectedFileIds.every((fileId) => pickedFileIdSet.has(fileId))
 
-  if (!folderIdsMatch) {
-    throw new AuthError(
-      'The confirmed Google Drive folder does not match this join link.',
-      AuthErrorCode.InvalidCallback
-    )
+  if (!filesMatch) {
+    throw new AuthError('Select both ChunkShare files shown by Google Drive.', AuthErrorCode.InvalidCallback)
   }
 }
 

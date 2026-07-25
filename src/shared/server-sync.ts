@@ -1,6 +1,6 @@
 import type { LatestSave, Player, ServerLock } from './domain'
 
-export const STALE_LOCK_THRESHOLD_MS = 2 * 60 * 1000
+export const STALE_LOCK_THRESHOLD_MS = 3 * 60 * 1000
 
 export enum ServerSyncStatus {
   Ready = 'ready',

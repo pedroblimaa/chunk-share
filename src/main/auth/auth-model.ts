@@ -49,7 +49,7 @@ export interface ExchangeAuthorizationCodeInput {
 export interface CreateGoogleAuthorizationUrlInput {
   includeGrantedScopes: boolean
   loginHint?: string
-  pickerFolderId?: string
+  pickerFileIds?: string[]
   redirectUri: string
   scopes: string[]
   state: string

@@ -1,5 +1,9 @@
 import type { OAuth2Client } from 'google-auth-library'
-import { CloudStorageProvider, type GoogleDriveFolderConfig } from '../../shared/cloud-storage.model'
+import {
+  CloudStorageProvider,
+  type GoogleDriveFolderConfig,
+  type GoogleDriveWorldFileIds
+} from '../../shared/cloud-storage.model'
 import type {
   GoogleDriveMember,
   GoogleDriveMemberRole,
@@ -12,9 +16,14 @@ import { ServerLockStatus } from '../../shared/domain'
 import { ensureGoogleDriveAuthSession } from '../auth/auth-service'
 import { createAuthenticatedGoogleOAuthClient } from '../auth/google-oauth-client'
 import { getStorageAdapterForProvider } from '../storage/adapters/storage-adapter-service'
+import { resolveGoogleDriveWorldFileIds } from '../storage/adapters/google-drive-storage-adapter'
 import { hasValidGoogleDriveFolder } from '../storage/core/support/storage-validation'
-import { readCloudStorageSettings } from '../storage/persistence/cloud-storage-settings-store'
+import {
+  readCloudStorageSettings,
+  writeCloudStorageSettings
+} from '../storage/persistence/cloud-storage-settings-store'
 import { GoogleDriveError } from './google-drive-error'
+import { createGoogleDriveJoinLink } from './google-drive-join-link'
 import { GOOGLE_DRIVE_API_BASE_URL, type GoogleDriveFileResponse } from './google-drive.model'
 
 interface DrivePermission {
@@ -58,6 +67,9 @@ export async function inviteGoogleDriveMember(email: string): Promise<GoogleDriv
     throw new GoogleDriveError('The folder owner already has access to this world.')
   }
 
+  const worldFileIds = await resolveGoogleDriveWorldFileIds(context.folderId)
+  await saveGoogleDriveWorldFileIds(context.folderId, worldFileIds)
+
   await disableWriterSharing(context)
 
   const permissions = await listPermissions(context)
@@ -72,7 +84,7 @@ export async function inviteGoogleDriveMember(email: string): Promise<GoogleDriv
   }
 
   return {
-    joinLink: `chunkshare://join?v=1&folderId=${encodeURIComponent(context.folderId)}`,
+    joinLink: createGoogleDriveJoinLink({ folderId: context.folderId, ...worldFileIds }),
     sharingState: await buildSharingState(context)
   }
 }
@@ -97,25 +109,44 @@ export async function revokeGoogleDriveMember(permissionId: string): Promise<Goo
   }
 
   const storageAdapter = await getStorageAdapterForProvider(CloudStorageProvider.GoogleDrive)
-  const serverLock = await storageAdapter.readServerLock()
-  const memberIsHosting =
-    serverLock.status === ServerLockStatus.Locked &&
-    serverLock.lockedBy.email.toLowerCase() === member.email.toLowerCase()
+  const memberIsHosting = await storageAdapter
+    .updateServerLock((serverLock) => {
+      const isMemberLock =
+        serverLock.status === ServerLockStatus.Locked &&
+        serverLock.lockedBy.email.toLowerCase() === member.email.toLowerCase()
 
-  if (memberIsHosting) {
-    try {
-      await storageAdapter.resetServerLock()
-    } catch {
+      return isMemberLock ? { status: ServerLockStatus.Unlocked } : null
+    })
+    .catch(() => {
       throw new GoogleDriveError(
         "Access was revoked, but ChunkShare could not clear this member's hosting lock."
       )
-    }
-  }
+    })
 
   return {
     revokedMemberWasHosting: memberIsHosting,
     sharingState: await buildSharingState(context)
   }
+}
+
+async function saveGoogleDriveWorldFileIds(
+  folderId: string,
+  worldFileIds: GoogleDriveWorldFileIds
+): Promise<void> {
+  const settings = await readCloudStorageSettings()
+  const folder = settings.googleDrive.folder
+
+  if (!folder || folder.folderId !== folderId) {
+    throw new GoogleDriveError('The active Google Drive world changed. Open sharing again.')
+  }
+
+  await writeCloudStorageSettings({
+    ...settings,
+    googleDrive: {
+      ...settings.googleDrive,
+      folder: { ...folder, worldFileIds }
+    }
+  })
 }
 
 async function readActiveGoogleDriveFolder(): Promise<GoogleDriveFolderConfig | null> {

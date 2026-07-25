@@ -9,10 +9,8 @@ const CLOUD_STORAGE_SETTINGS_FILE_NAME =
   process.env.CHUNK_SHARE_CLOUD_STORAGE_SETTINGS_FILE ?? 'cloudStorageSettings.json'
 
 export const localStorageFolderPath = join(PROJECT_ROOT, LOCAL_STORAGE_FOLDER_NAME)
-export const localStorageVersionsFolderPath = join(localStorageFolderPath, 'versions')
-export const localStorageMutationLockFilePath = join(localStorageFolderPath, 'storage-operation-lock.json')
-export const latestSaveFilePath = join(localStorageFolderPath, 'latest.json')
-export const serverLockFilePath = join(localStorageFolderPath, 'lock.json')
+export const localStorageWorldFilePath = join(localStorageFolderPath, 'world.zip')
+export const storageControlFilePath = join(localStorageFolderPath, 'control.json')
 export const localServerFolderPath = join(PROJECT_ROOT, SERVER_FOLDER_NAME)
 export const localServerBackupsFolderPath = join(PROJECT_ROOT, SERVER_BACKUPS_FOLDER_NAME)
 export const localServerJarFilePath = join(localServerFolderPath, 'server.jar')

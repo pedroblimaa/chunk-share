@@ -26,8 +26,19 @@ export enum GoogleDriveSetupStatus {
 export interface GoogleDriveFolderConfig {
   folderId: string
   folderName: string
+  ownerAccountId: string | null
+  worldFileIds: GoogleDriveWorldFileIds | null
   configuredAt: string
   validatedAt: string | null
+}
+
+export interface GoogleDriveWorldFileIds {
+  controlFileId: string
+  worldFileId: string
+}
+
+export interface GoogleDriveWorldReference extends GoogleDriveWorldFileIds {
+  folderId: string
 }
 
 export interface GoogleDriveStorageState {
@@ -45,7 +56,7 @@ export interface CloudStorageProviderDataSummary {
   provider: CloudStorageProvider
   latestSaveVersion: number | null
   latestSaveRecordedAt: string | null
-  versionCount: number
+  hasWorldFile: boolean
 }
 
 export interface CloudStorageProviderSwitchPreview {

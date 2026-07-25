@@ -15,10 +15,12 @@ export interface GoogleDriveFileResponse {
   id?: string
   name?: string
   mimeType?: string
+  parents?: string[]
   trashed?: boolean
   ownedByMe?: boolean
   capabilities?: {
     canAddChildren?: boolean
+    canDownload?: boolean
     canEdit?: boolean
     canShare?: boolean
   }
@@ -26,6 +28,16 @@ export interface GoogleDriveFileResponse {
 
 export interface GoogleDriveFileListResponse {
   files?: GoogleDriveFileResponse[]
+}
+
+export interface GoogleDriveRevisionResponse {
+  id?: string
+  keepForever?: boolean
+  modifiedTime?: string
+}
+
+export interface GoogleDriveRevisionListResponse {
+  revisions?: GoogleDriveRevisionResponse[]
 }
 
 export interface GoogleDriveCreateFolderInput {

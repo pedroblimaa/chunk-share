@@ -1,6 +1,6 @@
 import { mkdir, mkdtemp, rm } from 'fs/promises'
 import { tmpdir } from 'os'
-import { basename, join } from 'path'
+import { join } from 'path'
 import {
   CloudStorageProvider,
   StorageProviderCopyPhase,
@@ -8,11 +8,7 @@ import {
   type CloudStorageProviderSwitchPreview
 } from '../../../../shared/cloud-storage.model'
 import type { LatestSave } from '../../../../shared/domain'
-import type {
-  ServerSaveVersionFile,
-  ServerSavesReplacement,
-  StorageAdapter
-} from '../../adapters/storage-adapter.model'
+import type { ServerSavesReplacement, StorageAdapter } from '../../adapters/storage-adapter.model'
 import { StorageError } from '../support/storage-error'
 import type { StorageProviderCopyProgressListener } from './provider-copy.model'
 
@@ -49,24 +45,23 @@ export class CopySession {
     this.tempFolderPath = await mkdtemp(join(tmpdir(), 'chunk-share-provider-copy-'))
 
     try {
-      const [sourceLatestSave, sourceVersionFiles, targetLatestSave, targetVersionFiles] = await Promise.all([
+      const [sourceLatestSave, sourceHasWorldFile, targetLatestSave, targetHasWorldFile] = await Promise.all([
         sourceAdapter.readLatestSave(),
-        sourceAdapter.listServerSaveVersions(),
+        sourceAdapter.worldFileExists(),
         targetAdapter.readLatestSave(),
-        targetAdapter.listServerSaveVersions()
+        targetAdapter.worldFileExists()
       ])
 
-      assertSourceDataIsValid(sourceLatestSave, sourceVersionFiles)
-      assertSafeVersionFileName(sourceLatestSave.fileName)
+      assertSourceDataIsValid(sourceLatestSave, sourceHasWorldFile)
 
       this.source = {
         adapter: sourceAdapter,
         latestSave: sourceLatestSave,
-        localZipPath: join(this.tempFolderPath, sourceLatestSave.fileName)
+        localZipPath: join(this.tempFolderPath, 'world.zip')
       }
       this.preview = {
-        source: createProviderDataSummary(sourceProvider, sourceLatestSave, sourceVersionFiles),
-        target: createProviderDataSummary(targetProvider, targetLatestSave, targetVersionFiles)
+        source: createProviderDataSummary(sourceProvider, sourceLatestSave, sourceHasWorldFile),
+        target: createProviderDataSummary(targetProvider, targetLatestSave, targetHasWorldFile)
       }
     } catch (error) {
       await this.dispose()
@@ -81,20 +76,14 @@ export class CopySession {
 
     await mkdir(this.tempFolderPath!, { recursive: true })
     this.report(StorageProviderCopyPhase.PreparingSource, 0, 1)
-    await this.source.adapter.downloadServerSaveVersion(
-      this.source.latestSave.fileName,
-      this.source.localZipPath
-    )
+    await this.source.adapter.downloadWorld(this.source.localZipPath)
     this.report(StorageProviderCopyPhase.PreparingSource, 1, 1)
 
     this.report(StorageProviderCopyPhase.PreparingTarget, 0, 0)
     this.targetReplacement = await this.targetAdapter.stageServerSavesReplacement()
 
     this.report(StorageProviderCopyPhase.Copying, 0, 1)
-    await this.targetAdapter.uploadServerSaveVersion(
-      this.source.latestSave.fileName,
-      this.source.localZipPath
-    )
+    await this.targetAdapter.uploadWorld(this.source.localZipPath)
     this.report(StorageProviderCopyPhase.Copying, 1, 1)
     await this.targetAdapter.writeLatestSave(this.source.latestSave)
     await this.targetAdapter.resetServerLock()
@@ -128,38 +117,25 @@ export class CopySession {
 function createProviderDataSummary(
   provider: CloudStorageProvider,
   latestSave: LatestSave,
-  versionFiles: ServerSaveVersionFile[]
+  hasWorldFile: boolean
 ): CloudStorageProviderDataSummary {
   return {
     provider,
     latestSaveVersion: latestSave?.saveVersion ?? null,
     latestSaveRecordedAt: latestSave?.uploadedAt ?? null,
-    versionCount: versionFiles.length
+    hasWorldFile
   }
 }
 
 function assertSourceDataIsValid(
   latestSave: LatestSave,
-  versionFiles: ServerSaveVersionFile[]
+  hasWorldFile: boolean
 ): asserts latestSave is Exclude<LatestSave, null> {
   if (!latestSave) {
     throw new StorageError('Cannot copy saves because the source provider has no latest save.')
   }
 
-  const latestVersionExists = versionFiles.some(
-    (versionFile) =>
-      versionFile.fileName === latestSave.fileName && versionFile.saveVersion === latestSave.saveVersion
-  )
-
-  if (!latestVersionExists) {
-    throw new StorageError(
-      `Cannot copy saves because ${latestSave.fileName} is missing from the source provider.`
-    )
-  }
-}
-
-function assertSafeVersionFileName(fileName: string): void {
-  if (basename(fileName) !== fileName) {
-    throw new StorageError(`Invalid server save version filename: ${fileName}`)
+  if (!hasWorldFile) {
+    throw new StorageError('Cannot copy saves because the world file is missing from the source provider.')
   }
 }

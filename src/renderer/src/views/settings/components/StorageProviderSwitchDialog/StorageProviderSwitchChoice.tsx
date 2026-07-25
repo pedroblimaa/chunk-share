@@ -93,9 +93,7 @@ function StorageProviderSwitchChoice({
           className={`settings-provider-switch-warning${copyIsRunning ? ' is-hiding' : ''}`}
         >
           <MaterialIcon name="warning" />
-          <span>
-            {targetLabel} save history will be replaced with only the current provider&apos;s latest save.
-          </span>
+          <span>{targetLabel} current world will be replaced with the current provider&apos;s world.</span>
         </div>
       )}
       <div className="settings-provider-switch-actions">
@@ -121,9 +119,7 @@ function StorageProviderDataSummary({ summary }: StorageProviderDataSummaryProps
         <strong>{getStorageProviderLabel(summary.provider)}</strong>
       </div>
       <span>{getLatestSaveSummaryLabel(summary)}</span>
-      <span>
-        {summary.versionCount} retained {summary.versionCount === 1 ? 'version' : 'versions'}
-      </span>
+      <span>{summary.hasWorldFile ? 'World file available' : 'No world file'}</span>
     </div>
   )
 }

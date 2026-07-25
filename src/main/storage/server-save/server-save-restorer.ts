@@ -28,7 +28,7 @@ export async function restoreLatestServerSave(storageSnapshot: ServerStorageSnap
     await cleanupTemporaryRestorePaths(zipFilePath, tempExtractFolderPath)
 
     const storageAdapter = await getActiveStorageAdapter()
-    await storageAdapter.downloadServerSaveVersion(latestSave.fileName, zipFilePath)
+    await storageAdapter.downloadWorld(zipFilePath)
     await assertZipFileExists(zipFilePath)
     await mkdir(tempExtractFolderPath, { recursive: true })
     await extractZip(zipFilePath, { dir: tempExtractFolderPath })

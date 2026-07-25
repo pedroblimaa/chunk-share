@@ -21,6 +21,7 @@ import type {
   ServerSetupState,
   ServerType
 } from '../../../../shared/domain'
+import type { StorageControl, StorageMutationLock } from '../../adapters/storage-adapter.model'
 
 type StorageRecord = Record<string, unknown>
 
@@ -105,7 +106,7 @@ function isCloudStorageProviderDataSummary(value: unknown): value is CloudStorag
     isCloudStorageProvider(value.provider) &&
     isNullablePositiveInteger(value.latestSaveVersion) &&
     isNullableString(value.latestSaveRecordedAt) &&
-    isNonNegativeInteger(value.versionCount)
+    typeof value.hasWorldFile === 'boolean'
   )
 }
 
@@ -134,9 +135,15 @@ function isGoogleDriveFolderConfig(value: unknown): value is GoogleDriveFolderCo
   return (
     isString(value.folderId) &&
     isString(value.folderName) &&
+    isNullableString(value.ownerAccountId) &&
+    (value.worldFileIds === null || isGoogleDriveWorldFileIds(value.worldFileIds)) &&
     isString(value.configuredAt) &&
     isNullableString(value.validatedAt)
   )
+}
+
+function isGoogleDriveWorldFileIds(value: unknown): boolean {
+  return isRecord(value) && isString(value.controlFileId) && isString(value.worldFileId)
 }
 
 function isGoogleDriveStorageState(value: unknown): value is GoogleDriveStorageState {
@@ -198,7 +205,6 @@ export function isLatestSave(value: unknown): value is LatestSave {
   return (
     isRecord(value) &&
     isPositiveInteger(value.saveVersion) &&
-    isString(value.fileName) &&
     isString(value.uploadedAt) &&
     isPlayer(value.uploadedBy) &&
     isOptionalString(value.serverName) &&
@@ -226,6 +232,20 @@ export function isServerLock(value: unknown): value is ServerLock {
     isString(value.lastHeartbeat) &&
     Array.isArray(value.connectionAddresses) &&
     value.connectionAddresses.every(isServerConnectionAddress)
+  )
+}
+
+function isStorageMutationLock(value: unknown): value is StorageMutationLock {
+  return isRecord(value) && isString(value.operationId) && isString(value.startedAt)
+}
+
+export function isStorageControl(value: unknown): value is StorageControl {
+  return (
+    isRecord(value) &&
+    value.formatVersion === 1 &&
+    isLatestSave(value.latestSave) &&
+    isServerLock(value.serverLock) &&
+    (value.storageMutation === null || isStorageMutationLock(value.storageMutation))
   )
 }
 

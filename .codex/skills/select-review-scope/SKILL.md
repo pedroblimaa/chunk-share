@@ -21,7 +21,9 @@ For each selected block:
 - Start at the first relevant statement and end at the last. Exclude nearby imports, blank lines,
   unchanged setup, and function declarations unless they are part of the decision being reviewed.
 - List non-contiguous relevant blocks as separate ranges, even when they are in the same function.
-- Label the full range in text when a clickable file link can target only its starting line.
+- Show the location in two parts. First write the basename and complete range as inline code, such as
+  `file.ts:20-35`. Immediately follow it with a short separate link such as `[Open](/full/path/file.ts:20)`.
+  Keep directory paths out of visible text and never omit the ending line from a multi-line range.
 - State why the user's judgment is useful.
 - Ask one concrete question to verify.
 

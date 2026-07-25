@@ -130,6 +130,6 @@ function cloudStorageProviderDataSummariesMatch(
     expected.provider === current.provider &&
     expected.latestSaveVersion === current.latestSaveVersion &&
     expected.latestSaveRecordedAt === current.latestSaveRecordedAt &&
-    expected.versionCount === current.versionCount
+    expected.hasWorldFile === current.hasWorldFile
   )
 }

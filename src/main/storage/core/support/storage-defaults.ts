@@ -9,6 +9,7 @@ import type {
   ServerLock,
   ServerSetupState
 } from '../../../../shared/domain'
+import type { StorageControl } from '../../adapters/storage-adapter.model'
 
 export const DEFAULT_SERVER_CONFIG: ServerConfig = {
   name: 'Vanilla Survival',
@@ -29,6 +30,13 @@ export const DEFAULT_LATEST_SAVE: LatestSave = null
 
 export const DEFAULT_SERVER_LOCK: ServerLock = {
   status: ServerLockStatus.Unlocked
+}
+
+export const DEFAULT_STORAGE_CONTROL: StorageControl = {
+  formatVersion: 1,
+  latestSave: DEFAULT_LATEST_SAVE,
+  serverLock: DEFAULT_SERVER_LOCK,
+  storageMutation: null
 }
 
 export const DEFAULT_SERVER_SETUP_STATE: ServerSetupState = {
