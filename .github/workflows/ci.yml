@@ -48,3 +48,6 @@ jobs:
 
       - name: Build
         run: pnpm build
+
+      - name: End-to-end test
+        run: xvfb-run --auto-servernum pnpm exec playwright test
