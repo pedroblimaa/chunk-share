@@ -47,4 +47,20 @@ jobs:
         run: pnpm test
 
       - name: Build
+        env:
+          CHUNKSHARE_GOOGLE_CLIENT_ID: e2e-google-client-id
+          CHUNKSHARE_GOOGLE_CLIENT_SECRET: e2e-google-client-secret
         run: pnpm build
+
+      - name: End-to-end test
+        run: xvfb-run --auto-servernum pnpm exec playwright test
+
+      - name: Upload end-to-end test results
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results
+          path: |
+            .test-data/playwright-results
+            playwright-report
+          retention-days: 7
