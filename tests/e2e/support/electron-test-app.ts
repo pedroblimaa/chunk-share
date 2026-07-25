@@ -72,6 +72,7 @@ export async function launchChunkShareE2EApp(
 
   try {
     const page = await electronApp.firstWindow()
+    await configureE2ESafeStorage(electronApp)
     await installMainProcessMocks(electronApp, paths)
 
     if (authenticated) {
@@ -141,6 +142,14 @@ function createE2EEnvironment(paths: ElectronE2EPaths): Record<string, string> {
     CHUNKSHARE_GOOGLE_CLIENT_ID: 'e2e-google-client-id',
     CHUNKSHARE_GOOGLE_CLIENT_SECRET: 'e2e-google-client-secret'
   }
+}
+
+async function configureE2ESafeStorage(electronApp: ElectronApplication): Promise<void> {
+  await electronApp.evaluate(({ safeStorage }) => {
+    if (process.platform === 'linux') {
+      safeStorage.setUsePlainTextEncryption(true)
+    }
+  })
 }
 
 async function installMainProcessMocks(
