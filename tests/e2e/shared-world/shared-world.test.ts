@@ -88,8 +88,13 @@ test('hands hosting from the owner to a friend', async () => {
     friendApp = await launchChunkShareE2EApp({ accountName: 'friend', driveMock })
     await joinAndDownloadSharedWorld(friendApp, joinLink)
 
+    await friendApp.user.click(
+      friendApp.page.getByLabel('Breadcrumb').getByRole('button', { name: 'Servers', exact: true })
+    )
+    await expect(friendApp.page.getByRole('button', { name: 'Manage', exact: true })).toBeVisible()
+
     await startServer(ownerApp)
-    await refreshServer(friendApp)
+    await friendApp.user.click(friendApp.page.getByRole('button', { name: 'Manage', exact: true }))
 
     await expect(friendApp.page.getByText('Online with Owner Player')).toBeVisible()
     await expect(friendApp.page.getByText('Owner Player', { exact: true })).toBeVisible()
@@ -116,6 +121,54 @@ test('hands hosting from the owner to a friend', async () => {
       }
     })
     await stopServer(friendApp, 3)
+  } finally {
+    await friendApp?.close()
+    await ownerApp?.close()
+    await driveMock.close()
+  }
+})
+
+test('refreshes the server list when another machine starts hosting', async () => {
+  const driveMock = new GoogleDriveE2EMock()
+  const ownerPaths = createElectronE2EPaths()
+  let ownerApp: ChunkShareE2EApp | null = null
+  let friendApp: ChunkShareE2EApp | null = null
+
+  await driveMock.start()
+
+  try {
+    await prepareSharedWorld(driveMock, ownerPaths)
+    ownerApp = await launchChunkShareE2EApp({
+      accountName: 'owner',
+      driveMock,
+      paths: ownerPaths
+    })
+
+    await openSharedWorldDashboard(ownerApp)
+    await downloadSharedServer(ownerApp)
+    const joinLink = await inviteFriend(ownerApp)
+
+    friendApp = await launchChunkShareE2EApp({ accountName: 'friend', driveMock })
+    await joinAndDownloadSharedWorld(friendApp, joinLink)
+    await friendApp.user.click(
+      friendApp.page.getByLabel('Breadcrumb').getByRole('button', { name: 'Servers', exact: true })
+    )
+
+    const serverCard = friendApp.page.getByRole('article').filter({
+      has: friendApp.page.getByRole('heading', { name: 'Shared Test World' })
+    })
+
+    await expect(serverCard.getByRole('button', { name: 'Manage', exact: true })).toBeVisible()
+    await startServer(ownerApp)
+    await expect(serverCard.getByRole('button', { name: 'Manage', exact: true })).toBeVisible()
+
+    await friendApp.user.click(friendApp.page.getByRole('button', { name: 'Refresh servers' }))
+
+    await expect(serverCard).toContainText('Online with Owner Player')
+    await expect(serverCard.getByText('Owner Player', { exact: true })).toBeVisible()
+    await expect(serverCard.getByRole('button', { name: 'Join', exact: true })).toBeVisible()
+
+    await stopServer(ownerApp, 2)
   } finally {
     await friendApp?.close()
     await ownerApp?.close()
