@@ -1,9 +1,9 @@
-import { AuthError } from '../../../../src/main/auth/auth-error'
-import { AuthErrorCode, type AuthSession } from '../../../../src/main/auth/auth-model'
-import { GOOGLE_DRIVE_SCOPE } from '../../../../src/main/auth/auth-constants'
-import type { GoogleDriveFileResponse } from '../../../../src/main/cloud-storage/google-drive.model'
-import { ServerLockStatus, type Player } from '../../../../src/shared/domain'
-import type { StorageControl } from '../../../../src/main/storage/adapters/storage-adapter.model'
+import { AuthError } from '../../../src/main/auth/auth-error'
+import { GOOGLE_DRIVE_SCOPE } from '../../../src/main/auth/auth-constants'
+import { AuthErrorCode, type AuthSession } from '../../../src/main/auth/auth-model'
+import type { GoogleDriveFileResponse } from '../../../src/main/cloud-storage/google-drive.model'
+import type { StorageControl } from '../../../src/main/storage/adapters/storage-adapter.model'
+import { ServerLockStatus, type Player } from '../../../src/shared/domain'
 
 export type GoogleTestAccountName = 'friend' | 'owner' | 'uninvited'
 export type GoogleTestPermissionRole = 'owner' | 'reader' | 'writer'
@@ -30,7 +30,7 @@ interface GoogleTestDriveFile {
   revisions: GoogleTestDriveRevision[]
 }
 
-interface GoogleTestDriveRevision {
+export interface GoogleTestDriveRevision {
   content: string | Uint8Array
   id: string
   modifiedTime: string
@@ -86,6 +86,18 @@ export class GoogleDriveTestEnvironment {
   public lastPermissionNotificationEnabled: boolean | null = null
 
   public reset(): void {
+    const initialWorldFile = createDriveFile(
+      GOOGLE_TEST_IDS.worldFile,
+      'world.zip',
+      'application/zip',
+      'test-world-zip'
+    )
+    initialWorldFile.revisions.push({
+      content: initialWorldFile.content,
+      id: 'revision-0',
+      modifiedTime: new Date(0).toISOString()
+    })
+
     this.activeAccountName = 'owner'
     this.appAuthorizedFileIds = new Map([
       ['owner', new Set([GOOGLE_TEST_IDS.controlFile, GOOGLE_TEST_IDS.folder, GOOGLE_TEST_IDS.worldFile])]
@@ -100,10 +112,7 @@ export class GoogleDriveTestEnvironment {
           JSON.stringify(TEST_CONTROL)
         )
       ],
-      [
-        GOOGLE_TEST_IDS.worldFile,
-        createDriveFile(GOOGLE_TEST_IDS.worldFile, 'world.zip', 'application/zip', 'test-world-zip')
-      ]
+      [GOOGLE_TEST_IDS.worldFile, initialWorldFile]
     ])
     this.lastPickerFileIds = null
     this.nextFileNumber = 1
@@ -130,7 +139,18 @@ export class GoogleDriveTestEnvironment {
     return [...this.files.values()].find((file) => file.name === fileName)?.content ?? null
   }
 
+  public getFileIdByName(fileName: string): string | null {
+    return [...this.files.values()].find((file) => file.name === fileName)?.id ?? null
+  }
+
   public authorizeGoogleDriveFiles(expectedFileIds: string[]): Promise<void> {
+    return this.authorizeGoogleDriveFilesForAccount(this.activeAccountName, expectedFileIds)
+  }
+
+  public authorizeGoogleDriveFilesForAccount(
+    accountName: GoogleTestAccountName,
+    expectedFileIds: string[]
+  ): Promise<void> {
     this.lastPickerFileIds = [...expectedFileIds]
 
     if (!sameValues(expectedFileIds, [GOOGLE_TEST_IDS.controlFile, GOOGLE_TEST_IDS.worldFile])) {
@@ -140,14 +160,14 @@ export class GoogleDriveTestEnvironment {
       )
     }
 
-    if (!this.accountHasFolderAccess(this.activeAccountName)) {
+    if (!this.accountHasFolderAccess(accountName)) {
       throw new AuthError(
         'Google Drive did not confirm both world files. Make sure you use an invited account.',
         AuthErrorCode.Cancelled
       )
     }
 
-    this.appAuthorizedFileIds.set(this.activeAccountName, new Set(expectedFileIds))
+    this.appAuthorizedFileIds.set(accountName, new Set(expectedFileIds))
     return Promise.resolve()
   }
 
@@ -265,7 +285,7 @@ export class GoogleDriveTestEnvironment {
     keepRevisionForever: boolean
   ): boolean {
     const file = this.files.get(fileId)
-    if (accountName !== 'owner' || !file) {
+    if (!file || !this.accountCanEditFile(accountName, fileId)) {
       return false
     }
 
@@ -285,7 +305,7 @@ export class GoogleDriveTestEnvironment {
 
   public listRevisions(accountName: GoogleTestAccountName, fileId: string): GoogleTestDriveRevision[] | null {
     const file = this.files.get(fileId)
-    return accountName === 'owner' && file ? [...file.revisions] : null
+    return file && this.accountCanAccessFile(accountName, fileId) ? [...file.revisions] : null
   }
 
   public deleteRevision(accountName: GoogleTestAccountName, fileId: string, revisionId: string): boolean {
@@ -348,6 +368,19 @@ export class GoogleDriveTestEnvironment {
     return this.permissions.delete(permissionId)
   }
 
+  public updatePermissionToWriter(
+    accountName: GoogleTestAccountName,
+    permissionId: string
+  ): GoogleTestPermission | null {
+    const permission = this.permissions.get(permissionId)
+    if (accountName !== 'owner' || !permission || permissionId === OWNER_PERMISSION.id) {
+      return null
+    }
+
+    permission.role = 'writer'
+    return permission
+  }
+
   private accountCanAccessFile(accountName: GoogleTestAccountName, fileId: string): boolean {
     if (!this.accountHasFolderAccess(accountName)) {
       return false
@@ -355,6 +388,13 @@ export class GoogleDriveTestEnvironment {
 
     return (
       fileId === GOOGLE_TEST_IDS.folder || Boolean(this.appAuthorizedFileIds.get(accountName)?.has(fileId))
+    )
+  }
+
+  private accountCanEditFile(accountName: GoogleTestAccountName, fileId: string): boolean {
+    return (
+      this.accountCanAccessFile(accountName, fileId) &&
+      (accountName === 'owner' || this.getAccountRole(accountName) === 'writer')
     )
   }
 

@@ -21,7 +21,7 @@ import { saveOwnerGoogleDriveWorld } from '../share-join/share-join-test-data'
 import {
   GOOGLE_TEST_IDS,
   googleDriveTestEnvironment
-} from '../support/google-drive/google-drive-test-environment'
+} from '../../support/google-drive/google-drive-test-environment'
 import { createLocalTestWorld } from '../support/world-test-data'
 
 vi.mock(

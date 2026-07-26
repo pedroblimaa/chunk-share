@@ -1,5 +1,5 @@
 import type { AuthSession } from '../../../../src/main/auth/auth-model'
-import { googleDriveTestEnvironment } from './google-drive-test-environment'
+import { googleDriveTestEnvironment } from '../../../support/google-drive/google-drive-test-environment'
 
 export function ensureGoogleDriveAuthSession(): Promise<AuthSession> {
   return Promise.resolve(googleDriveTestEnvironment.getActiveSession())

@@ -4,7 +4,7 @@ import { setupVanillaServer } from '../../../src/main/server-setup/server-setup-
 import { writeLocalState } from '../../../src/main/storage/persistence/local-state-store'
 import { localServerFolderPath } from '../../../src/main/storage/core/support/storage-paths'
 import { DEFAULT_LOCAL_STATE } from '../../../src/main/storage/core/support/storage-defaults'
-import { GOOGLE_TEST_ACCOUNTS } from './google-drive/google-drive-test-environment'
+import { GOOGLE_TEST_ACCOUNTS } from '../../support/google-drive/google-drive-test-environment'
 import {
   TEST_MINECRAFT_METADATA_URL,
   TEST_MINECRAFT_VERSION
