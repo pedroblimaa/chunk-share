@@ -11,6 +11,7 @@ import {
   GOOGLE_TEST_ACCOUNTS,
   type GoogleTestAccountName
 } from '../../support/google-drive/google-drive-test-environment'
+import { E2EUser } from './e2e-user'
 import { installGoogleE2EMocks } from './google-e2e-mocks'
 import type { GoogleDriveE2EMock } from './google-drive-e2e-mock'
 
@@ -65,6 +66,7 @@ export interface ChunkShareE2EApp {
   electronApp: ElectronApplication
   page: Page
   paths: ElectronE2EPaths
+  user: E2EUser
   close: (options?: CloseChunkShareE2EAppOptions) => Promise<void>
 }
 
@@ -103,6 +105,7 @@ export async function launchChunkShareE2EApp(
       electronApp,
       page,
       paths,
+      user: new E2EUser(page),
       close: createCloseApp(electronApp, paths.root)
     }
   } catch (error) {

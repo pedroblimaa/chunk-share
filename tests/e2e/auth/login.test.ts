@@ -7,11 +7,11 @@ test('signs in with Google and restores the saved session', async () => {
   const app = await launchChunkShareE2EApp({ authenticated: false })
 
   try {
-    const { page } = app
+    const { page, user } = app
     const accountMenu = page.getByRole('button', { name: 'Account menu for E2E Player' })
 
     await expect(page.getByRole('button', { name: 'Sign in with Google' })).toBeVisible()
-    await page.getByRole('button', { name: 'Sign in with Google' }).click()
+    await user.click(page.getByRole('button', { name: 'Sign in with Google' }))
 
     await expect(page.getByText('No servers yet')).toBeVisible()
     await expect(accountMenu).toBeVisible()
