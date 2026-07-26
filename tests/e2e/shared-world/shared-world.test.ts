@@ -8,6 +8,8 @@ import {
   GoogleDriveSetupStatus,
   type CloudStorageSettings
 } from '../../../src/shared/cloud-storage.model'
+import { ServerHostingStatus, ServerLockStatus } from '../../../src/shared/domain'
+import type { StorageControl } from '../../../src/main/storage/adapters/storage-adapter.model'
 import {
   GOOGLE_TEST_ACCOUNTS,
   GOOGLE_TEST_IDS
@@ -37,6 +39,7 @@ test('owner invites a friend who joins and downloads the shared world', async ()
       paths: ownerPaths
     })
 
+    await openSharedWorldDashboard(ownerApp)
     const joinLink = await inviteFriend(ownerApp)
 
     friendApp = await launchChunkShareE2EApp({ accountName: 'friend', driveMock })
@@ -62,6 +65,151 @@ test('owner invites a friend who joins and downloads the shared world', async ()
   }
 })
 
+test('hands hosting from the owner to a friend', async () => {
+  const driveMock = new GoogleDriveE2EMock()
+  const ownerPaths = createElectronE2EPaths()
+  let ownerApp: ChunkShareE2EApp | null = null
+  let friendApp: ChunkShareE2EApp | null = null
+
+  await driveMock.start()
+
+  try {
+    await prepareSharedWorld(driveMock, ownerPaths)
+    ownerApp = await launchChunkShareE2EApp({
+      accountName: 'owner',
+      driveMock,
+      paths: ownerPaths
+    })
+
+    await openSharedWorldDashboard(ownerApp)
+    await downloadSharedServer(ownerApp)
+    const joinLink = await inviteFriend(ownerApp)
+
+    friendApp = await launchChunkShareE2EApp({ accountName: 'friend', driveMock })
+    await joinAndDownloadSharedWorld(friendApp, joinLink)
+
+    await startServer(ownerApp)
+    await refreshServer(friendApp)
+
+    await expect(friendApp.page.getByText('Online with Owner Player')).toBeVisible()
+    await expect(friendApp.page.getByText('Owner Player', { exact: true })).toBeVisible()
+    await expect(friendApp.page.getByRole('button', { name: 'Start Server', exact: true })).toHaveCount(0)
+    await friendApp.user.click(friendApp.page.getByRole('button', { name: 'Join Server' }))
+    await expect(friendApp.page.getByText(/:25565/)).toBeVisible()
+
+    await stopServer(ownerApp, 2)
+    await refreshServer(friendApp)
+    await friendApp.user.click(
+      friendApp.page.getByRole('button', { name: 'Download Update' }).filter({
+        hasText: 'Download Update'
+      })
+    )
+    await expect(friendApp.page.getByRole('button', { name: 'Start Server', exact: true })).toBeVisible()
+    await expectLocalSaveVersion(friendApp.paths, 2)
+
+    await startServer(friendApp)
+    await expectDriveControl(driveMock, {
+      serverLock: {
+        hostingStatus: ServerHostingStatus.Running,
+        lockedBy: GOOGLE_TEST_ACCOUNTS.friend.session.player,
+        status: ServerLockStatus.Locked
+      }
+    })
+    await stopServer(friendApp, 3)
+  } finally {
+    await friendApp?.close()
+    await ownerApp?.close()
+    await driveMock.close()
+  }
+})
+
+test('keeps the shared state safe when publishing fails and allows a retry', async () => {
+  const driveMock = new GoogleDriveE2EMock()
+  const ownerPaths = createElectronE2EPaths()
+  let ownerApp: ChunkShareE2EApp | null = null
+
+  await driveMock.start()
+
+  try {
+    await prepareSharedWorld(driveMock, ownerPaths)
+    ownerApp = await launchChunkShareE2EApp({
+      accountName: 'owner',
+      driveMock,
+      paths: ownerPaths
+    })
+
+    await openSharedWorldDashboard(ownerApp)
+    await downloadSharedServer(ownerApp)
+    await startServer(ownerApp)
+
+    driveMock.failNextRequest({
+      method: 'PATCH',
+      pathname: `/upload/drive/v3/files/${GOOGLE_TEST_IDS.worldFile}`,
+      status: 503
+    })
+    await ownerApp.user.click(ownerApp.page.getByRole('button', { name: 'Stop Server', exact: true }))
+
+    await expect(ownerApp.page.getByRole('alert')).toContainText('Unable to publish server save')
+    await expect(ownerApp.page.getByLabel('Server console output')).not.toContainText(
+      'Server save v2 published.'
+    )
+    await expectDriveControl(driveMock, {
+      latestSave: { saveVersion: 1 },
+      serverLock: {
+        hostingStatus: ServerHostingStatus.Stopping,
+        status: ServerLockStatus.Locked
+      }
+    })
+
+    await startServer(ownerApp)
+    await stopServer(ownerApp, 2)
+  } finally {
+    await ownerApp?.close()
+    await driveMock.close()
+  }
+})
+
+test('restores a shared world after relaunch and publishes the next version', async () => {
+  const driveMock = new GoogleDriveE2EMock()
+  const ownerPaths = createElectronE2EPaths()
+  let ownerApp: ChunkShareE2EApp | null = null
+
+  await driveMock.start()
+
+  try {
+    await prepareSharedWorld(driveMock, ownerPaths)
+    ownerApp = await launchChunkShareE2EApp({
+      accountName: 'owner',
+      driveMock,
+      paths: ownerPaths
+    })
+
+    await openSharedWorldDashboard(ownerApp)
+    await downloadSharedServer(ownerApp)
+    await startServer(ownerApp)
+    await stopServer(ownerApp, 2)
+    await ownerApp.close({ preserveData: true })
+    ownerApp = null
+
+    ownerApp = await launchChunkShareE2EApp({
+      accountName: 'owner',
+      driveMock,
+      paths: ownerPaths
+    })
+    await ownerApp.user.click(ownerApp.page.getByRole('button', { name: 'Manage', exact: true }))
+
+    await expect(ownerApp.page.getByRole('heading', { name: 'Shared Test World' })).toBeVisible()
+    await expect(ownerApp.page.getByRole('button', { name: 'Start Server', exact: true })).toBeVisible()
+    await expectLocalSaveVersion(ownerApp.paths, 2)
+
+    await startServer(ownerApp)
+    await stopServer(ownerApp, 3)
+  } finally {
+    await ownerApp?.close()
+    await driveMock.close()
+  }
+})
+
 async function prepareSharedWorld(
   driveMock: GoogleDriveE2EMock,
   ownerPaths: ElectronE2EPaths
@@ -76,11 +224,14 @@ async function prepareSharedWorld(
   ])
 }
 
+async function openSharedWorldDashboard(app: ChunkShareE2EApp): Promise<void> {
+  await app.user.click(app.page.getByRole('button', { name: 'Download', exact: true }))
+  await expect(app.page.getByRole('heading', { name: 'Shared Test World' })).toBeVisible()
+}
+
 async function inviteFriend(ownerApp: ChunkShareE2EApp): Promise<string> {
   const { page, user } = ownerApp
 
-  await user.click(page.getByRole('button', { name: 'Download', exact: true }))
-  await expect(page.getByRole('heading', { name: 'Shared Test World' })).toBeVisible()
   await user.click(page.getByRole('button', { name: 'More server actions' }))
   await user.click(page.getByRole('menuitem', { name: 'Invite' }))
 
@@ -94,6 +245,7 @@ async function inviteFriend(ownerApp: ChunkShareE2EApp): Promise<string> {
   expect(joinLink).toContain(`folderId=${GOOGLE_TEST_IDS.folder}`)
   expect(joinLink).toContain(`controlFileId=${GOOGLE_TEST_IDS.controlFile}`)
   expect(joinLink).toContain(`worldFileId=${GOOGLE_TEST_IDS.worldFile}`)
+  await user.click(page.getByRole('button', { name: 'Close dialog' }))
 
   return joinLink
 }
@@ -107,11 +259,33 @@ async function joinAndDownloadSharedWorld(friendApp: ChunkShareE2EApp, joinLink:
 
   await expect(page.getByRole('heading', { name: 'Shared Test World' })).toBeVisible()
   await expectJoinedDriveSettings(friendApp.paths)
+  await openSharedWorldDashboard(friendApp)
+  await downloadSharedServer(friendApp)
+}
 
-  await user.click(page.getByRole('button', { name: 'Download', exact: true }))
+async function downloadSharedServer(app: ChunkShareE2EApp): Promise<void> {
+  const { page, user } = app
+
   await user.check(page.getByLabel('I agree to the Minecraft EULA'))
   await user.click(page.getByRole('button', { name: 'Download shared server' }))
   await expect(page.getByRole('button', { name: 'Start Server', exact: true })).toBeVisible()
+}
+
+async function startServer(app: ChunkShareE2EApp): Promise<void> {
+  await app.user.click(app.page.getByRole('button', { name: 'Start Server', exact: true }))
+  await expect(app.page.getByText('RUNNING', { exact: true })).toBeVisible()
+}
+
+async function stopServer(app: ChunkShareE2EApp, publishedVersion: number): Promise<void> {
+  await app.user.click(app.page.getByRole('button', { name: 'Stop Server', exact: true }))
+  await expect(app.page.getByText('STOPPED', { exact: true })).toBeVisible()
+  await expect(app.page.getByLabel('Server console output')).toContainText(
+    `Server save v${publishedVersion} published.`
+  )
+}
+
+async function refreshServer(app: ChunkShareE2EApp): Promise<void> {
+  await app.user.click(app.page.getByRole('button', { name: 'Refresh server' }))
 }
 
 async function saveOwnerDriveSettings(paths: ElectronE2EPaths): Promise<void> {
@@ -175,6 +349,29 @@ async function expectJoinedDriveSettings(paths: ElectronE2EPaths): Promise<void>
       status: GoogleDriveSetupStatus.Valid
     }
   })
+}
+
+async function expectLocalSaveVersion(paths: ElectronE2EPaths, expectedVersion: number): Promise<void> {
+  const localState: unknown = JSON.parse(await readFile(paths.localStateFile, 'utf8'))
+
+  expect(localState).toMatchObject({ localSaveVersion: expectedVersion })
+}
+
+async function expectDriveControl(
+  driveMock: GoogleDriveE2EMock,
+  expectedControl: Record<string, unknown>
+): Promise<void> {
+  await expect.poll(() => readDriveControl(driveMock)).toMatchObject(expectedControl)
+}
+
+function readDriveControl(driveMock: GoogleDriveE2EMock): StorageControl {
+  const content = driveMock.drive.getFileContentByName('control.json')
+
+  if (typeof content !== 'string') {
+    throw new Error('The E2E Drive control.json is unavailable.')
+  }
+
+  return JSON.parse(content) as StorageControl
 }
 
 async function expectJoinedWorldFiles(paths: ElectronE2EPaths): Promise<void> {

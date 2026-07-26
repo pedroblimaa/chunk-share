@@ -21,7 +21,11 @@ import type {
   ServerSetupState,
   ServerType
 } from '../../../../shared/domain'
-import type { StorageControl, StorageMutationLock } from '../../adapters/storage-adapter.model'
+import type {
+  RecoverableStorageControl,
+  StorageControl,
+  StorageMutationLock
+} from '../../adapters/storage-adapter.model'
 
 type StorageRecord = Record<string, unknown>
 
@@ -240,11 +244,14 @@ function isStorageMutationLock(value: unknown): value is StorageMutationLock {
 }
 
 export function isStorageControl(value: unknown): value is StorageControl {
+  return isRecoverableStorageControl(value) && isServerLock(value.serverLock)
+}
+
+export function isRecoverableStorageControl(value: unknown): value is RecoverableStorageControl {
   return (
     isRecord(value) &&
     value.formatVersion === 1 &&
     isLatestSave(value.latestSave) &&
-    isServerLock(value.serverLock) &&
     (value.storageMutation === null || isStorageMutationLock(value.storageMutation))
   )
 }

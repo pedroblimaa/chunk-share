@@ -1,0 +1,95 @@
+import { mkdir, writeFile } from 'node:fs/promises'
+import { join } from 'node:path'
+import { expect, test } from '@playwright/test'
+import {
+  CloudStorageProvider,
+  GoogleDriveSetupStatus,
+  type CloudStorageSettings
+} from '../../../src/shared/cloud-storage.model'
+import {
+  GOOGLE_TEST_ACCOUNTS,
+  GOOGLE_TEST_IDS
+} from '../../support/google-drive/google-drive-test-environment'
+import { createElectronE2EPaths, E2E_SERVER_NAME, launchChunkShareE2EApp } from '../support/electron-test-app'
+import { GoogleDriveE2EMock } from '../support/google-drive-e2e-mock'
+import { createLocalWorld, publishLocalWorld, startServer, stopServer } from '../support/local-world-e2e'
+
+test('copies a local world to Google Drive through Settings', async () => {
+  const driveMock = new GoogleDriveE2EMock()
+  const paths = createElectronE2EPaths()
+  await driveMock.start()
+
+  try {
+    driveMock.drive.deleteFile('owner', GOOGLE_TEST_IDS.controlFile)
+    driveMock.drive.deleteFile('owner', GOOGLE_TEST_IDS.worldFile)
+    await saveLocalStorageWithDriveTarget(paths.root)
+
+    const app = await launchChunkShareE2EApp({
+      accountName: 'owner',
+      driveMock,
+      paths
+    })
+
+    try {
+      await createLocalWorld(app)
+      await publishLocalWorld(app)
+      await app.user.click(app.page.getByRole('button', { name: 'Settings', exact: true }).first())
+      await app.user.click(app.page.getByRole('button', { name: /Google Drive/ }))
+      await app.user.click(app.page.getByRole('button', { name: 'Activate Google Drive' }))
+
+      await expect(app.page.getByRole('heading', { name: 'Switch Storage Mode' })).toBeVisible()
+      await app.user.click(
+        app.page.getByRole('button', {
+          name: 'Copy save and activate Google Drive (Recommended)'
+        })
+      )
+
+      await expect(
+        app.page.locator('.settings-storage-panel.is-active').filter({ hasText: 'Google Drive' })
+      ).toBeVisible()
+      expect(driveMock.drive.getFileContentByName('control.json')).not.toBeNull()
+      expect(driveMock.drive.getFileContentByName('world.zip')).not.toBeNull()
+
+      await app.user.click(app.page.getByRole('button', { name: 'Servers', exact: true }))
+      await app.user.click(app.page.getByRole('button', { name: 'Manage', exact: true }))
+      await expect(app.page.getByRole('heading', { name: E2E_SERVER_NAME })).toBeVisible()
+
+      const downloadUpdate = app.page
+        .getByRole('button', { name: 'Download Update' })
+        .filter({ hasText: 'Download Update' })
+      if (await downloadUpdate.isVisible()) {
+        await app.user.click(downloadUpdate)
+        await expect(app.page.getByRole('button', { name: 'Start Server', exact: true })).toBeVisible()
+      }
+
+      await startServer(app)
+      await stopServer(app, 2)
+    } finally {
+      await app.close()
+    }
+  } finally {
+    await driveMock.close()
+  }
+})
+
+async function saveLocalStorageWithDriveTarget(root: string): Promise<void> {
+  const now = '2026-07-25T12:00:00.000Z'
+  const settings: CloudStorageSettings = {
+    activeProvider: CloudStorageProvider.Local,
+    googleDrive: {
+      errorMessage: null,
+      folder: {
+        configuredAt: now,
+        folderId: GOOGLE_TEST_IDS.folder,
+        folderName: 'ChunkShare',
+        ownerAccountId: GOOGLE_TEST_ACCOUNTS.owner.session.player.id,
+        validatedAt: now,
+        worldFileIds: null
+      },
+      status: GoogleDriveSetupStatus.Valid
+    }
+  }
+
+  await mkdir(root, { recursive: true })
+  await writeFile(join(root, 'cloudStorageSettings.json'), JSON.stringify(settings, null, 2))
+}

@@ -12,6 +12,10 @@ export interface StorageControl {
   storageMutation: StorageMutationLock | null
 }
 
+export type RecoverableStorageControl = Omit<StorageControl, 'serverLock'> & {
+  serverLock: unknown
+}
+
 export type ServerLockUpdate = (serverLock: ServerLock) => ServerLock | null
 
 export interface ServerSyncStorageData {
