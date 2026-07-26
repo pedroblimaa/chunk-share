@@ -28,7 +28,7 @@ import {
   DEFAULT_SERVER_LOCK,
   DEFAULT_STORAGE_CONTROL
 } from '../core/support/storage-defaults'
-import { isStorageControl } from '../core/support/storage-validation'
+import { isRecoverableStorageControl, isStorageControl } from '../core/support/storage-validation'
 import { readCloudStorageSettings } from '../persistence/cloud-storage-settings-store'
 import type {
   ServerLockUpdate,
@@ -216,7 +216,26 @@ async function updateServerLock(update: ServerLockUpdate): Promise<boolean> {
 }
 
 async function resetServerLock(): Promise<void> {
-  await updateServerLock(() => DEFAULT_SERVER_LOCK)
+  const oauthClient = await createAuthenticatedDriveClient()
+  const folder = await getConfiguredDriveFolder()
+  const existingFile = await findConfiguredFile(oauthClient, folder, CONTROL_FILE_NAME)
+  const control = await readJsonDriveFileWithClient(
+    oauthClient,
+    existingFile,
+    CONTROL_FILE_NAME,
+    DEFAULT_STORAGE_CONTROL,
+    isRecoverableStorageControl
+  )
+  const fileId =
+    existingFile?.id ??
+    (await createDriveFile(oauthClient, folder.folderId, CONTROL_FILE_NAME, JSON_MIME_TYPE))
+
+  await uploadDriveFileMedia(
+    oauthClient,
+    fileId,
+    `${JSON.stringify({ ...control, serverLock: DEFAULT_SERVER_LOCK }, null, 2)}\n`,
+    JSON_MIME_TYPE
+  )
 }
 
 async function stageServerSavesReplacement(): Promise<ServerSavesReplacement> {

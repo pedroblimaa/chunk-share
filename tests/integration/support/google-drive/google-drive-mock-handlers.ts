@@ -4,7 +4,7 @@ import {
   GOOGLE_TEST_IDS,
   googleDriveTestEnvironment,
   type GoogleTestAccountName
-} from './google-drive-test-environment'
+} from '../../../support/google-drive/google-drive-test-environment'
 
 interface CreatePermissionBody {
   emailAddress?: string
@@ -80,6 +80,20 @@ export function createGoogleDriveMockHandlers(): HttpHandler[] {
 
       return permission ? HttpResponse.json(permission) : permissionDenied()
     }),
+
+    http.patch(
+      `${GOOGLE_DRIVE_API_BASE_URL}/files/:fileId/permissions/:permissionId`,
+      async ({ params, request }) => {
+        const accountName = requireAccount(request)
+        const body = (await request.json()) as { role?: string }
+        const permission =
+          params.fileId === GOOGLE_TEST_IDS.folder && accountName && body.role === 'writer'
+            ? googleDriveTestEnvironment.updatePermissionToWriter(accountName, String(params.permissionId))
+            : null
+
+        return permission ? HttpResponse.json(permission) : permissionDenied()
+      }
+    ),
 
     http.delete(
       `${GOOGLE_DRIVE_API_BASE_URL}/files/:fileId/permissions/:permissionId`,

@@ -10,7 +10,7 @@ import {
   localStorageWorldFilePath,
   storageControlFilePath
 } from '../core/support/storage-paths'
-import { isStorageControl } from '../core/support/storage-validation'
+import { isRecoverableStorageControl, isStorageControl } from '../core/support/storage-validation'
 import { readJsonFileOrDefault, readOrCreateJsonFile, writeJsonFile } from '../persistence/json-file-store'
 import type {
   ServerLockUpdate,
@@ -95,7 +95,17 @@ async function updateServerLock(update: ServerLockUpdate): Promise<boolean> {
 }
 
 async function resetServerLock(): Promise<void> {
-  await updateServerLock(() => DEFAULT_SERVER_LOCK)
+  const control = await readJsonFileOrDefault(
+    storageControlFilePath,
+    DEFAULT_STORAGE_CONTROL,
+    isRecoverableStorageControl
+  )
+
+  await writeJsonFile(
+    storageControlFilePath,
+    { ...control, serverLock: DEFAULT_SERVER_LOCK },
+    isStorageControl
+  )
 }
 
 async function stageServerSavesReplacement(): Promise<ServerSavesReplacement> {

@@ -17,7 +17,7 @@ import {
   GOOGLE_TEST_ACCOUNTS,
   GOOGLE_TEST_IDS,
   googleDriveTestEnvironment
-} from '../support/google-drive/google-drive-test-environment'
+} from '../../support/google-drive/google-drive-test-environment'
 
 vi.mock(
   '../../../src/main/auth/auth-service',

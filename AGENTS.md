@@ -8,13 +8,15 @@ Renderer components are grouped by feature under `src/renderer/src/views` and sh
 
 ## Product Context
 
-ChunkShare is a desktop app for friends who want to share one Minecraft world without paying for always-on hosting. The app manages a local Minecraft dedicated server, versioned world snapshots, and handoff safety so different friends can take turns hosting the same shared world.
+ChunkShare is a desktop app for friends who want to share one Minecraft world without paying for always-on hosting. The app manages a local Minecraft dedicated server, stable world storage, and handoff safety so different friends can take turns hosting the same shared world.
 
 Core flow: check if someone is hosting, download the latest world version, start a local dedicated server, let friends play, stop safely, save the world as a new version, then unlock it for the next host.
 
-Key concepts: versioned world zip snapshots, no live world sync while the server is running, `lock.json` to prevent two hosts, `sessionId` to prevent stale writes, dirty-state detection for unsafe shutdowns, heartbeat checks for current host liveness, local `.mock-cloud/` storage first, and Google Drive storage later.
+Key concepts: no live world sync while the server is running, `control.json` for save metadata and lock/session state, stable `world.zip` storage, `sessionId` to prevent stale writes, dirty-state detection for unsafe shutdowns, heartbeat checks for current host liveness, and persisted world ownership.
 
-Keep renderer work UI-only. Filesystem, Java validation, Minecraft server process management, zip/unzip, mock cloud storage, and future Google Drive integration belong in Electron main behind typed preload APIs.
+Google Drive-backed worlds keep stable `control.json` and `world.zip` file IDs. `world.zip` is updated in place and Drive revisions provide cloud recovery. Keep the `drive.file` OAuth scope. Folder permission grants a Google account access, while Google Picker authorization grants ChunkShare API access to the two stable files. Join links identify the folder and files only; they must never contain OAuth tokens or credentials.
+
+Keep renderer work UI-only. Filesystem, Java validation, Minecraft server process management, zip/unzip, storage providers, Google Drive integration, and OAuth handling belong in Electron main behind typed preload APIs.
 
 ## Build, Test, and Development Commands
 
@@ -55,7 +57,17 @@ Formatting is handled by `.editorconfig` and Prettier. Run `pnpm lint` and `pnpm
 
 ## Testing Guidelines
 
-No automated test framework is currently configured. For now, validate changes with `pnpm typecheck`, `pnpm lint`, and `pnpm build`.
+Vitest integration tests live under `tests/integration`. Playwright Electron E2E tests live under `tests/e2e`. Tests must use isolated `.test-data` storage and mocked external services; never use real app data, OAuth sessions, or Google Drive files.
+
+- `pnpm test`: run integration tests.
+- `pnpm e2e`: run Playwright E2E tests.
+- `pnpm e2e <test-file>`: run one E2E test file.
+- `pnpm e2e:slow <test-file>`: run E2E tests with optional pacing after user actions.
+- `pnpm test:e2e`: build the app and run the complete E2E suite.
+
+Use the shared E2E user-action helper for Playwright interactions so optional pacing remains consistent. Keep locators and assertions native Playwright.
+
+Run the narrowest relevant test first. Run broader suites after focused validation passes or when the change has wider regression risk. Also validate relevant changes with `pnpm typecheck`, `pnpm lint`, and `pnpm build`.
 
 ## Commit & Pull Request Guidelines
 
@@ -96,6 +108,22 @@ Proceed in focused implementation steps. Ask for approval before broad architect
 Write maintainable code: clear names, small focused functions, explicit types, isolated side effects, predictable error handling, and validation at system boundaries.
 
 Prefer KISS and YAGNI. Avoid clever code, speculative abstractions, large components/services, hidden side effects, and unnecessary duplication.
+
+Before adding UI components, loading states, or CSS, search for existing components and styles that can be reused or made common.
+
+Keep implementations limited to the requested flow. Do not add speculative fallback behavior, invitation emails, compatibility for unreleased formats, or abstractions without a current use.
+
+Do not introduce background polling of external APIs without an explicit product need and consideration of request volume.
+
+Prefer explicit sequential lifecycle operations when ordering protects shared state. Do not add queues to compensate for a design that should prevent concurrent operations.
+
+Persist important domain facts, such as world ownership, instead of inferring them through remote requests.
+
+Remove temporary diagnostic logging before handoff.
+
+When removing or changing non-obvious behavior, briefly explain the reason to the user. Do not add source comments only to preserve discussion context.
+
+When the user requests implementation in reviewable steps, complete only the approved step and wait before continuing.
 
 Do not rewrite unrelated files, introduce dependencies, silently change behavior, or leave fake/placeholder code that appears complete.
 

@@ -41,7 +41,7 @@ import {
   GOOGLE_TEST_ACCOUNTS,
   GOOGLE_TEST_IDS,
   googleDriveTestEnvironment
-} from '../support/google-drive/google-drive-test-environment'
+} from '../../support/google-drive/google-drive-test-environment'
 import { DEFAULT_LOCAL_STATE } from '../../../src/main/storage/core/support/storage-defaults'
 import { writeLocalState } from '../../../src/main/storage/persistence/local-state-store'
 import { publishServerSave } from '../../../src/main/storage/server-save/server-save-publisher'

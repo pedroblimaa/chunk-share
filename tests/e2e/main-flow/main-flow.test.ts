@@ -13,27 +13,27 @@ test('creates, starts, stops, and publishes a local world', async () => {
   const app = await launchChunkShareE2EApp()
 
   try {
-    const { page } = app
+    const { page, user } = app
     await expect(page.getByText('No servers yet')).toBeVisible()
 
-    await page.getByRole('button', { name: 'Create Instance', exact: true }).first().click()
+    await user.click(page.getByRole('button', { name: 'Create Instance', exact: true }).first())
     await expect(page.getByRole('heading', { name: 'Create New Instance' })).toBeVisible()
 
     const minecraftVersion = page.getByLabel('Minecraft Version')
     await expect(minecraftVersion).toHaveValue(E2E_MINECRAFT_VERSION)
-    await page.getByLabel('Server Name').fill(E2E_SERVER_NAME)
-    await page.getByLabel('Server Port').fill('25570')
-    await page.getByLabel('I agree to the Minecraft EULA').check()
-    await page.getByRole('button', { name: 'Create Server', exact: true }).click()
+    await user.fill(page.getByLabel('Server Name'), E2E_SERVER_NAME)
+    await user.fill(page.getByLabel('Server Port'), '25570')
+    await user.check(page.getByLabel('I agree to the Minecraft EULA'))
+    await user.click(page.getByRole('button', { name: 'Create Server', exact: true }))
 
     await expect(page.getByText('Server setup completed.')).toBeVisible()
-    await page.getByRole('button', { name: 'Open Dashboard', exact: true }).click()
+    await user.click(page.getByRole('button', { name: 'Open Dashboard', exact: true }))
     await expect(page.getByRole('heading', { name: E2E_SERVER_NAME })).toBeVisible()
 
-    await page.getByRole('button', { name: 'Start Server', exact: true }).click()
+    await user.click(page.getByRole('button', { name: 'Start Server', exact: true }))
     await expect(page.getByText('RUNNING', { exact: true })).toBeVisible()
 
-    await page.getByRole('button', { name: 'Stop Server', exact: true }).click()
+    await user.click(page.getByRole('button', { name: 'Stop Server', exact: true }))
     await expect(page.getByText('STOPPED', { exact: true })).toBeVisible()
     await expect(page.getByLabel('Server console output')).toContainText('Server save v1 published.')
 

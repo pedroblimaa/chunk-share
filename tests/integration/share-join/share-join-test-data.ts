@@ -10,7 +10,7 @@ import {
   GOOGLE_TEST_IDS,
   googleDriveTestEnvironment,
   type GoogleTestAccountName
-} from '../support/google-drive/google-drive-test-environment'
+} from '../../support/google-drive/google-drive-test-environment'
 
 export async function saveOwnerGoogleDriveWorld(): Promise<void> {
   googleDriveTestEnvironment.setActiveAccount('owner')

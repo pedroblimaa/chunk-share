@@ -18,7 +18,7 @@ interface ServerLockRepair {
 function isInvalidServerLockError(error: unknown): boolean {
   const message = getErrorMessage(error, '')
 
-  return message.includes('Invalid data shape') && message.includes('lock.json')
+  return message.includes('Invalid data shape') && message.includes('control.json')
 }
 
 export function useServerLockRepair({
