@@ -2,9 +2,11 @@
 
 ## Project Structure & Module Organization
 
-This is an Electron Vite application using React and TypeScript. Main-process code lives in `src/main`, with IPC handlers under `src/main/ipc` and persistence utilities under `src/main/storage`. The preload bridge is in `src/preload`, shared types and channel constants are in `src/shared`, and renderer code lives in `src/renderer/src`.
+This is an Electron Vite application using React and TypeScript. Main-process code lives in `src/main`, with IPC handlers under `src/main/ipc/handlers` and storage adapters, persistence, and server-save operations under `src/main/storage`. The preload bridge is in `src/preload`, shared types and channel constants are in `src/shared`, and renderer code lives in `src/renderer/src`.
 
-Renderer components are grouped by feature under `src/renderer/src/views` and shared UI under `src/renderer/src/components/shared`. Static styles are in `src/renderer/src/assets`. Packaging assets are split between `build` and `resources`.
+Renderer components are grouped by feature under `src/renderer/src/views` and shared UI under `src/renderer/src/components/shared`. Global styles and design tokens are in `src/renderer/src/assets`; component styles are colocated with their components. Packaging assets are split between `build` and `resources`.
+
+Integration tests live in `tests/integration`, Electron E2E tests are grouped by feature under `tests/e2e`, and reusable E2E helpers live in `tests/e2e/support`. Cross-suite Google Drive test infrastructure lives in `tests/support`.
 
 ## Product Context
 
@@ -12,19 +14,28 @@ ChunkShare is a desktop app for friends who want to share one Minecraft world wi
 
 Core flow: check if someone is hosting, download the latest world version, start a local dedicated server, let friends play, stop safely, save the world as a new version, then unlock it for the next host.
 
-Key concepts: no live world sync while the server is running, `control.json` for save metadata and lock/session state, stable `world.zip` storage, `sessionId` to prevent stale writes, dirty-state detection for unsafe shutdowns, heartbeat checks for current host liveness, and persisted world ownership.
+Key concepts: no live world sync while the server is running, `control.json` for save metadata and lock/session state, stable `world.zip` storage, `sessionId` to prevent stale writes, heartbeat checks for current host liveness, and persisted world ownership. Local state includes a `dirty` field for future unsafe-shutdown handling, but the runtime does not currently mark worlds dirty.
 
 Google Drive-backed worlds keep stable `control.json` and `world.zip` file IDs. `world.zip` is updated in place and Drive revisions provide cloud recovery. Keep the `drive.file` OAuth scope. Folder permission grants a Google account access, while Google Picker authorization grants ChunkShare API access to the two stable files. Join links identify the folder and files only; they must never contain OAuth tokens or credentials.
+
+Lock recovery may replace an invalid `serverLock` inside `control.json`, but it must preserve valid save metadata and storage-mutation state.
 
 Keep renderer work UI-only. Filesystem, Java validation, Minecraft server process management, zip/unzip, storage providers, Google Drive integration, and OAuth handling belong in Electron main behind typed preload APIs.
 
 ## Build, Test, and Development Commands
 
 - `pnpm install`: install dependencies and Electron native app deps.
+- `pnpm check:electron`: verify that the Electron binary is installed and runnable.
+- `pnpm clean:dev-data`: remove local development data so the app starts from a clean state.
 - `pnpm dev`: run the Electron Vite development app.
 - `pnpm start`: preview the built Electron app.
 - `pnpm lint`: run ESLint with cache over the repository.
 - `pnpm format`: format files with Prettier.
+- `pnpm test`: run Vitest integration tests.
+- `pnpm test:watch`: run Vitest in watch mode.
+- `pnpm e2e`: run Playwright Electron E2E tests.
+- `pnpm e2e:slow <test-file>`: run E2E tests with optional pacing after user actions.
+- `pnpm test:e2e`: build the app and run the complete E2E suite.
 - `pnpm typecheck`: run both Node and web TypeScript checks.
 - `pnpm build`: typecheck and build the app.
 - `pnpm build:win`, `pnpm build:mac`, `pnpm build:linux`: create platform packages with electron-builder.
@@ -59,11 +70,7 @@ Formatting is handled by `.editorconfig` and Prettier. Run `pnpm lint` and `pnpm
 
 Vitest integration tests live under `tests/integration`. Playwright Electron E2E tests live under `tests/e2e`. Tests must use isolated `.test-data` storage and mocked external services; never use real app data, OAuth sessions, or Google Drive files.
 
-- `pnpm test`: run integration tests.
-- `pnpm e2e`: run Playwright E2E tests.
-- `pnpm e2e <test-file>`: run one E2E test file.
-- `pnpm e2e:slow <test-file>`: run E2E tests with optional pacing after user actions.
-- `pnpm test:e2e`: build the app and run the complete E2E suite.
+Google Drive, OAuth, Minecraft downloads, and Minecraft server processes are mocked in automated tests. Current E2E coverage includes authentication, local world lifecycle, sharing and joining, two-instance hosting handoff, publish-failure recovery, relaunch persistence, storage-provider switching, server removal, and control-lock recovery.
 
 Use the shared E2E user-action helper for Playwright interactions so optional pacing remains consistent. Keep locators and assertions native Playwright.
 

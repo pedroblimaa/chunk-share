@@ -138,31 +138,6 @@ function DashboardView({
   }, [refreshServerDisplayState])
 
   useEffect(() => {
-    let isMounted = true
-
-    window.chunkShare.serverRuntime
-      .getSnapshot()
-      .then((nextRuntimeSnapshot) => {
-        if (!isMounted) {
-          return
-        }
-
-        applyRuntimeSnapshotToDisplayState(nextRuntimeSnapshot)
-      })
-      .catch((error: unknown) => {
-        if (!isMounted) {
-          return
-        }
-
-        setRuntimeErrorMessage(getErrorMessage(error, 'Unable to load server runtime.'))
-      })
-
-    return () => {
-      isMounted = false
-    }
-  }, [applyRuntimeSnapshotToDisplayState])
-
-  useEffect(() => {
     return window.chunkShare.serverRuntime.onEvent((runtimeEvent) => {
       setRuntimeErrorMessage(runtimeEvent.snapshot.errorMessage)
 
