@@ -41,10 +41,13 @@ export interface GoogleDriveWorldReference extends GoogleDriveWorldFileIds {
   folderId: string
 }
 
-export interface GoogleDriveStorageState {
+export interface GoogleDriveSetupState {
   status: GoogleDriveSetupStatus
-  folder: GoogleDriveFolderConfig | null
   errorMessage: string | null
+}
+
+export interface GoogleDriveStorageState extends GoogleDriveSetupState {
+  folder: GoogleDriveFolderConfig | null
 }
 
 export interface CloudStorageSettings {

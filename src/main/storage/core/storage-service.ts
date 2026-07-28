@@ -49,9 +49,7 @@ export async function deleteConfiguredServer(): Promise<ServerStorageSnapshot> {
     settings.activeProvider === CloudStorageProvider.Local || deletesGoogleDriveWorld
   )
 
-  const serverFolderPath = localState.serverConfig.serverFolderPath ?? localServerFolderPath
-
-  await backupServerFolder(serverFolderPath, localState.serverConfig.name)
+  await backupServerFolder(localServerFolderPath, localState.serverConfig.name)
   await removeStoredServer(settings, deletesGoogleDriveWorld)
   await resetConfiguredServer()
 

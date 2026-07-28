@@ -117,13 +117,13 @@ export async function launchChunkShareE2EApp(
 
 export function createElectronE2EPaths(): ElectronE2EPaths {
   const root = resolve(PROJECT_ROOT, '.test-data', 'e2e', `${process.pid}-${randomUUID()}`)
-  const storageFolder = join(root, 'storage')
+  const storageFolder = join(root, '.storage')
 
   return {
     controlFile: join(storageFolder, 'control.json'),
     localStateFile: join(root, 'localState.json'),
     root,
-    serverFolder: join(root, 'server'),
+    serverFolder: join(root, '.server'),
     userDataFolder: join(root, 'user-data'),
     worldFile: join(storageFolder, 'world.zip')
   }
@@ -162,11 +162,7 @@ function createE2EEnvironment(paths: ElectronE2EPaths): Record<string, string> {
 
   return {
     ...environment,
-    CHUNK_SHARE_LOCAL_STORAGE_FOLDER: join(relativeRoot, 'storage'),
-    CHUNK_SHARE_SERVER_FOLDER: join(relativeRoot, 'server'),
-    CHUNK_SHARE_SERVER_BACKUPS_FOLDER: join(relativeRoot, 'backups'),
-    CHUNK_SHARE_LOCAL_STATE_FILE: join(relativeRoot, 'localState.json'),
-    CHUNK_SHARE_CLOUD_STORAGE_SETTINGS_FILE: join(relativeRoot, 'cloudStorageSettings.json'),
+    CHUNK_SHARE_DATA_ROOT: relativeRoot,
     CHUNKSHARE_GOOGLE_CLIENT_ID: 'e2e-google-client-id',
     CHUNKSHARE_GOOGLE_CLIENT_SECRET: 'e2e-google-client-secret'
   }

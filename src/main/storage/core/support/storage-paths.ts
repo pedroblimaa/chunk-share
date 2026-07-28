@@ -1,20 +1,58 @@
-import { join } from 'path'
+import { join, resolve } from 'path'
+import type { WorldId } from '../../../../shared/world'
+import { isWorldId } from '../../../../shared/world'
+import { StorageError } from './storage-error'
 
-const PROJECT_ROOT = process.cwd()
-const LOCAL_STORAGE_FOLDER_NAME = process.env.CHUNK_SHARE_LOCAL_STORAGE_FOLDER ?? '.storage'
-const SERVER_FOLDER_NAME = process.env.CHUNK_SHARE_SERVER_FOLDER ?? '.server'
-const SERVER_BACKUPS_FOLDER_NAME = process.env.CHUNK_SHARE_SERVER_BACKUPS_FOLDER ?? '.backups'
-const LOCAL_STATE_FILE_NAME = process.env.CHUNK_SHARE_LOCAL_STATE_FILE ?? 'localState.json'
-const CLOUD_STORAGE_SETTINGS_FILE_NAME =
-  process.env.CHUNK_SHARE_CLOUD_STORAGE_SETTINGS_FILE ?? 'cloudStorageSettings.json'
+const DATA_ROOT = resolve(process.env.CHUNK_SHARE_DATA_ROOT ?? process.cwd())
+const LOCAL_STORAGE_FOLDER_NAME = '.storage'
+// TODO(multiple-worlds/subtask-2): Remove the legacy single-world path after all consumers use getWorldPaths.
+const SERVER_FOLDER_NAME = '.server'
+const SERVERS_FOLDER_NAME = '.servers'
+const SERVER_BACKUPS_FOLDER_NAME = '.backups'
+const LOCAL_STATE_FILE_NAME = 'localState.json'
+const CLOUD_STORAGE_SETTINGS_FILE_NAME = 'cloudStorageSettings.json'
 
-export const localStorageFolderPath = join(PROJECT_ROOT, LOCAL_STORAGE_FOLDER_NAME)
+export const localStorageFolderPath = join(DATA_ROOT, LOCAL_STORAGE_FOLDER_NAME)
 export const localStorageWorldFilePath = join(localStorageFolderPath, 'world.zip')
 export const storageControlFilePath = join(localStorageFolderPath, 'control.json')
-export const localServerFolderPath = join(PROJECT_ROOT, SERVER_FOLDER_NAME)
-export const localServerBackupsFolderPath = join(PROJECT_ROOT, SERVER_BACKUPS_FOLDER_NAME)
+export const localServerFolderPath = join(DATA_ROOT, SERVER_FOLDER_NAME)
+export const localServerBackupsFolderPath = join(DATA_ROOT, SERVER_BACKUPS_FOLDER_NAME)
 export const localServerJarFilePath = join(localServerFolderPath, 'server.jar')
 export const localServerPropertiesFilePath = join(localServerFolderPath, 'server.properties')
 export const localServerEulaFilePath = join(localServerFolderPath, 'eula.txt')
-export const localStateFilePath = join(PROJECT_ROOT, LOCAL_STATE_FILE_NAME)
-export const cloudStorageSettingsFilePath = join(PROJECT_ROOT, CLOUD_STORAGE_SETTINGS_FILE_NAME)
+export const localStateFilePath = join(DATA_ROOT, LOCAL_STATE_FILE_NAME)
+export const cloudStorageSettingsFilePath = join(DATA_ROOT, CLOUD_STORAGE_SETTINGS_FILE_NAME)
+const worldServersRootPath = join(DATA_ROOT, SERVERS_FOLDER_NAME)
+const worldStorageRootPath = localStorageFolderPath
+const worldBackupsRootPath = localServerBackupsFolderPath
+
+export interface WorldPaths {
+  serverFolder: string
+  serverJarFile: string
+  serverPropertiesFile: string
+  serverEulaFile: string
+  storageFolder: string
+  storageControlFile: string
+  storageWorldFile: string
+  backupsFolder: string
+}
+
+export function getWorldPaths(worldId: WorldId): WorldPaths {
+  if (!isWorldId(worldId)) {
+    throw new StorageError('Invalid world ID.')
+  }
+
+  const serverFolder = join(worldServersRootPath, worldId)
+  const storageFolder = join(worldStorageRootPath, worldId)
+
+  return {
+    serverFolder,
+    serverJarFile: join(serverFolder, 'server.jar'),
+    serverPropertiesFile: join(serverFolder, 'server.properties'),
+    serverEulaFile: join(serverFolder, 'eula.txt'),
+    storageFolder,
+    storageControlFile: join(storageFolder, 'control.json'),
+    storageWorldFile: join(storageFolder, 'world.zip'),
+    backupsFolder: join(worldBackupsRootPath, worldId)
+  }
+}

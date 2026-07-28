@@ -131,7 +131,7 @@ class ServerRuntime {
 
     this.assertServerSyncAllowsStart(serverSync)
 
-    const serverFolderPath = localState.serverConfig.serverFolderPath ?? localServerFolderPath
+    const serverFolderPath = localServerFolderPath
 
     await this.runStartPreparation(() => assertFolderExists(serverFolderPath))
     await this.runStartPreparation(() => assertFileExists(localServerJarFilePath))

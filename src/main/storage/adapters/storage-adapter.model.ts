@@ -1,4 +1,5 @@
 import type { LatestSave, ServerLock } from '../../../shared/domain'
+import type { WorldId } from '../../../shared/world'
 
 export interface StorageMutationLock {
   operationId: string
@@ -10,6 +11,11 @@ export interface StorageControl {
   latestSave: LatestSave
   serverLock: ServerLock
   storageMutation: StorageMutationLock | null
+}
+
+// TODO(multiple-worlds/subtask-2): Replace StorageControl with this world-aware shape when adapters are bound to a world.
+export interface WorldStorageControl extends StorageControl {
+  worldId: WorldId
 }
 
 export type RecoverableStorageControl = Omit<StorageControl, 'serverLock'> & {

@@ -1,6 +1,7 @@
 import { ServerLockStatus } from '../../../../shared/domain'
 import { CloudStorageProvider, GoogleDriveSetupStatus } from '../../../../shared/cloud-storage.model'
 import type { CloudStorageSettings } from '../../../../shared/cloud-storage.model'
+import type { AppState, LocalWorldState, WorldId } from '../../../../shared/world'
 import type {
   JavaConfig,
   LatestSave,
@@ -9,13 +10,12 @@ import type {
   ServerLock,
   ServerSetupState
 } from '../../../../shared/domain'
-import type { StorageControl } from '../../adapters/storage-adapter.model'
+import type { StorageControl, WorldStorageControl } from '../../adapters/storage-adapter.model'
 
 export const DEFAULT_SERVER_CONFIG: ServerConfig = {
   name: 'Vanilla Survival',
   serverType: 'vanilla',
   minecraftVersion: '1.20.1',
-  serverFolderPath: null,
   port: 25565
 }
 
@@ -54,6 +54,16 @@ export const DEFAULT_CLOUD_STORAGE_SETTINGS: CloudStorageSettings = {
   }
 }
 
+export const DEFAULT_APP_STATE: AppState = {
+  player: null,
+  activeProvider: CloudStorageProvider.Local,
+  googleDrive: {
+    status: GoogleDriveSetupStatus.NotConfigured,
+    errorMessage: null
+  },
+  worlds: []
+}
+
 export const DEFAULT_LOCAL_STATE: LocalState = {
   player: null,
   serverConfig: DEFAULT_SERVER_CONFIG,
@@ -62,4 +72,28 @@ export const DEFAULT_LOCAL_STATE: LocalState = {
   localSaveVersion: null,
   activeSessionId: null,
   dirty: false
+}
+
+export function createDefaultLocalWorldState(
+  id: WorldId,
+  createdAt = new Date().toISOString()
+): LocalWorldState {
+  return {
+    id,
+    createdAt,
+    serverConfig: { ...DEFAULT_SERVER_CONFIG },
+    javaConfig: { ...DEFAULT_JAVA_CONFIG },
+    serverSetup: { ...DEFAULT_SERVER_SETUP_STATE },
+    localSaveVersion: null,
+    activeSessionId: null,
+    dirty: false,
+    googleDriveFolder: null
+  }
+}
+
+export function createDefaultWorldStorageControl(worldId: WorldId): WorldStorageControl {
+  return {
+    ...DEFAULT_STORAGE_CONTROL,
+    worldId
+  }
 }

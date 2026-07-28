@@ -95,7 +95,6 @@ async function runSharedServerDownload(): Promise<LocalState> {
         name: latestSave.serverName ?? 'Shared Minecraft Server',
         serverType: latestSave.serverType,
         minecraftVersion: latestSave.minecraftVersion,
-        serverFolderPath: localServerFolderPath,
         port: await readServerPort()
       },
       {
@@ -145,7 +144,6 @@ async function prepareVanillaServer(
     name: input.name.trim(),
     serverType: 'vanilla',
     minecraftVersion: input.minecraftVersion.trim(),
-    serverFolderPath: localServerFolderPath,
     port: input.port
   }
 }

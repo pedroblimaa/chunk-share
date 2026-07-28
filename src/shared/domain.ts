@@ -43,7 +43,6 @@ export interface ServerConfig {
   name: string
   serverType: ServerType
   minecraftVersion: MinecraftVersion
-  serverFolderPath: string | null
   port: number
 }
 
