@@ -6,7 +6,7 @@ import {
   inviteGoogleDriveMember,
   revokeGoogleDriveMember
 } from '../../../src/main/cloud-storage/google-drive-sharing-service'
-import { readCloudStorageSettings } from '../../../src/main/storage/persistence/cloud-storage-settings-store'
+import { readCloudStorageSettings } from '../../../src/main/storage/persistence/local-state-store'
 import { readLocalState } from '../../../src/main/storage/persistence/local-state-store'
 import {
   saveConfiguredLocalAccount,

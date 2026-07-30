@@ -1,5 +1,5 @@
 import type { OAuth2Client } from 'google-auth-library'
-import type { GoogleDriveFolderConfig } from '../../shared/cloud-storage.model'
+import type { GoogleDriveWorldState } from '../../shared/cloud-storage.model'
 import { ensureGoogleDriveAuthSession } from '../auth/auth-service'
 import { createAuthenticatedGoogleOAuthClient } from '../auth/google-oauth-client'
 import { GoogleDriveError } from './google-drive-error'
@@ -14,7 +14,7 @@ import {
   type GoogleDriveFileResponse
 } from './google-drive.model'
 
-export async function ensureGoogleDriveFolder(configuredFolderId?: string): Promise<GoogleDriveFolderConfig> {
+export async function ensureGoogleDriveFolder(configuredFolderId?: string): Promise<GoogleDriveWorldState> {
   const authSession = await ensureGoogleDriveAuthSession()
   const oauthClient = createAuthenticatedGoogleOAuthClient(authSession.tokens)
   let folderId = configuredFolderId ?? (await resolveDefaultGoogleDriveFolderId(oauthClient))
@@ -35,7 +35,7 @@ async function validateGoogleDriveFolderWithClient(
   oauthClient: OAuth2Client,
   folderId: string,
   accountId: string
-): Promise<GoogleDriveFolderConfig> {
+): Promise<GoogleDriveWorldState> {
   const folder = await readUsableGoogleDriveFolder(oauthClient, folderId)
 
   await validateGoogleDriveFolderWriteAccess(oauthClient, folderId)
@@ -44,7 +44,6 @@ async function validateGoogleDriveFolderWithClient(
 
   return {
     folderId: resolveGoogleDriveFileId(folder),
-    folderName: folder.name ?? DEFAULT_GOOGLE_DRIVE_FOLDER_NAME,
     ownerAccountId: folder.ownedByMe ? accountId : null,
     worldFileIds: null,
     configuredAt: now,

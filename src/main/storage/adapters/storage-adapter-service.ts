@@ -1,29 +1,38 @@
-import { CloudStorageProvider } from '../../../shared/cloud-storage.model'
+import { CloudStorageProvider, GoogleDriveSetupStatus } from '../../../shared/cloud-storage.model'
+import type { WorldContext } from '../core/world-context'
+import { getSelectedWorldContext } from '../core/world-context'
 import { StorageError } from '../core/support/storage-error'
-import { hasValidGoogleDriveFolder } from '../core/support/storage-validation'
-import { readCloudStorageSettings } from '../persistence/cloud-storage-settings-store'
-import { googleDriveStorageAdapter } from './google-drive-storage-adapter'
-import { localStorageAdapter } from './local-storage-adapter'
+import { readAppState } from '../persistence/local-state-store'
+import { createGoogleDriveStorageAdapter } from './google-drive-storage-adapter'
+import { createLocalStorageAdapter } from './local-storage-adapter'
 import type { StorageAdapter } from './storage-adapter.model'
 
-export async function getActiveStorageAdapter(): Promise<StorageAdapter> {
-  const settings = await readCloudStorageSettings()
+export async function getActiveStorageAdapter(context?: WorldContext): Promise<StorageAdapter> {
+  const [appState, resolvedContext] = await Promise.all([
+    readAppState(),
+    context ? Promise.resolve(context) : getSelectedWorldContext()
+  ])
 
-  return getStorageAdapterForProvider(settings.activeProvider)
+  return getStorageAdapterForProvider(appState.activeProvider, resolvedContext)
 }
 
-export async function getStorageAdapterForProvider(provider: CloudStorageProvider): Promise<StorageAdapter> {
+export async function getStorageAdapterForProvider(
+  provider: CloudStorageProvider,
+  context?: WorldContext
+): Promise<StorageAdapter> {
+  const resolvedContext = context ?? (await getSelectedWorldContext())
+
   if (provider === CloudStorageProvider.Local) {
-    return localStorageAdapter
+    return createLocalStorageAdapter(resolvedContext)
   }
 
-  const settings = await readCloudStorageSettings()
+  const appState = await readAppState()
 
-  if (!hasValidGoogleDriveFolder(settings.googleDrive)) {
+  if (appState.googleDrive.status !== GoogleDriveSetupStatus.Valid || !resolvedContext.world.googleDrive) {
     throw new StorageError(
       'Google Drive storage is selected, but the Drive folder is not configured or valid.'
     )
   }
 
-  return googleDriveStorageAdapter
+  return createGoogleDriveStorageAdapter(resolvedContext)
 }

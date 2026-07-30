@@ -4,19 +4,29 @@
 
 This is an Electron Vite application using React and TypeScript. Main-process code lives in `src/main`, with IPC handlers under `src/main/ipc/handlers` and storage adapters, persistence, and server-save operations under `src/main/storage`. The preload bridge is in `src/preload`, shared types and channel constants are in `src/shared`, and renderer code lives in `src/renderer/src`.
 
+The persisted app and world catalog is modeled in `src/shared/world.ts` and stored in `localState.json`. World-bound main-process operations use `WorldContext` from `src/main/storage/core/world-context.ts`; world path construction belongs in `src/main/storage/core/support/storage-paths.ts`.
+
+World-scoped paths map server installations to `.servers/<worldId>`, local provider data to `.storage/<worldId>`, and backups to `.backups/<worldId>`. Local provider data already uses this layout. Server setup, runtime, save/restore, and backup flows still use the legacy `.server` and shared `.backups` paths until the lifecycle migration is complete; do not extend their use. Use `WorldContext` or `getWorldPaths` instead of assembling world paths directly.
+
 Renderer components are grouped by feature under `src/renderer/src/views` and shared UI under `src/renderer/src/components/shared`. Global styles and design tokens are in `src/renderer/src/assets`; component styles are colocated with their components. Packaging assets are split between `build` and `resources`.
 
-Integration tests live in `tests/integration`, Electron E2E tests are grouped by feature under `tests/e2e`, and reusable E2E helpers live in `tests/e2e/support`. Cross-suite Google Drive test infrastructure lives in `tests/support`.
+Unit tests live in `tests/unit`, integration tests live in `tests/integration`, Electron E2E tests are grouped by feature under `tests/e2e`, and reusable E2E helpers live in `tests/e2e/support`. Cross-suite Google Drive test infrastructure lives in `tests/support`.
 
 ## Product Context
 
-ChunkShare is a desktop app for friends who want to share one Minecraft world without paying for always-on hosting. The app manages a local Minecraft dedicated server, stable world storage, and handoff safety so different friends can take turns hosting the same shared world.
+ChunkShare is a desktop app for friends who want to share Minecraft worlds without paying for always-on hosting. The app manages a catalog of worlds, local Minecraft dedicated servers, stable world storage, and handoff safety so different friends can take turns hosting each shared world.
 
 Core flow: check if someone is hosting, download the latest world version, start a local dedicated server, let friends play, stop safely, save the world as a new version, then unlock it for the next host.
 
-Key concepts: no live world sync while the server is running, `control.json` for save metadata and lock/session state, stable `world.zip` storage, `sessionId` to prevent stale writes, heartbeat checks for current host liveness, and persisted world ownership. Local state includes a `dirty` field for future unsafe-shutdown handling, but the runtime does not currently mark worlds dirty.
+`AppState` owns global facts such as the signed-in player, selected world ID, active storage provider, and Google Drive setup status. Each `LocalWorldState` owns that world's server configuration, setup state, local save version, session data, and Drive association. The app may contain multiple worlds, but only one local Minecraft process may run at a time.
 
-Google Drive-backed worlds keep stable `control.json` and `world.zip` file IDs. `world.zip` is updated in place and Drive revisions provide cloud recovery. Keep the `drive.file` OAuth scope. Folder permission grants a Google account access, while Google Picker authorization grants ChunkShare API access to the two stable files. Join links identify the folder and files only; they must never contain OAuth tokens or credentials.
+The selected world is mutable UI state. Long-running, runtime, storage, and destructive operations must capture a world ID or `WorldContext` when they begin and keep using it across every `await`. Never re-resolve the selected world to finish an existing operation. Delete and update worlds by explicit ID so changing selection cannot redirect work to another world.
+
+Storage provider selection is global, not per world. Switching providers reconciles the visible catalog: installed-only worlds remain visible as local-only, provider-only worlds remain available to download, worlds present in both follow the normal latest-version flow, and worlds present in neither are omitted.
+
+Key concepts: no live world sync while the server is running, world-scoped `control.json` for save metadata and lock/session state, stable `world.zip` storage, `sessionId` to prevent stale writes, heartbeat checks for current host liveness, and persisted world ownership. Every `control.json` includes its stable `worldId`. Local state includes a `dirty` field for future unsafe-shutdown handling, but the runtime does not currently mark worlds dirty.
+
+Google Drive setup and provider status are global, while folder and stable file associations are world-scoped. Drive folder names are not persisted because IDs are authoritative. Google Drive-backed worlds keep stable `control.json` and `world.zip` file IDs. Validate both files' metadata, folder membership, and the control file's `worldId` together before reads, mutations, or deletion. `world.zip` is updated in place and Drive revisions provide cloud recovery. Keep the `drive.file` OAuth scope. Folder permission grants a Google account access, while Google Picker authorization grants ChunkShare API access to the two stable files. Join links identify the folder and files only; they must never contain OAuth tokens or credentials.
 
 Lock recovery may replace an invalid `serverLock` inside `control.json`, but it must preserve valid save metadata and storage-mutation state.
 
@@ -31,9 +41,10 @@ Keep renderer work UI-only. Filesystem, Java validation, Minecraft server proces
 - `pnpm start`: preview the built Electron app.
 - `pnpm lint`: run ESLint with cache over the repository.
 - `pnpm format`: format files with Prettier.
-- `pnpm test`: run Vitest integration tests.
+- `pnpm test`: run all Vitest unit and integration tests.
 - `pnpm test:watch`: run Vitest in watch mode.
-- `pnpm e2e`: run Playwright Electron E2E tests.
+- `pnpm exec vitest run <test-file> --project unit`: run one focused unit test file; use `--project integration` for an integration test.
+- `pnpm e2e`: run Playwright Electron E2E tests against the existing build.
 - `pnpm e2e:slow <test-file>`: run E2E tests with optional pacing after user actions.
 - `pnpm test:e2e`: build the app and run the complete E2E suite.
 - `pnpm typecheck`: run both Node and web TypeScript checks.

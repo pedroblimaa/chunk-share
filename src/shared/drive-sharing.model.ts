@@ -8,7 +8,6 @@ export interface GoogleDriveMember {
 }
 
 export interface GoogleDriveSharingState {
-  folderName: string
   members: GoogleDriveMember[]
 }
 

@@ -1,8 +1,8 @@
 import type { OAuth2Client } from 'google-auth-library'
 import {
   CloudStorageProvider,
-  type GoogleDriveFolderConfig,
-  type GoogleDriveWorldFileIds
+  type GoogleDriveWorldFileIds,
+  type GoogleDriveWorldState
 } from '../../shared/cloud-storage.model'
 import type {
   GoogleDriveMember,
@@ -18,10 +18,7 @@ import { createAuthenticatedGoogleOAuthClient } from '../auth/google-oauth-clien
 import { getStorageAdapterForProvider } from '../storage/adapters/storage-adapter-service'
 import { resolveGoogleDriveWorldFileIds } from '../storage/adapters/google-drive-storage-adapter'
 import { hasValidGoogleDriveFolder } from '../storage/core/support/storage-validation'
-import {
-  readCloudStorageSettings,
-  writeCloudStorageSettings
-} from '../storage/persistence/cloud-storage-settings-store'
+import { readCloudStorageSettings, writeCloudStorageSettings } from '../storage/persistence/local-state-store'
 import { GoogleDriveError } from './google-drive-error'
 import { createGoogleDriveJoinLink } from './google-drive-join-link'
 import { GOOGLE_DRIVE_API_BASE_URL, type GoogleDriveFileResponse } from './google-drive.model'
@@ -41,7 +38,6 @@ interface DrivePermissionList {
 
 interface OwnerFolderContext {
   folderId: string
-  folderName: string
   oauthClient: OAuth2Client
   ownerEmail: string
 }
@@ -149,7 +145,7 @@ async function saveGoogleDriveWorldFileIds(
   })
 }
 
-async function readActiveGoogleDriveFolder(): Promise<GoogleDriveFolderConfig | null> {
+async function readActiveGoogleDriveFolder(): Promise<GoogleDriveWorldState | null> {
   const settings = await readCloudStorageSettings()
 
   const hasActiveGoogleDriveFolder =
@@ -159,12 +155,12 @@ async function readActiveGoogleDriveFolder(): Promise<GoogleDriveFolderConfig | 
   return hasActiveGoogleDriveFolder ? settings.googleDrive.folder : null
 }
 
-async function getOwnerFolderContext(folder: GoogleDriveFolderConfig): Promise<OwnerFolderContext | null> {
+async function getOwnerFolderContext(folder: GoogleDriveWorldState): Promise<OwnerFolderContext | null> {
   const authSession = await ensureGoogleDriveAuthSession()
   const oauthClient = createAuthenticatedGoogleOAuthClient(authSession.tokens)
-  const { folderId, folderName } = folder
+  const { folderId } = folder
   const response = await oauthClient.fetch<GoogleDriveFileResponse>(
-    `${GOOGLE_DRIVE_API_BASE_URL}/files/${encodeURIComponent(folderId)}?fields=name,ownedByMe,capabilities(canShare)`
+    `${GOOGLE_DRIVE_API_BASE_URL}/files/${encodeURIComponent(folderId)}?fields=ownedByMe,capabilities(canShare)`
   )
 
   if (!response.data.ownedByMe) {
@@ -177,7 +173,6 @@ async function getOwnerFolderContext(folder: GoogleDriveFolderConfig): Promise<O
 
   return {
     folderId,
-    folderName: response.data.name ?? folderName,
     oauthClient,
     ownerEmail: authSession.player.email
   }
@@ -201,7 +196,6 @@ async function buildSharingState(context: OwnerFolderContext): Promise<GoogleDri
     .sort((left, right) => left.displayName.localeCompare(right.displayName))
 
   return {
-    folderName: context.folderName,
     members
   }
 }

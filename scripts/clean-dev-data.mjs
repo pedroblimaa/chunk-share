@@ -20,8 +20,6 @@ const generatedPaths = [
   '.servers',
   '.storage',
   '.storage-test',
-  'cloudStorageSettings.json',
-  'cloudStorageSettings.test.json',
   'localState.json',
   'localState.test.json'
 ]

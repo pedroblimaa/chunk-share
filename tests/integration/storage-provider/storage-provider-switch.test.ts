@@ -10,13 +10,14 @@ import {
   getCloudStorageProviderSwitchPreview,
   setCloudStorageProvider
 } from '../../../src/main/storage/core/cloud-storage-service'
-import { localStorageAdapter } from '../../../src/main/storage/adapters/local-storage-adapter'
-import { localStorageWorldFilePath } from '../../../src/main/storage/core/support/storage-paths'
+import { createLocalStorageAdapter } from '../../../src/main/storage/adapters/local-storage-adapter'
+import type { StorageAdapter } from '../../../src/main/storage/adapters/storage-adapter.model'
+import { getSelectedWorldContext } from '../../../src/main/storage/core/world-context'
 import { publishServerSave } from '../../../src/main/storage/server-save/server-save-publisher'
 import {
   readCloudStorageSettings,
   writeCloudStorageSettings
-} from '../../../src/main/storage/persistence/cloud-storage-settings-store'
+} from '../../../src/main/storage/persistence/local-state-store'
 import { saveOwnerGoogleDriveWorld } from '../share-join/share-join-test-data'
 import {
   GOOGLE_TEST_IDS,
@@ -65,8 +66,10 @@ describe('storage provider switching', () => {
     )
 
     expect(settings.activeProvider).toBe(CloudStorageProvider.Local)
-    expect(await readFile(localStorageWorldFilePath, 'utf8')).toBe('test-world-zip')
-    await expect(localStorageAdapter.readLatestSave()).resolves.toMatchObject({
+    expect(await readFile((await getSelectedWorldContext()).paths.storageWorldFile, 'utf8')).toBe(
+      'test-world-zip'
+    )
+    await expect((await getLocalStorageAdapter()).readLatestSave()).resolves.toMatchObject({
       saveVersion: 1,
       serverName: 'Shared Test World'
     })
@@ -86,8 +89,8 @@ describe('storage provider switching', () => {
     await configureLocalSourceWithDriveTarget()
     await createLocalTestWorld()
     await publishServerSave()
-    const localWorld = await readFile(localStorageWorldFilePath)
-    const localLatestSave = await localStorageAdapter.readLatestSave()
+    const localWorld = await readFile((await getSelectedWorldContext()).paths.storageWorldFile)
+    const localLatestSave = await (await getLocalStorageAdapter()).readLatestSave()
     const preview = await getCloudStorageProviderSwitchPreview(CloudStorageProvider.GoogleDrive)
 
     const settings = await setCloudStorageProvider({
@@ -136,4 +139,8 @@ function requireDriveFileContent(fileName: string): string | Uint8Array {
 
 function decodeDriveFileContent(content: string | Uint8Array): string {
   return typeof content === 'string' ? content : Buffer.from(content).toString('utf8')
+}
+
+async function getLocalStorageAdapter(): Promise<StorageAdapter> {
+  return createLocalStorageAdapter(await getSelectedWorldContext())
 }

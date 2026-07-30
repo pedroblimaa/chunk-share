@@ -3,12 +3,12 @@ import { CloudStorageProvider } from '../../../src/shared/cloud-storage.model'
 import {
   DEFAULT_APP_STATE,
   createDefaultLocalWorldState,
-  createDefaultWorldStorageControl
+  createDefaultStorageControl
 } from '../../../src/main/storage/core/support/storage-defaults'
 import {
   isAppState,
   isLocalWorldState,
-  isWorldStorageControl
+  isStorageControl
 } from '../../../src/main/storage/core/support/storage-validation'
 
 const WORLD_ID = '3f93b975-260f-4e44-ad58-30fb8b9c7769'
@@ -25,11 +25,10 @@ describe('multi-world local state', () => {
       localSaveVersion: null,
       activeSessionId: null,
       dirty: false,
-      googleDriveFolder: null,
+      googleDrive: null,
       serverSetup: { status: 'not-configured' }
     })
     expect(world.serverConfig).not.toHaveProperty('serverFolderPath')
-    expect(world).not.toHaveProperty('googleDrive')
   })
 
   it('accepts an empty catalog and rejects duplicate world IDs', () => {
@@ -39,6 +38,7 @@ describe('multi-world local state', () => {
     const world = createDefaultLocalWorldState(WORLD_ID, CREATED_AT)
     const stateWithDuplicates = {
       player: null,
+      selectedWorldId: WORLD_ID,
       activeProvider: CloudStorageProvider.Local,
       googleDrive: DEFAULT_APP_STATE.googleDrive,
       worlds: [world, { ...world }]
@@ -48,9 +48,9 @@ describe('multi-world local state', () => {
   })
 
   it('stores the stable world ID in its control file', () => {
-    const control = createDefaultWorldStorageControl(WORLD_ID)
+    const control = createDefaultStorageControl(WORLD_ID)
 
-    expect(isWorldStorageControl(control)).toBe(true)
+    expect(isStorageControl(control)).toBe(true)
     expect(control).toMatchObject({
       formatVersion: 1,
       worldId: WORLD_ID,

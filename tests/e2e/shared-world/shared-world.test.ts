@@ -3,13 +3,14 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { PassThrough } from 'node:stream'
 import { expect, test } from '@playwright/test'
-import {
-  CloudStorageProvider,
-  GoogleDriveSetupStatus,
-  type CloudStorageSettings
-} from '../../../src/shared/cloud-storage.model'
+import { CloudStorageProvider, GoogleDriveSetupStatus } from '../../../src/shared/cloud-storage.model'
+import type { AppState } from '../../../src/shared/world'
 import { ServerHostingStatus, ServerLockStatus } from '../../../src/shared/domain'
 import type { StorageControl } from '../../../src/main/storage/adapters/storage-adapter.model'
+import {
+  DEFAULT_APP_STATE,
+  createDefaultLocalWorldState
+} from '../../../src/main/storage/core/support/storage-defaults'
 import {
   GOOGLE_TEST_ACCOUNTS,
   GOOGLE_TEST_IDS
@@ -342,24 +343,36 @@ async function refreshServer(app: ChunkShareE2EApp): Promise<void> {
 }
 
 async function saveOwnerDriveSettings(paths: ElectronE2EPaths): Promise<void> {
-  const settings: CloudStorageSettings = {
+  const now = '2026-07-25T12:00:00.000Z'
+  const world = {
+    ...createDefaultLocalWorldState(GOOGLE_TEST_IDS.world, now),
+    googleDrive: {
+      configuredAt: now,
+      folderId: GOOGLE_TEST_IDS.folder,
+      ownerAccountId: GOOGLE_TEST_ACCOUNTS.owner.session.player.id,
+      validatedAt: now,
+      worldFileIds: null
+    },
+    serverConfig: {
+      ...createDefaultLocalWorldState(GOOGLE_TEST_IDS.world, now).serverConfig,
+      name: 'Shared Test World',
+      minecraftVersion: '1.21.8'
+    }
+  }
+  const appState: AppState = {
+    ...DEFAULT_APP_STATE,
+    player: GOOGLE_TEST_ACCOUNTS.owner.session.player,
+    selectedWorldId: world.id,
     activeProvider: CloudStorageProvider.GoogleDrive,
     googleDrive: {
       errorMessage: null,
-      folder: {
-        configuredAt: '2026-07-25T12:00:00.000Z',
-        folderId: GOOGLE_TEST_IDS.folder,
-        folderName: 'Shared Test World',
-        ownerAccountId: GOOGLE_TEST_ACCOUNTS.owner.session.player.id,
-        validatedAt: '2026-07-25T12:00:00.000Z',
-        worldFileIds: null
-      },
       status: GoogleDriveSetupStatus.Valid
-    }
+    },
+    worlds: [world]
   }
 
   await mkdir(paths.root, { recursive: true })
-  await writeFile(join(paths.root, 'cloudStorageSettings.json'), JSON.stringify(settings, null, 2))
+  await writeFile(paths.localStateFile, JSON.stringify(appState, null, 2))
 }
 
 async function createSharedServerZip(): Promise<Uint8Array> {
@@ -386,28 +399,36 @@ async function createSharedServerZip(): Promise<Uint8Array> {
 }
 
 async function expectJoinedDriveSettings(paths: ElectronE2EPaths): Promise<void> {
-  const settings: unknown = JSON.parse(await readFile(join(paths.root, 'cloudStorageSettings.json'), 'utf8'))
+  const appState: unknown = JSON.parse(await readFile(paths.localStateFile, 'utf8'))
 
-  expect(settings).toMatchObject({
+  expect(appState).toMatchObject({
     activeProvider: CloudStorageProvider.GoogleDrive,
     googleDrive: {
-      folder: {
-        folderId: GOOGLE_TEST_IDS.folder,
-        ownerAccountId: null,
-        worldFileIds: {
-          controlFileId: GOOGLE_TEST_IDS.controlFile,
-          worldFileId: GOOGLE_TEST_IDS.worldFile
-        }
-      },
       status: GoogleDriveSetupStatus.Valid
-    }
+    },
+    selectedWorldId: GOOGLE_TEST_IDS.world,
+    worlds: [
+      {
+        id: GOOGLE_TEST_IDS.world,
+        googleDrive: {
+          folderId: GOOGLE_TEST_IDS.folder,
+          ownerAccountId: null,
+          worldFileIds: {
+            controlFileId: GOOGLE_TEST_IDS.controlFile,
+            worldFileId: GOOGLE_TEST_IDS.worldFile
+          }
+        }
+      }
+    ]
   })
 }
 
 async function expectLocalSaveVersion(paths: ElectronE2EPaths, expectedVersion: number): Promise<void> {
   const localState: unknown = JSON.parse(await readFile(paths.localStateFile, 'utf8'))
 
-  expect(localState).toMatchObject({ localSaveVersion: expectedVersion })
+  expect(localState).toMatchObject({
+    worlds: [{ localSaveVersion: expectedVersion }]
+  })
 }
 
 async function expectDriveControl(
@@ -436,13 +457,17 @@ async function expectJoinedWorldFiles(paths: ElectronE2EPaths): Promise<void> {
 
   const localState: unknown = JSON.parse(await readFile(paths.localStateFile, 'utf8'))
   expect(localState).toMatchObject({
-    localSaveVersion: 1,
-    serverConfig: {
-      minecraftVersion: '1.21.8',
-      name: 'Shared Test World'
-    },
-    serverSetup: {
-      status: 'ready'
-    }
+    worlds: [
+      {
+        localSaveVersion: 1,
+        serverConfig: {
+          minecraftVersion: '1.21.8',
+          name: 'Shared Test World'
+        },
+        serverSetup: {
+          status: 'ready'
+        }
+      }
+    ]
   })
 }

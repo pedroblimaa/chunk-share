@@ -39,6 +39,7 @@ export interface GoogleTestDriveRevision {
 export const GOOGLE_TEST_IDS = {
   controlFile: 'test-control-file-id',
   folder: 'test-world-folder-id',
+  world: '9a65cf51-9234-4d19-8e73-7135a19895fe',
   worldFile: 'test-world-file-id'
 } as const
 
@@ -58,6 +59,7 @@ const OWNER_PERMISSION: GoogleTestPermission = {
 
 const TEST_CONTROL: StorageControl = {
   formatVersion: 1,
+  worldId: GOOGLE_TEST_IDS.world,
   latestSave: {
     minecraftVersion: '1.21.8',
     saveVersion: 1,

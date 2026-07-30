@@ -7,8 +7,9 @@ import {
 } from '../../shared/domain'
 import { STALE_LOCK_THRESHOLD_MS, ServerSyncStatus, type ServerSyncSnapshot } from '../../shared/server-sync'
 import { getActiveStorageAdapter } from '../storage/adapters/storage-adapter-service'
-import { readLocalState } from '../storage/persistence/local-state-store'
+import { readAppState, readLocalState } from '../storage/persistence/local-state-store'
 import { getActiveRuntimeSessionId } from '../server-runtime/lifecycle/hosting-lock-manager'
+import { DEFAULT_LATEST_SAVE, DEFAULT_SERVER_LOCK } from '../storage/core/support/storage-defaults'
 
 interface ServerSyncContext {
   latestSave: LatestSave
@@ -46,8 +47,25 @@ const SERVER_SYNC_RULES: ServerSyncRule[] = [
 ]
 
 export async function getServerSyncSnapshot(): Promise<ServerStorageSnapshot> {
+  const appState = await readAppState()
+  const localState = await readLocalState()
+
+  if (!appState.selectedWorldId) {
+    return {
+      latestSave: DEFAULT_LATEST_SAVE,
+      serverLock: DEFAULT_SERVER_LOCK,
+      serverSync: await buildServerSyncSnapshot({
+        latestSave: DEFAULT_LATEST_SAVE,
+        serverLock: DEFAULT_SERVER_LOCK,
+        localState,
+        worldFileExists: false
+      }),
+      localState
+    }
+  }
+
   const storageAdapter = await getActiveStorageAdapter()
-  const [storageData, localState] = await Promise.all([storageAdapter.readServerSyncData(), readLocalState()])
+  const storageData = await storageAdapter.readServerSyncData()
   const { latestSave, serverLock, worldFileExists } = storageData
 
   return {

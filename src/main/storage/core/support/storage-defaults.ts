@@ -10,7 +10,7 @@ import type {
   ServerLock,
   ServerSetupState
 } from '../../../../shared/domain'
-import type { StorageControl, WorldStorageControl } from '../../adapters/storage-adapter.model'
+import type { StorageControl } from '../../adapters/storage-adapter.model'
 
 export const DEFAULT_SERVER_CONFIG: ServerConfig = {
   name: 'Vanilla Survival',
@@ -32,13 +32,6 @@ export const DEFAULT_SERVER_LOCK: ServerLock = {
   status: ServerLockStatus.Unlocked
 }
 
-export const DEFAULT_STORAGE_CONTROL: StorageControl = {
-  formatVersion: 1,
-  latestSave: DEFAULT_LATEST_SAVE,
-  serverLock: DEFAULT_SERVER_LOCK,
-  storageMutation: null
-}
-
 export const DEFAULT_SERVER_SETUP_STATE: ServerSetupState = {
   status: 'not-configured',
   errorMessage: null,
@@ -56,6 +49,7 @@ export const DEFAULT_CLOUD_STORAGE_SETTINGS: CloudStorageSettings = {
 
 export const DEFAULT_APP_STATE: AppState = {
   player: null,
+  selectedWorldId: null,
   activeProvider: CloudStorageProvider.Local,
   googleDrive: {
     status: GoogleDriveSetupStatus.NotConfigured,
@@ -87,13 +81,16 @@ export function createDefaultLocalWorldState(
     localSaveVersion: null,
     activeSessionId: null,
     dirty: false,
-    googleDriveFolder: null
+    googleDrive: null
   }
 }
 
-export function createDefaultWorldStorageControl(worldId: WorldId): WorldStorageControl {
+export function createDefaultStorageControl(worldId: WorldId): StorageControl {
   return {
-    ...DEFAULT_STORAGE_CONTROL,
-    worldId
+    formatVersion: 1,
+    worldId,
+    latestSave: DEFAULT_LATEST_SAVE,
+    serverLock: DEFAULT_SERVER_LOCK,
+    storageMutation: null
   }
 }

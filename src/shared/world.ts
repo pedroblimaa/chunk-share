@@ -1,7 +1,7 @@
 import type {
   CloudStorageProvider,
-  GoogleDriveFolderConfig,
-  GoogleDriveSetupState
+  GoogleDriveSetupState,
+  GoogleDriveWorldState
 } from './cloud-storage.model'
 import type { JavaConfig, Player, ServerConfig, ServerSetupState } from './domain'
 
@@ -18,12 +18,12 @@ export interface LocalWorldState {
   localSaveVersion: number | null
   activeSessionId: string | null
   dirty: boolean
-  googleDriveFolder: GoogleDriveFolderConfig | null
+  googleDrive: GoogleDriveWorldState | null
 }
 
-// TODO(multiple-worlds/subtask-2): Replace the flat LocalState with this catalog when persistence becomes world-aware.
 export interface AppState {
   player: Player | null
+  selectedWorldId: WorldId | null
   activeProvider: CloudStorageProvider
   googleDrive: GoogleDriveSetupState
   worlds: LocalWorldState[]

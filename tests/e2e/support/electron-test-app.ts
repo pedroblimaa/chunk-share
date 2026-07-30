@@ -1,12 +1,13 @@
 import { createHash, randomUUID } from 'node:crypto'
-import { access, mkdir, rm, writeFile } from 'node:fs/promises'
+import { access, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import { join, relative, resolve } from 'node:path'
 import { _electron as electron, type ElectronApplication, type Page } from '@playwright/test'
 import type { GoogleAuthTokens } from '../../../src/main/auth/auth-model'
 import { GOOGLE_AUTH_TOKENS_FILE_NAME } from '../../../src/main/auth/auth-constants'
-import { DEFAULT_LOCAL_STATE } from '../../../src/main/storage/core/support/storage-defaults'
+import { DEFAULT_APP_STATE } from '../../../src/main/storage/core/support/storage-defaults'
 import type { Player } from '../../../src/shared/domain'
+import type { AppState } from '../../../src/shared/world'
 import {
   GOOGLE_TEST_ACCOUNTS,
   type GoogleTestAccountName
@@ -43,11 +44,14 @@ const E2E_AUTH_TOKENS: GoogleAuthTokens = {
 }
 
 export interface ElectronE2EPaths {
-  controlFile: string
   localStateFile: string
   root: string
   serverFolder: string
   userDataFolder: string
+}
+
+export interface ElectronE2EWorldPaths {
+  controlFile: string
   worldFile: string
 }
 
@@ -117,14 +121,25 @@ export async function launchChunkShareE2EApp(
 
 export function createElectronE2EPaths(): ElectronE2EPaths {
   const root = resolve(PROJECT_ROOT, '.test-data', 'e2e', `${process.pid}-${randomUUID()}`)
-  const storageFolder = join(root, '.storage')
-
   return {
-    controlFile: join(storageFolder, 'control.json'),
     localStateFile: join(root, 'localState.json'),
     root,
     serverFolder: join(root, '.server'),
-    userDataFolder: join(root, 'user-data'),
+    userDataFolder: join(root, 'user-data')
+  }
+}
+
+export async function readSelectedWorldE2EPaths(paths: ElectronE2EPaths): Promise<ElectronE2EWorldPaths> {
+  const appState = JSON.parse(await readFile(paths.localStateFile, 'utf8')) as AppState
+
+  if (!appState.selectedWorldId) {
+    throw new Error('Expected an E2E world to be selected.')
+  }
+
+  const storageFolder = join(paths.root, '.storage', appState.selectedWorldId)
+
+  return {
+    controlFile: join(storageFolder, 'control.json'),
     worldFile: join(storageFolder, 'world.zip')
   }
 }
@@ -143,7 +158,7 @@ async function prepareE2EStorage(
     paths.localStateFile,
     JSON.stringify(
       {
-        ...DEFAULT_LOCAL_STATE,
+        ...DEFAULT_APP_STATE,
         player: authenticated ? player : null
       },
       null,

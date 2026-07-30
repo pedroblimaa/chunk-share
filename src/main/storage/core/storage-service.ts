@@ -1,23 +1,16 @@
-import {
-  CloudStorageProvider,
-  GoogleDriveSetupStatus,
-  type CloudStorageSettings
-} from '../../../shared/cloud-storage.model'
+import { CloudStorageProvider, GoogleDriveSetupStatus } from '../../../shared/cloud-storage.model'
 import { ServerLockStatus, type ServerConfig, type ServerStorageSnapshot } from '../../../shared/domain'
 import { isServerActiveStatus } from '../../../shared/server-runtime'
 import { getServerRuntimeSnapshot } from '../../server-runtime/server-runtime-service'
 import { getServerSyncSnapshot } from '../../server-sync/server-sync-service'
 import { deleteGoogleDriveWorldFilesIfOwned } from '../adapters/google-drive-storage-adapter'
-import { localStorageAdapter } from '../adapters/local-storage-adapter'
-import { getActiveStorageAdapter } from '../adapters/storage-adapter-service'
-import {
-  readCloudStorageSettings,
-  writeCloudStorageSettings
-} from '../persistence/cloud-storage-settings-store'
-import { readLocalState, resetConfiguredServer, saveServerConfig } from '../persistence/local-state-store'
+import { createLocalStorageAdapter } from '../adapters/local-storage-adapter'
+import { getActiveStorageAdapter, getStorageAdapterForProvider } from '../adapters/storage-adapter-service'
+import { deleteWorld, readAppState, saveServerConfig, writeAppState } from '../persistence/local-state-store'
 import { backupServerFolder } from '../server-save/server-folder-backup'
 import { StorageError } from './support/storage-error'
 import { localServerFolderPath } from './support/storage-paths'
+import { createWorldContext, type WorldContext } from './world-context'
 
 export async function getStorageSnapshot(): Promise<ServerStorageSnapshot> {
   return getServerSyncSnapshot()
@@ -38,25 +31,38 @@ export async function resetServerLock(): Promise<ServerStorageSnapshot> {
 }
 
 export async function deleteConfiguredServer(): Promise<ServerStorageSnapshot> {
-  const [settings, localState] = await Promise.all([readCloudStorageSettings(), readLocalState()])
-  const ownerAccountId = settings.googleDrive.folder?.ownerAccountId
+  const appState = await readAppState()
+  const world = appState.worlds.find(({ id }) => id === appState.selectedWorldId)
+
+  if (!world) {
+    throw new StorageError('No world is selected.')
+  }
+
+  const context = createWorldContext(world)
+  const ownerAccountId = world.googleDrive?.ownerAccountId
   const deletesGoogleDriveWorld =
-    settings.activeProvider === CloudStorageProvider.GoogleDrive &&
+    appState.activeProvider === CloudStorageProvider.GoogleDrive &&
     Boolean(ownerAccountId) &&
-    ownerAccountId === localState.player?.id
+    ownerAccountId === appState.player?.id
 
   await assertServerCanBeRemoved(
-    settings.activeProvider === CloudStorageProvider.Local || deletesGoogleDriveWorld
+    appState.activeProvider,
+    appState.activeProvider === CloudStorageProvider.Local || deletesGoogleDriveWorld,
+    context
   )
 
-  await backupServerFolder(localServerFolderPath, localState.serverConfig.name)
-  await removeStoredServer(settings, deletesGoogleDriveWorld)
-  await resetConfiguredServer()
+  await backupServerFolder(localServerFolderPath, world.serverConfig.name)
+  await removeStoredServer(appState.activeProvider, deletesGoogleDriveWorld, context)
+  await deleteWorld(context.worldId)
 
   return getStorageSnapshot()
 }
 
-async function assertServerCanBeRemoved(requiresUnlockedStorage: boolean): Promise<void> {
+async function assertServerCanBeRemoved(
+  activeProvider: CloudStorageProvider,
+  requiresUnlockedStorage: boolean,
+  context: WorldContext
+): Promise<void> {
   if (isServerActiveStatus(getServerRuntimeSnapshot().status)) {
     throw new StorageError('Cannot remove this server while it is running.')
   }
@@ -65,7 +71,8 @@ async function assertServerCanBeRemoved(requiresUnlockedStorage: boolean): Promi
     return
   }
 
-  const { serverLock } = await getStorageSnapshot()
+  const storageAdapter = await getStorageAdapterForProvider(activeProvider, context)
+  const serverLock = await storageAdapter.readServerLock()
 
   if (serverLock.status === ServerLockStatus.Locked) {
     throw new StorageError(
@@ -75,25 +82,28 @@ async function assertServerCanBeRemoved(requiresUnlockedStorage: boolean): Promi
 }
 
 async function removeStoredServer(
-  settings: CloudStorageSettings,
-  deletesGoogleDriveWorld: boolean
+  activeProvider: CloudStorageProvider,
+  deletesGoogleDriveWorld: boolean,
+  context: WorldContext
 ): Promise<void> {
-  if (settings.activeProvider === CloudStorageProvider.Local) {
+  const localStorageAdapter = createLocalStorageAdapter(context)
+
+  if (activeProvider === CloudStorageProvider.Local) {
     await localStorageAdapter.resetServerSaves()
     return
   }
 
   if (deletesGoogleDriveWorld) {
-    await deleteGoogleDriveWorldFilesIfOwned()
+    await deleteGoogleDriveWorldFilesIfOwned(context)
   }
 
   await localStorageAdapter.resetServerSaves()
-  await writeCloudStorageSettings({
-    ...settings,
+  const appState = await readAppState()
+  await writeAppState({
+    ...appState,
     activeProvider: CloudStorageProvider.Local,
     googleDrive: {
       status: GoogleDriveSetupStatus.NotConfigured,
-      folder: null,
       errorMessage: null
     }
   })

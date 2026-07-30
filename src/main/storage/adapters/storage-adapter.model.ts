@@ -8,14 +8,10 @@ export interface StorageMutationLock {
 
 export interface StorageControl {
   formatVersion: 1
+  worldId: WorldId
   latestSave: LatestSave
   serverLock: ServerLock
   storageMutation: StorageMutationLock | null
-}
-
-// TODO(multiple-worlds/subtask-2): Replace StorageControl with this world-aware shape when adapters are bound to a world.
-export interface WorldStorageControl extends StorageControl {
-  worldId: WorldId
 }
 
 export type RecoverableStorageControl = Omit<StorageControl, 'serverLock'> & {

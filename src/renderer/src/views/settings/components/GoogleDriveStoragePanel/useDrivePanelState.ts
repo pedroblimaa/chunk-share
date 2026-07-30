@@ -23,7 +23,6 @@ export function useDrivePanelState(
     isValid,
     isActive,
     statusView: GOOGLE_DRIVE_STATUS_VIEW[driveState?.status ?? GoogleDriveSetupStatus.NotConfigured],
-    folderName: driveState?.folder?.folderName ?? 'Shared folder sync',
     validatedAt: driveState?.folder?.validatedAt ?? null,
     errorMessage: driveState?.errorMessage ?? null,
     hasFolder: Boolean(driveState?.folder),
@@ -38,7 +37,6 @@ export interface DrivePanelState {
   isValid: boolean
   isActive: boolean
   statusView: { label: string; tone: BadgeTone }
-  folderName: string
   validatedAt: string | null
   errorMessage: string | null
   hasFolder: boolean

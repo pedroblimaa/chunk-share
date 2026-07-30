@@ -17,10 +17,11 @@ import {
   localServerEulaFilePath,
   localServerFolderPath,
   localServerJarFilePath,
-  localServerPropertiesFilePath,
-  localStorageWorldFilePath
+  localServerPropertiesFilePath
 } from '../../../src/main/storage/core/support/storage-paths'
-import { localStorageAdapter } from '../../../src/main/storage/adapters/local-storage-adapter'
+import { createLocalStorageAdapter } from '../../../src/main/storage/adapters/local-storage-adapter'
+import type { StorageAdapter } from '../../../src/main/storage/adapters/storage-adapter.model'
+import { getSelectedWorldContext } from '../../../src/main/storage/core/world-context'
 import { readLocalState } from '../../../src/main/storage/persistence/local-state-store'
 import {
   TEST_WORLD_DATA,
@@ -49,7 +50,7 @@ import { integrationTestDataPath } from '../support/integration-test-storage'
 import {
   readCloudStorageSettings,
   writeCloudStorageSettings
-} from '../../../src/main/storage/persistence/cloud-storage-settings-store'
+} from '../../../src/main/storage/persistence/local-state-store'
 
 const INTEGRATION_WAIT_TIMEOUT_MS = 5_000
 
@@ -120,7 +121,7 @@ describe('world lifecycle', () => {
     await vi.waitFor(
       async () => {
         expect(getServerRuntimeSnapshot().status).toBe('running')
-        await expect(localStorageAdapter.readServerLock()).resolves.toMatchObject({
+        await expect((await getLocalStorageAdapter()).readServerLock()).resolves.toMatchObject({
           hostingStatus: ServerHostingStatus.Running,
           status: ServerLockStatus.Locked
         })
@@ -135,12 +136,12 @@ describe('world lifecycle', () => {
 
     expect(getMinecraftProcessMock().commands.slice(-2)).toEqual(['save-all flush\n', 'stop\n'])
     await expect(readPublishedWorldData()).resolves.toBe(TEST_WORLD_DATA)
-    await expect(localStorageAdapter.readLatestSave()).resolves.toMatchObject({
+    await expect((await getLocalStorageAdapter()).readLatestSave()).resolves.toMatchObject({
       minecraftVersion: TEST_MINECRAFT_VERSION,
       saveVersion: 1,
       serverName: TEST_WORLD_NAME
     })
-    await expect(localStorageAdapter.readServerLock()).resolves.toEqual({
+    await expect((await getLocalStorageAdapter()).readServerLock()).resolves.toEqual({
       status: ServerLockStatus.Unlocked
     })
     await expect(readLocalState()).resolves.toMatchObject({
@@ -152,13 +153,14 @@ describe('world lifecycle', () => {
   it('deletes a local world and keeps its server-folder backup', async () => {
     await createLocalTestWorld()
     await publishServerSave()
+    const worldPaths = (await getSelectedWorldContext()).paths
 
     const snapshot = await deleteConfiguredServer()
 
     expect(snapshot.localState.serverSetup.status).toBe('not-configured')
     expect(snapshot.latestSave).toBeNull()
     await expect(stat(localServerFolderPath)).rejects.toMatchObject({ code: 'ENOENT' })
-    await expect(stat(localStorageWorldFilePath)).rejects.toMatchObject({ code: 'ENOENT' })
+    await expect(stat(worldPaths.storageWorldFile)).rejects.toMatchObject({ code: 'ENOENT' })
     const backupFolderNames = await readdir(localServerBackupsFolderPath)
     expect(backupFolderNames).toHaveLength(1)
     await expect(
@@ -167,7 +169,7 @@ describe('world lifecycle', () => {
   })
 
   it('deletes an owned Google Drive world and resets its local configuration', async () => {
-    await createLocalTestWorld()
+    await createLocalTestWorld(GOOGLE_TEST_IDS.world)
     await configureOwnedGoogleDriveWorld()
 
     const snapshot = await deleteConfiguredServer()
@@ -188,8 +190,9 @@ describe('world lifecycle', () => {
 
 async function readPublishedWorldData(): Promise<string> {
   const extractedWorldPath = join(integrationTestDataPath, 'published-world')
+  const worldFilePath = (await getSelectedWorldContext()).paths.storageWorldFile
   await mkdir(extractedWorldPath, { recursive: true })
-  await extractZip(localStorageWorldFilePath, { dir: extractedWorldPath })
+  await extractZip(worldFilePath, { dir: extractedWorldPath })
 
   return readFile(join(extractedWorldPath, 'world', 'level.dat'), 'utf8')
 }
@@ -204,7 +207,6 @@ function configureOwnedGoogleDriveWorld(): Promise<void> {
       folder: {
         configuredAt: now,
         folderId: GOOGLE_TEST_IDS.folder,
-        folderName: TEST_WORLD_NAME,
         ownerAccountId: GOOGLE_TEST_ACCOUNTS.owner.session.player.id,
         validatedAt: now,
         worldFileIds: {
@@ -215,4 +217,8 @@ function configureOwnedGoogleDriveWorld(): Promise<void> {
       status: GoogleDriveSetupStatus.Valid
     }
   })
+}
+
+async function getLocalStorageAdapter(): Promise<StorageAdapter> {
+  return createLocalStorageAdapter(await getSelectedWorldContext())
 }
