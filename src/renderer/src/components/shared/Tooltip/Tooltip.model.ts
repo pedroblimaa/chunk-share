@@ -1,4 +1,4 @@
-export type TooltipPlacement = 'center' | 'left'
+export type TooltipPlacement = 'center' | 'left' | 'top'
 
 export interface TooltipProps {
   children: React.ReactNode
