@@ -57,7 +57,7 @@ function AppSidebar({
       </nav>
 
       <div className="dashboard-sidebar-footer">
-        <Tooltip content={addServerDisabled ? addServerTitle : undefined}>
+        <Tooltip content={addServerDisabled ? addServerTitle : undefined} placement="top">
           <Button
             variant="secondary"
             size="large"

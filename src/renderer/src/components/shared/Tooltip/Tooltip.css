@@ -63,6 +63,21 @@
   transform: translate(0, 6px) rotate(45deg);
 }
 
+.tooltip[data-placement='top']::before {
+  bottom: calc(100% + 10px);
+  right: 50%;
+  text-align: center;
+  top: auto;
+  transform: translate(50%, 6px);
+}
+
+.tooltip[data-placement='top']::after {
+  bottom: calc(100% + 6px);
+  right: 50%;
+  top: auto;
+  transform: translate(50%, 6px) rotate(225deg);
+}
+
 .tooltip[data-tooltip]:hover::before,
 .tooltip[data-tooltip]:hover::after,
 .tooltip[data-tooltip]:focus-within::before,
@@ -90,4 +105,14 @@
 .tooltip[data-placement='left']:hover::after,
 .tooltip[data-placement='left']:focus-within::after {
   transform: translate(0, 0) rotate(45deg);
+}
+
+.tooltip[data-placement='top']:hover::before,
+.tooltip[data-placement='top']:focus-within::before {
+  transform: translate(50%, 0);
+}
+
+.tooltip[data-placement='top']:hover::after,
+.tooltip[data-placement='top']:focus-within::after {
+  transform: translate(50%, 0) rotate(225deg);
 }
