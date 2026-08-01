@@ -46,12 +46,12 @@ const E2E_AUTH_TOKENS: GoogleAuthTokens = {
 export interface ElectronE2EPaths {
   localStateFile: string
   root: string
-  serverFolder: string
   userDataFolder: string
 }
 
 export interface ElectronE2EWorldPaths {
   controlFile: string
+  serverFolder: string
   worldFile: string
 }
 
@@ -98,7 +98,7 @@ export async function launchChunkShareE2EApp(
       driveMockUrl: options.driveMock?.url ?? null,
       ...identity
     })
-    await installMainProcessMocks(electronApp, paths)
+    await installMainProcessMocks(electronApp)
 
     if (authenticated) {
       await seedAuthTokensIfMissing(electronApp, identity.tokens)
@@ -124,7 +124,6 @@ export function createElectronE2EPaths(): ElectronE2EPaths {
   return {
     localStateFile: join(root, 'localState.json'),
     root,
-    serverFolder: join(root, '.server'),
     userDataFolder: join(root, 'user-data')
   }
 }
@@ -140,6 +139,7 @@ export async function readSelectedWorldE2EPaths(paths: ElectronE2EPaths): Promis
 
   return {
     controlFile: join(storageFolder, 'control.json'),
+    serverFolder: join(paths.root, '.servers', appState.selectedWorldId),
     worldFile: join(storageFolder, 'world.zip')
   }
 }
@@ -191,10 +191,7 @@ async function configureE2ESafeStorage(electronApp: ElectronApplication): Promis
   })
 }
 
-async function installMainProcessMocks(
-  electronApp: ElectronApplication,
-  paths: ElectronE2EPaths
-): Promise<void> {
+async function installMainProcessMocks(electronApp: ElectronApplication): Promise<void> {
   await electronApp.evaluate(
     async (_electronModule, fixture) => {
       const childProcess = process.getBuiltinModule('node:child_process')
@@ -249,7 +246,11 @@ async function installMainProcessMocks(
               const command = chunk.toString()
 
               if (command === 'save-all flush\n') {
-                const serverFolder = options.cwd ?? fixture.serverFolder
+                if (!options.cwd) {
+                  throw new Error('Expected Minecraft to start with a world-scoped working directory.')
+                }
+
+                const serverFolder = options.cwd
                 const worldFolder = path.join(serverFolder, 'world')
                 fileSystem.mkdirSync(worldFolder, { recursive: true })
                 fileSystem.writeFileSync(path.join(worldFolder, 'level.dat'), fixture.worldData, 'utf8')
@@ -291,7 +292,6 @@ async function installMainProcessMocks(
     },
     {
       minecraftVersion: E2E_MINECRAFT_VERSION,
-      serverFolder: paths.serverFolder,
       serverJarBase64: SERVER_JAR_CONTENT.toString('base64'),
       serverJarSha1: createHash('sha1').update(SERVER_JAR_CONTENT).digest('hex'),
       serverJarSize: SERVER_JAR_CONTENT.length,

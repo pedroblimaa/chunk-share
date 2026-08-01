@@ -1,4 +1,5 @@
 import type { ServerConnectionAddress, ServerStatus } from './domain'
+import type { WorldId } from './world'
 
 export type { ServerConnectionAddress } from './domain'
 
@@ -37,6 +38,7 @@ export interface ServerRuntimeResources {
 
 export interface ServerRuntimeSnapshot {
   status: ServerRuntimeStatus
+  runningWorldId: WorldId | null
   errorMessage: string | null
   connectionAddresses: ServerConnectionAddress[]
   players: ServerRuntimePlayers

@@ -3,12 +3,12 @@ import { mkdir, rm, stat } from 'fs/promises'
 import { basename, dirname, join } from 'path'
 import { ZipArchive } from 'archiver'
 import type { LatestSave, LocalState, Player } from '../../../shared/domain'
-import { getActiveStorageAdapter } from '../adapters/storage-adapter-service'
+import type { WorldId } from '../../../shared/world'
 import type { StorageAdapter } from '../adapters/storage-adapter.model'
 import { renameWithRetry } from '../core/support/file-system-utils'
-import { readLocalState, saveLocalSaveVersion } from '../persistence/local-state-store'
+import { readWorldLocalState, saveWorldLocalSaveVersion } from '../persistence/local-state-store'
 import { StorageError } from '../core/support/storage-error'
-import { localServerFolderPath } from '../core/support/storage-paths'
+import { getSelectedWorldOperationContext, type WorldOperationContext } from '../core/world-operation-context'
 
 const WORLD_FILE_NAME = 'world.zip'
 
@@ -17,19 +17,22 @@ export interface PublishServerSaveResult {
   cleanupError: Error | null
 }
 
-export async function publishServerSave(): Promise<PublishServerSaveResult> {
-  const storageAdapter = await getActiveStorageAdapter()
+export async function publishServerSave(
+  operationContext?: WorldOperationContext
+): Promise<PublishServerSaveResult> {
+  const resolvedContext = operationContext ?? (await getSelectedWorldOperationContext())
+  const { storageAdapter, worldId, paths } = resolvedContext
   const latestSave = await storageAdapter.readLatestSave()
   const nextSaveVersion = (latestSave?.saveVersion ?? 0) + 1
-  const localState = await readLocalState()
-  const serverFolderPath = localServerFolderPath
-  const zipFilePath = getTempServerSaveZipPath()
+  const localState = await readWorldLocalState(worldId)
+  const serverFolderPath = paths.serverFolder
+  const zipFilePath = getTempServerSaveZipPath(serverFolderPath)
 
   await assertServerFolderExists(serverFolderPath)
 
   try {
     await zipFolder(serverFolderPath, zipFilePath)
-    const result = await publishWorldUpdate(storageAdapter, zipFilePath, nextSaveVersion, localState)
+    const result = await publishWorldUpdate(storageAdapter, zipFilePath, nextSaveVersion, localState, worldId)
 
     return result
   } finally {
@@ -41,7 +44,8 @@ async function publishWorldUpdate(
   storageAdapter: StorageAdapter,
   zipFilePath: string,
   nextSaveVersion: number,
-  localState: LocalState
+  localState: LocalState,
+  worldId: WorldId
 ): Promise<PublishServerSaveResult> {
   const nextLatestSave = {
     saveVersion: nextSaveVersion,
@@ -57,7 +61,7 @@ async function publishWorldUpdate(
   try {
     cleanupError = await storageAdapter.uploadWorld(zipFilePath)
     await storageAdapter.writeLatestSave(nextLatestSave)
-    await saveLocalSaveVersion(nextLatestSave.saveVersion)
+    await saveWorldLocalSaveVersion(worldId, nextLatestSave.saveVersion)
   } catch (error) {
     await replacement.rollback()
     throw error
@@ -115,9 +119,9 @@ async function zipFolder(sourceFolderPath: string, destinationFilePath: string):
   }
 }
 
-function getTempServerSaveZipPath(): string {
+function getTempServerSaveZipPath(serverFolderPath: string): string {
   return join(
-    dirname(localServerFolderPath),
+    dirname(serverFolderPath),
     `${basename(WORLD_FILE_NAME, '.zip')}.${process.pid}.${Date.now()}.tmp.zip`
   )
 }

@@ -47,6 +47,12 @@ export async function readLocalState(): Promise<LocalState> {
   return toLocalState(appState.player, world)
 }
 
+export async function readWorldLocalState(worldId: WorldId): Promise<LocalState> {
+  const appState = await readAppState()
+
+  return toLocalState(appState.player, getWorld(appState, worldId))
+}
+
 export async function writeLocalState(localState: LocalState): Promise<void> {
   const appState = await readAppState()
   const world = getSelectedWorld(appState) ?? createDefaultLocalWorldState(randomUUID())
@@ -77,6 +83,24 @@ export async function createWorld(
   await writeAppState({
     ...appState,
     selectedWorldId: worldId,
+    worlds: [...appState.worlds, world]
+  })
+
+  return world
+}
+
+export async function readOrCreateSelectedWorld(): Promise<LocalWorldState> {
+  const appState = await readAppState()
+  const selectedWorld = getSelectedWorld(appState)
+
+  if (selectedWorld) {
+    return selectedWorld
+  }
+
+  const world = createDefaultLocalWorldState(randomUUID())
+  await writeAppState({
+    ...appState,
+    selectedWorldId: world.id,
     worlds: [...appState.worlds, world]
   })
 
@@ -129,8 +153,11 @@ export async function deleteWorld(worldId: WorldId): Promise<void> {
   })
 }
 
-export async function saveServerSetupState(serverSetup: ServerSetupState): Promise<LocalState> {
-  return saveSelectedWorldChanges({ serverSetup })
+export function saveWorldServerSetupState(
+  worldId: WorldId,
+  serverSetup: ServerSetupState
+): Promise<LocalState> {
+  return saveWorldChanges(worldId, { serverSetup })
 }
 
 export async function saveServerConfig(serverConfig: ServerConfig): Promise<LocalState> {
@@ -138,10 +165,12 @@ export async function saveServerConfig(serverConfig: ServerConfig): Promise<Loca
     throw new StorageError('Invalid server config payload.')
   }
 
+  // TODO(multiple-worlds/catalog-ui): Update server settings by explicit world ID.
   return saveSelectedWorldChanges({ serverConfig })
 }
 
-export async function saveServerSetupResult(
+export async function saveWorldServerSetupResult(
+  worldId: WorldId,
   serverConfig: ServerConfig,
   serverSetup: ServerSetupState
 ): Promise<LocalState> {
@@ -149,7 +178,7 @@ export async function saveServerSetupResult(
     throw new StorageError('Invalid server config payload.')
   }
 
-  return saveSelectedWorldChanges({
+  return saveWorldChanges(worldId, {
     activeSessionId: null,
     dirty: false,
     localSaveVersion: null,
@@ -158,7 +187,8 @@ export async function saveServerSetupResult(
   })
 }
 
-export async function saveRestoredServerSetupResult(
+export async function saveWorldRestoredServerSetupResult(
+  worldId: WorldId,
   serverConfig: ServerConfig,
   serverSetup: ServerSetupState
 ): Promise<LocalState> {
@@ -166,7 +196,7 @@ export async function saveRestoredServerSetupResult(
     throw new StorageError('Invalid server config payload.')
   }
 
-  return saveSelectedWorldChanges({
+  return saveWorldChanges(worldId, {
     activeSessionId: null,
     dirty: false,
     serverConfig,
@@ -175,11 +205,22 @@ export async function saveRestoredServerSetupResult(
 }
 
 export function saveLocalSaveVersion(localSaveVersion: number | null): Promise<LocalState> {
+  // TODO(multiple-worlds/provider-reconciliation): Pass the reconciled world ID explicitly.
   return saveSelectedWorldChanges({ localSaveVersion })
 }
 
-export function saveActiveSessionId(activeSessionId: string | null): Promise<LocalState> {
-  return saveSelectedWorldChanges({ activeSessionId })
+export function saveWorldLocalSaveVersion(
+  worldId: WorldId,
+  localSaveVersion: number | null
+): Promise<LocalState> {
+  return saveWorldChanges(worldId, { localSaveVersion })
+}
+
+export function saveWorldActiveSessionId(
+  worldId: WorldId,
+  activeSessionId: string | null
+): Promise<LocalState> {
+  return saveWorldChanges(worldId, { activeSessionId })
 }
 
 export async function savePlayer(player: Player): Promise<LocalState> {
@@ -268,6 +309,19 @@ async function saveSelectedWorldChanges(changes: WorldStateChanges): Promise<Loc
     worlds: appState.worlds.map((currentWorld) =>
       currentWorld.id === nextWorld.id ? nextWorld : currentWorld
     )
+  })
+
+  return toLocalState(appState.player, nextWorld)
+}
+
+async function saveWorldChanges(worldId: WorldId, changes: WorldStateChanges): Promise<LocalState> {
+  const appState = await readAppState()
+  const world = getWorld(appState, worldId)
+  const nextWorld = { ...world, ...changes }
+
+  await writeAppState({
+    ...appState,
+    worlds: appState.worlds.map((currentWorld) => (currentWorld.id === worldId ? nextWorld : currentWorld))
   })
 
   return toLocalState(appState.player, nextWorld)

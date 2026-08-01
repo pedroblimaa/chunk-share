@@ -5,22 +5,15 @@ import { StorageError } from './storage-error'
 
 const DATA_ROOT = resolve(process.env.CHUNK_SHARE_DATA_ROOT ?? process.cwd())
 const LOCAL_STORAGE_FOLDER_NAME = '.storage'
-// TODO(multiple-worlds/lifecycle): Remove after setup, runtime, save, restore, and backup use WorldContext paths.
-const SERVER_FOLDER_NAME = '.server'
 const SERVERS_FOLDER_NAME = '.servers'
 const SERVER_BACKUPS_FOLDER_NAME = '.backups'
 const LOCAL_STATE_FILE_NAME = 'localState.json'
 
 const localStorageFolderPath = join(DATA_ROOT, LOCAL_STORAGE_FOLDER_NAME)
-export const localServerFolderPath = join(DATA_ROOT, SERVER_FOLDER_NAME)
-export const localServerBackupsFolderPath = join(DATA_ROOT, SERVER_BACKUPS_FOLDER_NAME)
-export const localServerJarFilePath = join(localServerFolderPath, 'server.jar')
-export const localServerPropertiesFilePath = join(localServerFolderPath, 'server.properties')
-export const localServerEulaFilePath = join(localServerFolderPath, 'eula.txt')
 export const localStateFilePath = join(DATA_ROOT, LOCAL_STATE_FILE_NAME)
 const worldServersRootPath = join(DATA_ROOT, SERVERS_FOLDER_NAME)
 const worldStorageRootPath = localStorageFolderPath
-const worldBackupsRootPath = localServerBackupsFolderPath
+const worldBackupsRootPath = join(DATA_ROOT, SERVER_BACKUPS_FOLDER_NAME)
 
 export interface WorldPaths {
   serverFolder: string

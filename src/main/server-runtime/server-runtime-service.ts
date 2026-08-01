@@ -18,7 +18,10 @@ import { publishServerSave } from '../storage/server-save/server-save-publisher'
 import { restoreLatestServerSave } from '../storage/server-save/server-save-restorer'
 import { runExclusiveStorageOperation } from '../storage/core/operations/operation-coordinator'
 import { ExclusiveStorageOperation } from '../storage/core/operations/operation.model'
-import { localServerFolderPath, localServerJarFilePath } from '../storage/core/support/storage-paths'
+import {
+  getSelectedWorldOperationContext,
+  type WorldOperationContext
+} from '../storage/core/world-operation-context'
 import { startHeartbeat, stopHeartbeat } from './lifecycle/heartbeat-manager'
 import {
   clearHostingLockAfterCleanStop,
@@ -26,6 +29,7 @@ import {
   createHostingLock,
   markHostingLockRunning,
   markHostingLockStopping,
+  releaseActiveRuntimeSession,
   updateHostingLockSaveVersion
 } from './lifecycle/hosting-lock-manager'
 import { startPlayerPolling, stopPlayerPolling } from './lifecycle/player-poller'
@@ -50,6 +54,7 @@ const MOCK_RESOURCES: ServerRuntimeResources = {
 
 class ServerRuntime {
   private serverProcess: ChildProcessWithoutNullStreams | null = null
+  private runningWorld: WorldOperationContext | null = null
   private stopTimeout: NodeJS.Timeout | null = null
   private sessionId: string | null = null
   private lockActivation: Promise<void> | null = null
@@ -67,6 +72,7 @@ class ServerRuntime {
   getSnapshot(): ServerRuntimeSnapshot {
     return {
       status: this.status,
+      runningWorldId: this.runningWorld?.worldId ?? null,
       errorMessage: this.errorMessage,
       connectionAddresses: this.connectionAddresses,
       players: this.players,
@@ -82,7 +88,7 @@ class ServerRuntime {
   }
 
   async start(): Promise<ServerRuntimeSnapshot> {
-    if (this.serverProcess) {
+    if (this.serverProcess || this.runningWorld) {
       throw new ServerRuntimeError('Minecraft server is already running.')
     }
 
@@ -103,18 +109,22 @@ class ServerRuntime {
   }
 
   private async startServerSession(): Promise<ServerRuntimeSnapshot> {
+    const operationContext = await getSelectedWorldOperationContext()
+    this.runningWorld = operationContext
     this.beginServerStart()
 
     try {
-      return await this.startConfiguredServerSession()
+      return await this.startConfiguredServerSession(operationContext)
     } catch (error) {
-      this.handleStartSessionFailure(error)
+      await this.handleStartSessionFailure(operationContext, error)
       throw error
     }
   }
 
-  private async startConfiguredServerSession(): Promise<ServerRuntimeSnapshot> {
-    let storageSnapshot = await getServerSyncSnapshot()
+  private async startConfiguredServerSession(
+    operationContext: WorldOperationContext
+  ): Promise<ServerRuntimeSnapshot> {
+    let storageSnapshot = await getServerSyncSnapshot(operationContext)
     let { localState, serverSync } = storageSnapshot
 
     if (localState.serverSetup.status !== 'ready') {
@@ -124,22 +134,22 @@ class ServerRuntime {
     const restoredCloudSaveBeforeStart = serverSync.status === ServerSyncStatus.UpdateAvailable
 
     if (restoredCloudSaveBeforeStart) {
-      storageSnapshot = await this.restoreCloudSaveBeforeStart(storageSnapshot)
+      storageSnapshot = await this.restoreCloudSaveBeforeStart(operationContext, storageSnapshot)
       localState = storageSnapshot.localState
       serverSync = storageSnapshot.serverSync
     }
 
     this.assertServerSyncAllowsStart(serverSync)
 
-    const serverFolderPath = localServerFolderPath
+    const serverFolderPath = operationContext.paths.serverFolder
 
     await this.runStartPreparation(() => assertFolderExists(serverFolderPath))
-    await this.runStartPreparation(() => assertFileExists(localServerJarFilePath))
+    await this.runStartPreparation(() => assertFileExists(operationContext.paths.serverJarFile))
 
     const connectionAddresses = getConnectionAddresses(localState.serverConfig.port)
     const maxPlayers = await this.runStartPreparation(() => readMaxPlayers(serverFolderPath))
     const sessionId = await this.runStartPreparation(() =>
-      createHostingLock(storageSnapshot, connectionAddresses)
+      createHostingLock(operationContext, storageSnapshot, connectionAddresses)
     )
     this.sessionId = sessionId
 
@@ -154,7 +164,7 @@ class ServerRuntime {
     this.emitRuntimeEvent()
 
     if (serverSync.status === ServerSyncStatus.LocalNewer) {
-      storageSnapshot = await this.publishLocalNewerSaveBeforeStart(sessionId)
+      storageSnapshot = await this.publishLocalNewerSaveBeforeStart(operationContext, sessionId)
       serverSync = storageSnapshot.serverSync
       this.assertServerSyncAllowsStart(serverSync)
     }
@@ -166,7 +176,7 @@ class ServerRuntime {
       windowsHide: true
     })
 
-    this.attachServerProcessListeners(this.serverProcess, sessionId)
+    this.attachServerProcessListeners(this.serverProcess, operationContext, sessionId)
 
     return this.getSnapshot()
   }
@@ -183,13 +193,29 @@ class ServerRuntime {
     this.emitRuntimeEvent()
   }
 
-  private handleStartSessionFailure(error: unknown): void {
+  private async handleStartSessionFailure(
+    operationContext: WorldOperationContext,
+    error: unknown
+  ): Promise<void> {
+    const sessionId = this.sessionId
+
+    if (sessionId) {
+      await clearHostingLockAfterStartFailure(operationContext, sessionId).catch(() => undefined)
+      this.sessionId = null
+    }
+
+    this.releaseRunningWorld(operationContext, sessionId)
+
     if (this.status === 'starting') {
       this.finishWithError(getErrorMessage(error))
+      return
     }
+
+    this.emitRuntimeEvent()
   }
 
   private async restoreCloudSaveBeforeStart(
+    operationContext: WorldOperationContext,
     storageSnapshot: ServerStorageSnapshot
   ): Promise<ServerStorageSnapshot> {
     this.status = 'starting'
@@ -204,10 +230,10 @@ class ServerRuntime {
     this.addLogLine('ChunkShare', 'Updating local server from shared save before start.')
 
     try {
-      await restoreLatestServerSave(storageSnapshot)
+      await restoreLatestServerSave(operationContext, storageSnapshot)
       this.addLogLine('ChunkShare', 'Local server updated from shared save.', 'success')
 
-      return getServerSyncSnapshot()
+      return getServerSyncSnapshot(operationContext)
     } catch (error) {
       const message = getPreStartRestoreErrorMessage(error)
       this.finishWithError(message)
@@ -232,12 +258,13 @@ class ServerRuntime {
   }
 
   private async runLatestSharedSaveDownload(): Promise<ServerRuntimeSnapshot> {
+    const operationContext = await getSelectedWorldOperationContext()
     this.status = 'updating'
     this.errorMessage = null
     this.emitRuntimeEvent()
 
     try {
-      const storageSnapshot = await getServerSyncSnapshot()
+      const storageSnapshot = await getServerSyncSnapshot(operationContext)
 
       if (storageSnapshot.localState.serverSetup.status !== 'ready') {
         throw new ServerRuntimeError('Set up this shared server on this device before downloading it.')
@@ -248,7 +275,7 @@ class ServerRuntime {
       }
 
       this.addLogLine('ChunkShare', 'Downloading the latest shared save.')
-      await restoreLatestServerSave(storageSnapshot)
+      await restoreLatestServerSave(operationContext, storageSnapshot)
       this.status = 'stopped'
       this.addLogLine('ChunkShare', 'Local server updated from the shared save.', 'success')
 
@@ -262,12 +289,15 @@ class ServerRuntime {
     }
   }
 
-  private async publishLocalNewerSaveBeforeStart(sessionId: string): Promise<ServerStorageSnapshot> {
+  private async publishLocalNewerSaveBeforeStart(
+    operationContext: WorldOperationContext,
+    sessionId: string
+  ): Promise<ServerStorageSnapshot> {
     this.addLogLine('ChunkShare', 'Publishing newer local save before start.')
 
     try {
-      const publishResult = await publishServerSave()
-      await updateHostingLockSaveVersion(sessionId, publishResult.latestSave.saveVersion)
+      const publishResult = await publishServerSave(operationContext)
+      await updateHostingLockSaveVersion(operationContext, sessionId, publishResult.latestSave.saveVersion)
 
       this.addLogLine(
         'ChunkShare',
@@ -283,9 +313,9 @@ class ServerRuntime {
         )
       }
 
-      return getServerSyncSnapshot()
+      return getServerSyncSnapshot(operationContext)
     } catch (error) {
-      await clearHostingLockAfterStartFailure().catch(() => undefined)
+      await clearHostingLockAfterStartFailure(operationContext, sessionId).catch(() => undefined)
       this.sessionId = null
 
       const message = getPreStartPublishErrorMessage(error)
@@ -352,6 +382,7 @@ class ServerRuntime {
 
   private attachServerProcessListeners(
     minecraftProcess: ChildProcessWithoutNullStreams,
+    operationContext: WorldOperationContext,
     sessionId: string
   ): void {
     minecraftProcess.stdout.on('data', (chunk: Buffer) => {
@@ -375,18 +406,21 @@ class ServerRuntime {
     })
 
     minecraftProcess.once('error', (error) => {
-      void this.handleServerProcessError(error)
+      void this.handleServerProcessError(operationContext, sessionId, error)
     })
 
     minecraftProcess.once('close', (exitCode) => {
-      void this.handleServerProcessClose(exitCode)
+      void this.handleServerProcessClose(operationContext, sessionId, exitCode)
     })
   }
 
-  private async handleServerProcessError(error: Error): Promise<void> {
+  private async handleServerProcessError(
+    operationContext: WorldOperationContext,
+    sessionId: string,
+    error: Error
+  ): Promise<void> {
+    const failedDuringStart = this.status === 'starting'
     const message = getProcessStartErrorMessage(error)
-    this.serverProcess = null
-    this.sessionId = null
     this.userRequestedStop = false
     this.status = 'error'
     this.errorMessage = message
@@ -394,10 +428,20 @@ class ServerRuntime {
     this.addLogLine('ChunkShare', message, 'error')
     await this.waitForLockActivation()
     await stopHeartbeat()
-    await clearHostingLockAfterStartFailure().catch(() => undefined)
+    if (failedDuringStart) {
+      await clearHostingLockAfterStartFailure(operationContext, sessionId).catch(() => undefined)
+    }
+
+    if (this.runningWorld === operationContext && this.sessionId === sessionId) {
+      this.sessionId = null
+    }
   }
 
-  private async handleServerProcessClose(exitCode: number | null): Promise<void> {
+  private async handleServerProcessClose(
+    operationContext: WorldOperationContext,
+    sessionId: string,
+    exitCode: number | null
+  ): Promise<void> {
     this.clearStopTimeout()
     stopPlayerPolling()
     await this.waitForLockActivation()
@@ -406,39 +450,50 @@ class ServerRuntime {
 
     if (this.status === 'error') {
       this.serverProcess = null
-      this.sessionId = null
+      if (this.sessionId === sessionId) {
+        this.sessionId = null
+      }
       this.userRequestedStop = false
+      this.releaseRunningWorld(operationContext, sessionId)
       this.emitRuntimeEvent()
       return
     }
 
     this.serverProcess = null
-    this.sessionId = null
     this.players = { ...this.players, online: 0 }
 
     if (this.userRequestedStop && exitCode === 0) {
-      await this.publishSaveAfterCleanStop()
+      await this.publishSaveAfterCleanStop(operationContext, sessionId)
       return
     }
 
+    if (this.sessionId === sessionId) {
+      this.sessionId = null
+    }
     this.userRequestedStop = false
-    this.status = exitCode === 0 ? 'stopped' : 'crashed'
-    this.errorMessage =
-      this.status === 'stopped' ? null : `Minecraft server exited with code ${exitCode ?? 'unknown'}.`
+    this.status = 'crashed'
+    this.errorMessage = `Minecraft server exited unexpectedly with code ${exitCode ?? 'unknown'}.`
+    this.releaseRunningWorld(operationContext, sessionId)
 
     this.emitRuntimeEvent()
   }
 
-  private async publishSaveAfterCleanStop(): Promise<void> {
+  private async publishSaveAfterCleanStop(
+    operationContext: WorldOperationContext,
+    sessionId: string
+  ): Promise<void> {
     this.addLogLine('ChunkShare', 'Publishing server save.')
 
     try {
-      const publishResult = await publishServerSave()
-      await clearHostingLockAfterCleanStop()
-      this.sessionId = null
+      const publishResult = await publishServerSave(operationContext)
+      await clearHostingLockAfterCleanStop(operationContext, sessionId)
+      if (this.sessionId === sessionId) {
+        this.sessionId = null
+      }
       this.userRequestedStop = false
       this.status = 'stopped'
       this.errorMessage = null
+      this.releaseRunningWorld(operationContext, sessionId)
       this.addLogLine(
         'ChunkShare',
         `Server save v${publishResult.latestSave.saveVersion} published.`,
@@ -458,6 +513,7 @@ class ServerRuntime {
       this.emitRuntimeEvent()
     } catch (error) {
       this.userRequestedStop = false
+      this.releaseRunningWorld(operationContext, sessionId)
       this.finishWithError(getStopCompletionErrorMessage(error))
     }
   }
@@ -566,8 +622,14 @@ class ServerRuntime {
       return
     }
 
+    const operationContext = this.runningWorld
+
+    if (!operationContext) {
+      return
+    }
+
     try {
-      await markHostingLockRunning(sessionId)
+      await markHostingLockRunning(operationContext, sessionId)
     } catch (error: unknown) {
       this.addLogLine(
         'ChunkShare',
@@ -583,18 +645,19 @@ class ServerRuntime {
 
     startHeartbeat({
       sessionId,
+      storageAdapter: operationContext.storageAdapter,
       getStatus: () => this.status,
       addLogLine: (logSource, message, logTone) => this.addLogLine(logSource, message, logTone)
     })
   }
 
   private async markHostingLockStopping(): Promise<void> {
-    if (!this.sessionId) {
+    if (!this.sessionId || !this.runningWorld) {
       return
     }
 
     try {
-      await markHostingLockStopping(this.sessionId)
+      await markHostingLockStopping(this.runningWorld, this.sessionId)
     } catch (error: unknown) {
       this.addLogLine(
         'ChunkShare',
@@ -666,6 +729,16 @@ class ServerRuntime {
 
     clearTimeout(this.stopTimeout)
     this.stopTimeout = null
+  }
+
+  private releaseRunningWorld(operationContext: WorldOperationContext, sessionId: string | null): void {
+    if (sessionId) {
+      releaseActiveRuntimeSession(operationContext.worldId, sessionId)
+    }
+
+    if (this.runningWorld === operationContext) {
+      this.runningWorld = null
+    }
   }
 }
 

@@ -2,14 +2,18 @@ import extractZip from 'extract-zip'
 import { mkdir, rm, stat } from 'fs/promises'
 import { basename, dirname, join } from 'path'
 import type { ServerStorageSnapshot } from '../../../shared/domain'
-import { getActiveStorageAdapter } from '../adapters/storage-adapter-service'
 import { renameWithRetry } from '../core/support/file-system-utils'
-import { saveLocalSaveVersion } from '../persistence/local-state-store'
+import { saveWorldLocalSaveVersion } from '../persistence/local-state-store'
 import { StorageError } from '../core/support/storage-error'
-import { localServerBackupsFolderPath, localServerFolderPath } from '../core/support/storage-paths'
+import type { WorldOperationContext } from '../core/world-operation-context'
 
-export async function restoreLatestServerSave(storageSnapshot: ServerStorageSnapshot): Promise<void> {
+export async function restoreLatestServerSave(
+  operationContext: WorldOperationContext,
+  storageSnapshot: ServerStorageSnapshot
+): Promise<void> {
   const { latestSave, localState } = storageSnapshot
+  const { storageAdapter, worldId, paths } = operationContext
+  const { serverFolder, backupsFolder } = paths
 
   if (!latestSave) {
     throw new StorageError('Cannot restore server save because no shared save exists.')
@@ -19,30 +23,29 @@ export async function restoreLatestServerSave(storageSnapshot: ServerStorageSnap
     throw new StorageError('Cannot update from cloud while the local server has unpublished changes.')
   }
 
-  const zipFilePath = getTempZipFilePath(latestSave.saveVersion)
-  const tempExtractFolderPath = getTempExtractFolderPath(latestSave.saveVersion)
+  const zipFilePath = getTempZipFilePath(serverFolder, latestSave.saveVersion)
+  const tempExtractFolderPath = getTempExtractFolderPath(serverFolder, latestSave.saveVersion)
   let backupFolderPath: string | null = null
   let restoredServerWasInstalled = false
 
   try {
     await cleanupTemporaryRestorePaths(zipFilePath, tempExtractFolderPath)
 
-    const storageAdapter = await getActiveStorageAdapter()
     await storageAdapter.downloadWorld(zipFilePath)
     await assertZipFileExists(zipFilePath)
     await mkdir(tempExtractFolderPath, { recursive: true })
     await extractZip(zipFilePath, { dir: tempExtractFolderPath })
 
-    if (await folderExists(localServerFolderPath)) {
-      backupFolderPath = await moveCurrentServerToBackup(latestSave.saveVersion)
+    if (await folderExists(serverFolder)) {
+      backupFolderPath = await moveCurrentServerToBackup(serverFolder, backupsFolder, latestSave.saveVersion)
     }
 
-    await renameWithRetry(tempExtractFolderPath, localServerFolderPath)
+    await renameWithRetry(tempExtractFolderPath, serverFolder)
     restoredServerWasInstalled = true
-    await saveLocalSaveVersion(latestSave.saveVersion)
+    await saveWorldLocalSaveVersion(worldId, latestSave.saveVersion)
   } catch (error) {
     try {
-      await rollbackFailedRestore(backupFolderPath, restoredServerWasInstalled)
+      await rollbackFailedRestore(serverFolder, backupFolderPath, restoredServerWasInstalled)
     } catch (rollbackError) {
       throw new StorageError(
         `Server save restore failed: ${getErrorMessage(error)} The previous local server could not be recovered: ${getErrorMessage(rollbackError)}`
@@ -56,15 +59,16 @@ export async function restoreLatestServerSave(storageSnapshot: ServerStorageSnap
 }
 
 async function rollbackFailedRestore(
+  serverFolderPath: string,
   backupFolderPath: string | null,
   restoredServerWasInstalled: boolean
 ): Promise<void> {
   if (restoredServerWasInstalled) {
-    await rm(localServerFolderPath, { recursive: true, force: true })
+    await rm(serverFolderPath, { recursive: true, force: true })
   }
 
-  if (backupFolderPath && !(await folderExists(localServerFolderPath))) {
-    await renameWithRetry(backupFolderPath, localServerFolderPath)
+  if (backupFolderPath && !(await folderExists(serverFolderPath))) {
+    await renameWithRetry(backupFolderPath, serverFolderPath)
   }
 }
 
@@ -78,27 +82,31 @@ async function cleanupTemporaryRestorePaths(
   ])
 }
 
-async function moveCurrentServerToBackup(saveVersion: number): Promise<string> {
-  await mkdir(localServerBackupsFolderPath, { recursive: true })
-  const backupServerName = `${basename(localServerFolderPath)}-before-v${saveVersion.toString().padStart(3, '0')}-${Date.now()}`
-  const backupFolderPath = join(localServerBackupsFolderPath, backupServerName)
+async function moveCurrentServerToBackup(
+  serverFolderPath: string,
+  backupsFolderPath: string,
+  saveVersion: number
+): Promise<string> {
+  await mkdir(backupsFolderPath, { recursive: true })
+  const backupServerName = `${basename(serverFolderPath)}-before-v${saveVersion.toString().padStart(3, '0')}-${Date.now()}`
+  const backupFolderPath = join(backupsFolderPath, backupServerName)
 
-  await renameWithRetry(localServerFolderPath, backupFolderPath)
+  await renameWithRetry(serverFolderPath, backupFolderPath)
 
   return backupFolderPath
 }
 
-function getTempExtractFolderPath(saveVersion: number): string {
+function getTempExtractFolderPath(serverFolderPath: string, saveVersion: number): string {
   return join(
-    dirname(localServerFolderPath),
-    `${basename(localServerFolderPath)}.extract-v${saveVersion.toString().padStart(3, '0')}.${process.pid}.tmp`
+    dirname(serverFolderPath),
+    `${basename(serverFolderPath)}.extract-v${saveVersion.toString().padStart(3, '0')}.${process.pid}.tmp`
   )
 }
 
-function getTempZipFilePath(saveVersion: number): string {
+function getTempZipFilePath(serverFolderPath: string, saveVersion: number): string {
   return join(
-    dirname(localServerFolderPath),
-    `${basename(localServerFolderPath)}.download-v${saveVersion.toString().padStart(3, '0')}.${process.pid}.tmp.zip`
+    dirname(serverFolderPath),
+    `${basename(serverFolderPath)}.download-v${saveVersion.toString().padStart(3, '0')}.${process.pid}.tmp.zip`
   )
 }
 

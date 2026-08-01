@@ -1,18 +1,21 @@
 import { mkdir, stat } from 'fs/promises'
 import { join } from 'path'
 import { renameWithRetry } from '../core/support/file-system-utils'
-import { localServerBackupsFolderPath } from '../core/support/storage-paths'
 
-export async function backupServerFolder(serverFolderPath: string, serverName: string): Promise<void> {
+export async function backupServerFolder(
+  serverFolderPath: string,
+  backupsFolderPath: string,
+  serverName: string
+): Promise<void> {
   if (!(await folderExists(serverFolderPath))) {
     return
   }
 
-  await mkdir(localServerBackupsFolderPath, { recursive: true })
+  await mkdir(backupsFolderPath, { recursive: true })
 
   await renameWithRetry(
     serverFolderPath,
-    join(localServerBackupsFolderPath, `${createBackupNameSlug(serverName)}-${createBackupTimestamp()}`)
+    join(backupsFolderPath, `${createBackupNameSlug(serverName)}-${createBackupTimestamp()}`)
   )
 }
 

@@ -19,6 +19,7 @@ import {
   E2E_WORLD_DATA,
   createElectronE2EPaths,
   launchChunkShareE2EApp,
+  readSelectedWorldE2EPaths,
   type ChunkShareE2EApp,
   type ElectronE2EPaths
 } from '../support/electron-test-app'
@@ -449,11 +450,15 @@ function readDriveControl(driveMock: GoogleDriveE2EMock): StorageControl {
 }
 
 async function expectJoinedWorldFiles(paths: ElectronE2EPaths): Promise<void> {
-  await expect(readFile(join(paths.serverFolder, 'server.jar'), 'utf8')).resolves.toBe(
+  const worldPaths = await readSelectedWorldE2EPaths(paths)
+
+  await expect(readFile(join(worldPaths.serverFolder, 'server.jar'), 'utf8')).resolves.toBe(
     'chunkshare-e2e-server'
   )
-  await expect(readFile(join(paths.serverFolder, 'world', 'level.dat'), 'utf8')).resolves.toBe(E2E_WORLD_DATA)
-  await expect(readFile(join(paths.serverFolder, 'eula.txt'), 'utf8')).resolves.toContain('eula=true')
+  await expect(readFile(join(worldPaths.serverFolder, 'world', 'level.dat'), 'utf8')).resolves.toBe(
+    E2E_WORLD_DATA
+  )
+  await expect(readFile(join(worldPaths.serverFolder, 'eula.txt'), 'utf8')).resolves.toContain('eula=true')
 
   const localState: unknown = JSON.parse(await readFile(paths.localStateFile, 'utf8'))
   expect(localState).toMatchObject({

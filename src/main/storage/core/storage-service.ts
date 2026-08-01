@@ -1,6 +1,5 @@
 import { CloudStorageProvider, GoogleDriveSetupStatus } from '../../../shared/cloud-storage.model'
 import { ServerLockStatus, type ServerConfig, type ServerStorageSnapshot } from '../../../shared/domain'
-import { isServerActiveStatus } from '../../../shared/server-runtime'
 import { getServerRuntimeSnapshot } from '../../server-runtime/server-runtime-service'
 import { getServerSyncSnapshot } from '../../server-sync/server-sync-service'
 import { deleteGoogleDriveWorldFilesIfOwned } from '../adapters/google-drive-storage-adapter'
@@ -9,8 +8,9 @@ import { getActiveStorageAdapter, getStorageAdapterForProvider } from '../adapte
 import { deleteWorld, readAppState, saveServerConfig, writeAppState } from '../persistence/local-state-store'
 import { backupServerFolder } from '../server-save/server-folder-backup'
 import { StorageError } from './support/storage-error'
-import { localServerFolderPath } from './support/storage-paths'
 import { createWorldContext, type WorldContext } from './world-context'
+import { runExclusiveStorageOperation } from './operations/operation-coordinator'
+import { ExclusiveStorageOperation } from './operations/operation.model'
 
 export async function getStorageSnapshot(): Promise<ServerStorageSnapshot> {
   return getServerSyncSnapshot()
@@ -30,7 +30,15 @@ export async function resetServerLock(): Promise<ServerStorageSnapshot> {
   return getStorageSnapshot()
 }
 
-export async function deleteConfiguredServer(): Promise<ServerStorageSnapshot> {
+export function deleteConfiguredServer(): Promise<ServerStorageSnapshot> {
+  return runExclusiveStorageOperation(
+    ExclusiveStorageOperation.ServerDelete,
+    new StorageError('Cannot remove this server while another storage operation is in progress.'),
+    runConfiguredServerDeletion
+  )
+}
+
+async function runConfiguredServerDeletion(): Promise<ServerStorageSnapshot> {
   const appState = await readAppState()
   const world = appState.worlds.find(({ id }) => id === appState.selectedWorldId)
 
@@ -51,7 +59,7 @@ export async function deleteConfiguredServer(): Promise<ServerStorageSnapshot> {
     context
   )
 
-  await backupServerFolder(localServerFolderPath, world.serverConfig.name)
+  await backupServerFolder(context.paths.serverFolder, context.paths.backupsFolder, world.serverConfig.name)
   await removeStoredServer(appState.activeProvider, deletesGoogleDriveWorld, context)
   await deleteWorld(context.worldId)
 
@@ -63,7 +71,7 @@ async function assertServerCanBeRemoved(
   requiresUnlockedStorage: boolean,
   context: WorldContext
 ): Promise<void> {
-  if (isServerActiveStatus(getServerRuntimeSnapshot().status)) {
+  if (getServerRuntimeSnapshot().runningWorldId === context.worldId) {
     throw new StorageError('Cannot remove this server while it is running.')
   }
 

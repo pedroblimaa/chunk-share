@@ -6,7 +6,7 @@ This is an Electron Vite application using React and TypeScript. Main-process co
 
 The persisted app and world catalog is modeled in `src/shared/world.ts` and stored in `localState.json`. World-bound main-process operations use `WorldContext` from `src/main/storage/core/world-context.ts`; world path construction belongs in `src/main/storage/core/support/storage-paths.ts`.
 
-World-scoped paths map server installations to `.servers/<worldId>`, local provider data to `.storage/<worldId>`, and backups to `.backups/<worldId>`. Local provider data already uses this layout. Server setup, runtime, save/restore, and backup flows still use the legacy `.server` and shared `.backups` paths until the lifecycle migration is complete; do not extend their use. Use `WorldContext` or `getWorldPaths` instead of assembling world paths directly.
+World-scoped paths map server installations to `.servers/<worldId>`, local provider data to `.storage/<worldId>`, and backups to `.backups/<worldId>`. Server setup, runtime, save/restore, and backup flows use this layout. Use `WorldContext` or `getWorldPaths` instead of assembling world paths directly.
 
 Renderer components are grouped by feature under `src/renderer/src/views` and shared UI under `src/renderer/src/components/shared`. Global styles and design tokens are in `src/renderer/src/assets`; component styles are colocated with their components. Packaging assets are split between `build` and `resources`.
 
@@ -20,7 +20,7 @@ Core flow: check if someone is hosting, download the latest world version, start
 
 `AppState` owns global facts such as the signed-in player, selected world ID, active storage provider, and Google Drive setup status. Each `LocalWorldState` owns that world's server configuration, setup state, local save version, session data, and Drive association. The app may contain multiple worlds, but only one local Minecraft process may run at a time.
 
-The selected world is mutable UI state. Long-running, runtime, storage, and destructive operations must capture a world ID or `WorldContext` when they begin and keep using it across every `await`. Never re-resolve the selected world to finish an existing operation. Delete and update worlds by explicit ID so changing selection cannot redirect work to another world.
+The selected world is mutable UI state. Long-running, runtime, storage, and destructive operations must capture a world ID or `WorldContext` when they begin and keep using it across every `await`. Never re-resolve the selected world to finish an existing operation. Runtime and lifecycle flows capture a `WorldOperationContext`, which binds the world and storage adapter together. Delete and update worlds by explicit ID so changing selection cannot redirect work to another world.
 
 Storage provider selection is global, not per world. Switching providers reconciles the visible catalog: installed-only worlds remain visible as local-only, provider-only worlds remain available to download, worlds present in both follow the normal latest-version flow, and worlds present in neither are omitted.
 

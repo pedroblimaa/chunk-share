@@ -5,6 +5,8 @@ import { Readable } from 'stream'
 import { pipeline } from 'stream/promises'
 import type { ReadableStream as NodeReadableStream } from 'stream/web'
 import type { LocalState, ServerConfig } from '../../shared/domain'
+import type { WorldId } from '../../shared/world'
+import { getServerRuntimeSnapshot } from '../server-runtime/server-runtime-service'
 import {
   ServerSetupProgressStep as Step,
   type DownloadSharedServerInput,
@@ -12,26 +14,23 @@ import {
   type SetupVanillaServerInput
 } from '../../shared/server-setup'
 import {
-  saveRestoredServerSetupResult,
-  saveServerSetupResult,
-  saveServerSetupState
+  saveWorldRestoredServerSetupResult,
+  saveWorldServerSetupResult,
+  saveWorldServerSetupState
 } from '../storage/persistence/local-state-store'
-import {
-  localServerEulaFilePath,
-  localServerFolderPath,
-  localServerJarFilePath,
-  localServerPropertiesFilePath
-} from '../storage/core/support/storage-paths'
-import { getActiveStorageAdapter } from '../storage/adapters/storage-adapter-service'
 import { getServerSyncSnapshot } from '../server-sync/server-sync-service'
 import { runExclusiveStorageOperation } from '../storage/core/operations/operation-coordinator'
 import { ExclusiveStorageOperation } from '../storage/core/operations/operation.model'
 import { backupServerFolder } from '../storage/server-save/server-folder-backup'
 import { restoreLatestServerSave } from '../storage/server-save/server-save-restorer'
+import {
+  getOrCreateSelectedWorldOperationContext,
+  getSelectedWorldOperationContext,
+  type WorldOperationContext
+} from '../storage/core/world-operation-context'
 import { ServerSetupError } from './server-setup-error'
 import { resolveVanillaServerDownload } from './vanilla-version-resolver'
 
-const SERVER_JAR_TEMP_FILE_PATH = `${localServerJarFilePath}.tmp`
 const DEFAULT_LEVEL_NAME = 'world'
 const DEFAULT_MOTD = 'ChunkShare Minecraft Server'
 const DEFAULT_SERVER_PORT = 25565
@@ -43,18 +42,32 @@ export async function setupVanillaServer(
 ): Promise<LocalState> {
   validateSetupInput(input)
 
-  await markSetupDownloading()
+  return runExclusiveStorageOperation(
+    ExclusiveStorageOperation.ServerSetup,
+    new ServerSetupError('Cannot set up a server while another storage operation is in progress.'),
+    async () => runVanillaServerSetup(input, onProgress)
+  )
+}
+
+async function runVanillaServerSetup(
+  input: SetupVanillaServerInput,
+  onProgress?: ServerSetupProgressListener
+): Promise<LocalState> {
+  assertNoWorldIsRunning()
+  const operationContext = await getOrCreateSelectedWorldOperationContext()
+
+  await markSetupDownloading(operationContext.worldId)
 
   try {
-    const serverConfig = await prepareVanillaServer(input, onProgress)
-    const localState = await markSetupReady(serverConfig)
+    const serverConfig = await prepareVanillaServer(operationContext, input, onProgress)
+    const localState = await markSetupReady(operationContext.worldId, serverConfig)
     onProgress?.({ step: Step.Ready })
 
     return localState
   } catch (error) {
-    await removeTempServerJar()
+    await removeTempServerJar(operationContext.paths.serverJarFile)
     const errorMessage = getErrorMessage(error)
-    await markSetupError(errorMessage)
+    await markSetupError(operationContext.worldId, errorMessage)
     throw error
   }
 }
@@ -67,15 +80,18 @@ export async function downloadSharedServer(input: DownloadSharedServerInput): Pr
   return runExclusiveStorageOperation(
     ExclusiveStorageOperation.ServerDownload,
     new ServerSetupError('Cannot download a shared server while another storage operation is in progress.'),
-    () => runSharedServerDownload()
+    async () => {
+      assertNoWorldIsRunning()
+      return runSharedServerDownload(await getSelectedWorldOperationContext())
+    }
   )
 }
 
-async function runSharedServerDownload(): Promise<LocalState> {
-  await markSetupDownloading()
+async function runSharedServerDownload(operationContext: WorldOperationContext): Promise<LocalState> {
+  await markSetupDownloading(operationContext.worldId)
 
   try {
-    const storageSnapshot = await getServerSyncSnapshot()
+    const storageSnapshot = await getServerSyncSnapshot(operationContext)
     const latestSave = storageSnapshot.latestSave
 
     if (!latestSave) {
@@ -86,16 +102,17 @@ async function runSharedServerDownload(): Promise<LocalState> {
       throw new ServerSetupError('Only shared Vanilla servers can be downloaded in this version.')
     }
 
-    await restoreLatestServerSave(storageSnapshot)
-    await assertRestoredServerJarExists()
-    await writeAcceptedEula()
+    await restoreLatestServerSave(operationContext, storageSnapshot)
+    await assertRestoredServerJarExists(operationContext.paths.serverJarFile)
+    await writeAcceptedEula(operationContext.paths.serverEulaFile)
 
-    return saveRestoredServerSetupResult(
+    return saveWorldRestoredServerSetupResult(
+      operationContext.worldId,
       {
         name: latestSave.serverName ?? 'Shared Minecraft Server',
         serverType: latestSave.serverType,
         minecraftVersion: latestSave.minecraftVersion,
-        port: await readServerPort()
+        port: await readServerPort(operationContext.paths.serverPropertiesFile)
       },
       {
         status: 'ready',
@@ -104,22 +121,24 @@ async function runSharedServerDownload(): Promise<LocalState> {
       }
     )
   } catch (error) {
-    await markSetupError(getErrorMessage(error))
+    await markSetupError(operationContext.worldId, getErrorMessage(error))
     throw error
   }
 }
 
 async function prepareVanillaServer(
+  operationContext: WorldOperationContext,
   input: SetupVanillaServerInput,
   onProgress?: ServerSetupProgressListener
 ): Promise<ServerConfig> {
   onProgress?.({ step: Step.CreatingFolder })
-  const storageAdapter = await getActiveStorageAdapter()
+  const { storageAdapter, paths } = operationContext
+  const serverJarTempFilePath = getServerJarTempFilePath(paths.serverJarFile)
 
-  await backupServerFolder(localServerFolderPath, input.name)
+  await backupServerFolder(paths.serverFolder, paths.backupsFolder, input.name)
   await storageAdapter.resetServerSaves()
   await storageAdapter.resetServerLock()
-  await mkdir(localServerFolderPath, { recursive: true })
+  await mkdir(paths.serverFolder, { recursive: true })
 
   onProgress?.({ step: Step.ResolvingVersion })
   const serverDownload = await resolveVanillaServerDownload(
@@ -128,17 +147,17 @@ async function prepareVanillaServer(
   )
 
   onProgress?.({ step: Step.DownloadingJar })
-  await downloadServerJar(serverDownload.serverJarUrl)
+  await downloadServerJar(serverDownload.serverJarUrl, serverJarTempFilePath)
 
   onProgress?.({ step: Step.VerifyingJar })
-  await verifyServerJar(serverDownload.size, serverDownload.sha1)
-  await rename(SERVER_JAR_TEMP_FILE_PATH, localServerJarFilePath)
+  await verifyServerJar(serverJarTempFilePath, serverDownload.size, serverDownload.sha1)
+  await rename(serverJarTempFilePath, paths.serverJarFile)
 
   onProgress?.({ step: Step.WritingProperties })
-  await writeServerProperties(input)
+  await writeServerProperties(paths.serverPropertiesFile, input)
 
   onProgress?.({ step: Step.WritingEula })
-  await writeAcceptedEula()
+  await writeAcceptedEula(paths.serverEulaFile)
 
   return {
     name: input.name.trim(),
@@ -170,7 +189,13 @@ function validateSetupInput(input: SetupVanillaServerInput): void {
   }
 }
 
-async function downloadServerJar(serverJarUrl: string): Promise<void> {
+function assertNoWorldIsRunning(): void {
+  if (getServerRuntimeSnapshot().runningWorldId) {
+    throw new ServerSetupError('Stop the running Minecraft server before changing server setup.')
+  }
+}
+
+async function downloadServerJar(serverJarUrl: string, serverJarTempFilePath: string): Promise<void> {
   let response: Response
 
   try {
@@ -189,12 +214,16 @@ async function downloadServerJar(serverJarUrl: string): Promise<void> {
 
   await pipeline(
     Readable.fromWeb(response.body as NodeReadableStream),
-    createWriteStream(SERVER_JAR_TEMP_FILE_PATH)
+    createWriteStream(serverJarTempFilePath)
   )
 }
 
-async function verifyServerJar(expectedSize: number, expectedSha1: string): Promise<void> {
-  const fileStats = await stat(SERVER_JAR_TEMP_FILE_PATH)
+async function verifyServerJar(
+  serverJarTempFilePath: string,
+  expectedSize: number,
+  expectedSha1: string
+): Promise<void> {
+  const fileStats = await stat(serverJarTempFilePath)
 
   if (fileStats.size !== expectedSize) {
     throw new ServerSetupError(
@@ -202,7 +231,7 @@ async function verifyServerJar(expectedSize: number, expectedSha1: string): Prom
     )
   }
 
-  const serverJar = await readFile(SERVER_JAR_TEMP_FILE_PATH)
+  const serverJar = await readFile(serverJarTempFilePath)
   const actualSha1 = createHash('sha1').update(serverJar).digest('hex')
 
   if (actualSha1 !== expectedSha1) {
@@ -210,7 +239,10 @@ async function verifyServerJar(expectedSize: number, expectedSha1: string): Prom
   }
 }
 
-async function writeServerProperties(input: SetupVanillaServerInput): Promise<void> {
+async function writeServerProperties(
+  serverPropertiesFilePath: string,
+  input: SetupVanillaServerInput
+): Promise<void> {
   const properties = [
     '# Generated by ChunkShare.',
     `server-port=${input.port}`,
@@ -221,11 +253,11 @@ async function writeServerProperties(input: SetupVanillaServerInput): Promise<vo
     'spawn-protection=16'
   ].join('\n')
 
-  await writeFile(localServerPropertiesFilePath, `${properties}\n`, 'utf-8')
+  await writeFile(serverPropertiesFilePath, `${properties}\n`, 'utf-8')
 }
 
-async function assertRestoredServerJarExists(): Promise<void> {
-  const serverJarStats = await stat(localServerJarFilePath).catch(() => {
+async function assertRestoredServerJarExists(serverJarFilePath: string): Promise<void> {
+  const serverJarStats = await stat(serverJarFilePath).catch(() => {
     throw new ServerSetupError('The shared server save does not contain server.jar.')
   })
 
@@ -234,51 +266,55 @@ async function assertRestoredServerJarExists(): Promise<void> {
   }
 }
 
-async function readServerPort(): Promise<number> {
-  const properties = await readFile(localServerPropertiesFilePath, 'utf8')
+async function readServerPort(serverPropertiesFilePath: string): Promise<number> {
+  const properties = await readFile(serverPropertiesFilePath, 'utf8')
   const port = Number(properties.match(/^server-port=(\d+)$/m)?.[1] ?? DEFAULT_SERVER_PORT)
 
   return Number.isSafeInteger(port) && port >= 1 && port <= 65535 ? port : DEFAULT_SERVER_PORT
 }
 
-async function writeAcceptedEula(): Promise<void> {
+async function writeAcceptedEula(serverEulaFilePath: string): Promise<void> {
   const eula = ['# Accepted through ChunkShare setup wizard.', 'eula=true'].join('\n')
 
-  await writeFile(localServerEulaFilePath, `${eula}\n`, 'utf-8')
+  await writeFile(serverEulaFilePath, `${eula}\n`, 'utf-8')
 }
 
-function markSetupDownloading(): Promise<LocalState> {
-  return saveServerSetupState({
+function markSetupDownloading(worldId: WorldId): Promise<LocalState> {
+  return saveWorldServerSetupState(worldId, {
     status: 'downloading',
     errorMessage: null,
     completedAt: null
   })
 }
 
-function markSetupReady(serverConfig: ServerConfig): Promise<LocalState> {
-  return saveServerSetupResult(serverConfig, {
+function markSetupReady(worldId: WorldId, serverConfig: ServerConfig): Promise<LocalState> {
+  return saveWorldServerSetupResult(worldId, serverConfig, {
     status: 'ready',
     errorMessage: null,
     completedAt: new Date().toISOString()
   })
 }
 
-function markSetupError(errorMessage: string): Promise<LocalState> {
-  return saveServerSetupState({
+function markSetupError(worldId: WorldId, errorMessage: string): Promise<LocalState> {
+  return saveWorldServerSetupState(worldId, {
     status: 'error',
     errorMessage,
     completedAt: null
   })
 }
 
-async function removeTempServerJar(): Promise<void> {
+async function removeTempServerJar(serverJarFilePath: string): Promise<void> {
   try {
-    await unlink(SERVER_JAR_TEMP_FILE_PATH)
+    await unlink(getServerJarTempFilePath(serverJarFilePath))
   } catch (error) {
     if (!isMissingFileError(error)) {
       throw error
     }
   }
+}
+
+function getServerJarTempFilePath(serverJarFilePath: string): string {
+  return `${serverJarFilePath}.tmp`
 }
 
 function getErrorMessage(error: unknown): string {

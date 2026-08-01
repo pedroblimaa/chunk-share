@@ -12,17 +12,14 @@ import {
 } from '../../../src/main/server-runtime/server-runtime-service'
 import { setupVanillaServer } from '../../../src/main/server-setup/server-setup-service'
 import { deleteConfiguredServer } from '../../../src/main/storage/core/storage-service'
-import {
-  localServerBackupsFolderPath,
-  localServerEulaFilePath,
-  localServerFolderPath,
-  localServerJarFilePath,
-  localServerPropertiesFilePath
-} from '../../../src/main/storage/core/support/storage-paths'
 import { createLocalStorageAdapter } from '../../../src/main/storage/adapters/local-storage-adapter'
 import type { StorageAdapter } from '../../../src/main/storage/adapters/storage-adapter.model'
 import { getSelectedWorldContext } from '../../../src/main/storage/core/world-context'
-import { readLocalState } from '../../../src/main/storage/persistence/local-state-store'
+import {
+  readAppState,
+  readLocalState,
+  savePlayer
+} from '../../../src/main/storage/persistence/local-state-store'
 import {
   TEST_WORLD_DATA,
   TEST_WORLD_NAME,
@@ -43,8 +40,6 @@ import {
   GOOGLE_TEST_IDS,
   googleDriveTestEnvironment
 } from '../../support/google-drive/google-drive-test-environment'
-import { DEFAULT_LOCAL_STATE } from '../../../src/main/storage/core/support/storage-defaults'
-import { writeLocalState } from '../../../src/main/storage/persistence/local-state-store'
 import { publishServerSave } from '../../../src/main/storage/server-save/server-save-publisher'
 import { integrationTestDataPath } from '../support/integration-test-storage'
 import {
@@ -71,10 +66,7 @@ describe('world lifecycle', () => {
 
   it('creates a new local world', async () => {
     const progressSteps: ServerSetupProgressStep[] = []
-    await writeLocalState({
-      ...DEFAULT_LOCAL_STATE,
-      player: GOOGLE_TEST_ACCOUNTS.owner.session.player
-    })
+    await savePlayer(GOOGLE_TEST_ACCOUNTS.owner.session.player)
 
     const localState = await setupVanillaServer(
       {
@@ -97,22 +89,31 @@ describe('world lifecycle', () => {
       serverSetup: { status: 'ready' }
     })
     expect(progressSteps).toEqual(Object.values(ServerSetupProgressStep))
-    await expect(stat(localServerJarFilePath)).resolves.toMatchObject({ size: expect.any(Number) })
-    await expect(readFile(localServerEulaFilePath, 'utf8')).resolves.toContain('eula=true')
-    await expect(readFile(localServerPropertiesFilePath, 'utf8')).resolves.toContain(
+    await expect(readAppState()).resolves.toMatchObject({
+      selectedWorldId: expect.any(String),
+      worlds: [{ id: expect.any(String) }]
+    })
+    const worldPaths = (await getSelectedWorldContext()).paths
+    await expect(stat(worldPaths.serverJarFile)).resolves.toMatchObject({ size: expect.any(Number) })
+    await expect(readFile(worldPaths.serverEulaFile, 'utf8')).resolves.toContain('eula=true')
+    await expect(readFile(worldPaths.serverPropertiesFile, 'utf8')).resolves.toContain(
       `server-port=${TEST_WORLD_PORT}`
     )
   })
 
   it('starts, stops, and publishes the world', async () => {
     await createLocalTestWorld()
+    const worldContext = await getSelectedWorldContext()
 
-    await expect(startMinecraftServer()).resolves.toMatchObject({ status: 'starting' })
+    await expect(startMinecraftServer()).resolves.toMatchObject({
+      runningWorldId: worldContext.worldId,
+      status: 'starting'
+    })
     expect(getMinecraftSpawnInvocation()).toEqual({
       args: ['-Xmx4G', '-Xms2G', '-jar', 'server.jar', 'nogui'],
       command: 'java',
       options: {
-        cwd: localServerFolderPath,
+        cwd: worldContext.paths.serverFolder,
         windowsHide: true
       }
     })
@@ -159,12 +160,12 @@ describe('world lifecycle', () => {
 
     expect(snapshot.localState.serverSetup.status).toBe('not-configured')
     expect(snapshot.latestSave).toBeNull()
-    await expect(stat(localServerFolderPath)).rejects.toMatchObject({ code: 'ENOENT' })
+    await expect(stat(worldPaths.serverFolder)).rejects.toMatchObject({ code: 'ENOENT' })
     await expect(stat(worldPaths.storageWorldFile)).rejects.toMatchObject({ code: 'ENOENT' })
-    const backupFolderNames = await readdir(localServerBackupsFolderPath)
+    const backupFolderNames = await readdir(worldPaths.backupsFolder)
     expect(backupFolderNames).toHaveLength(1)
     await expect(
-      readFile(join(localServerBackupsFolderPath, backupFolderNames[0], 'world', 'level.dat'), 'utf8')
+      readFile(join(worldPaths.backupsFolder, backupFolderNames[0], 'world', 'level.dat'), 'utf8')
     ).resolves.toBe(TEST_WORLD_DATA)
   })
 

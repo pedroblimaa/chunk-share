@@ -10,7 +10,6 @@ import {
   type GoogleDriveWorldState
 } from '../../../shared/cloud-storage.model'
 import { ServerLockStatus } from '../../../shared/domain'
-import { isServerActiveStatus } from '../../../shared/server-runtime'
 import { AuthError } from '../../auth/auth-error'
 import { AuthErrorCode } from '../../auth/auth-model'
 import { GoogleDriveError } from '../../cloud-storage/google-drive-error'
@@ -319,7 +318,7 @@ async function createCloudStorageProviderDataSummary(
 function assertServerIsNotActive(): void {
   const runtimeSnapshot = getServerRuntimeSnapshot()
 
-  if (isServerActiveStatus(runtimeSnapshot.status)) {
+  if (runtimeSnapshot.runningWorldId) {
     throw new StorageError('Cannot change storage settings while the Minecraft server is active.')
   }
 }
