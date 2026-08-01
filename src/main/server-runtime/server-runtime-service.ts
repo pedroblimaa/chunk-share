@@ -14,7 +14,10 @@ import type {
 } from '../../shared/server-runtime'
 import { getServerSyncSnapshot } from '../server-sync/server-sync-service'
 import { getSyncStartBlockedMessage } from '../server-sync/server-sync-messages'
-import { publishServerSave } from '../storage/server-save/server-save-publisher'
+import {
+  publishServerSave,
+  type PublishServerSaveProgress
+} from '../storage/server-save/server-save-publisher'
 import { restoreLatestServerSave } from '../storage/server-save/server-save-restorer'
 import { runExclusiveStorageOperation } from '../storage/core/operations/operation-coordinator'
 import { ExclusiveStorageOperation } from '../storage/core/operations/operation.model'
@@ -301,14 +304,17 @@ class ServerRuntime {
     sessionId: string
   ): Promise<ServerStorageSnapshot> {
     this.addLogLine('ChunkShare', 'Publishing newer local save before start.')
+    const publishStartedAt = Date.now()
 
     try {
-      const publishResult = await publishServerSave(operationContext)
+      const publishResult = await publishServerSave(operationContext, (progress) =>
+        this.logPublishProgress(progress)
+      )
       await updateHostingLockSaveVersion(operationContext, sessionId, publishResult.latestSave.saveVersion)
 
       this.addLogLine(
         'ChunkShare',
-        `Server save v${publishResult.latestSave.saveVersion} published before start.`,
+        `Server save v${publishResult.latestSave.saveVersion} published before start in ${formatDuration(Date.now() - publishStartedAt)}.`,
         'success'
       )
 
@@ -490,9 +496,12 @@ class ServerRuntime {
     sessionId: string
   ): Promise<void> {
     this.addLogLine('ChunkShare', 'Publishing server save.')
+    const publishStartedAt = Date.now()
 
     try {
-      const publishResult = await publishServerSave(operationContext)
+      const publishResult = await publishServerSave(operationContext, (progress) =>
+        this.logPublishProgress(progress)
+      )
       await clearHostingLockAfterCleanStop(operationContext, sessionId)
       if (this.sessionId === sessionId) {
         this.sessionId = null
@@ -503,7 +512,7 @@ class ServerRuntime {
       this.releaseRunningWorld(operationContext, sessionId)
       this.addLogLine(
         'ChunkShare',
-        `Server save v${publishResult.latestSave.saveVersion} published.`,
+        `Server save v${publishResult.latestSave.saveVersion} published in ${formatDuration(Date.now() - publishStartedAt)}.`,
         'success'
       )
 
@@ -692,6 +701,10 @@ class ServerRuntime {
     this.emitRuntimeEvent(logLine)
   }
 
+  private logPublishProgress(progress: PublishServerSaveProgress): void {
+    this.addLogLine('ChunkShare', `${getPublishPhaseLabel(progress.phase)}...`)
+  }
+
   private finishWithError(message: string): void {
     this.status = 'error'
     this.errorMessage = message
@@ -834,6 +847,27 @@ function getConsoleTimestamp(): string {
     minute: '2-digit',
     second: '2-digit'
   }).format(new Date())
+}
+
+function getPublishPhaseLabel(phase: PublishServerSaveProgress['phase']): string {
+  switch (phase) {
+    case 'checking-shared-save':
+      return 'Checking the latest shared save'
+    case 'compressing':
+      return 'Compressing the server save'
+    case 'preparing-storage':
+      return 'Preparing shared storage'
+    case 'uploading':
+      return 'Uploading the server save'
+    case 'updating-metadata':
+      return 'Updating save metadata'
+    case 'cleaning-up':
+      return 'Finalizing the shared save'
+  }
+}
+
+function formatDuration(durationMs: number): string {
+  return durationMs < 1_000 ? `${durationMs} ms` : `${(durationMs / 1_000).toFixed(1)} s`
 }
 
 function getErrorMessage(error: unknown): string {

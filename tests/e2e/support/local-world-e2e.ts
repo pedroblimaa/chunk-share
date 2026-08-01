@@ -1,5 +1,10 @@
 import { expect } from '@playwright/test'
-import { E2E_MINECRAFT_VERSION, E2E_SERVER_NAME, type ChunkShareE2EApp } from './electron-test-app'
+import {
+  E2E_MINECRAFT_VERSION,
+  E2E_SERVER_NAME,
+  expectServerRunning,
+  type ChunkShareE2EApp
+} from './electron-test-app'
 
 export async function createLocalWorld(app: ChunkShareE2EApp): Promise<void> {
   const { page, user } = app
@@ -18,14 +23,14 @@ export async function createLocalWorld(app: ChunkShareE2EApp): Promise<void> {
 
 export async function startServer(app: ChunkShareE2EApp): Promise<void> {
   await app.user.click(app.page.getByRole('button', { name: 'Start Server', exact: true }))
-  await expect(app.page.getByText('RUNNING', { exact: true })).toBeVisible()
+  await expectServerRunning(app)
 }
 
 export async function stopServer(app: ChunkShareE2EApp, publishedVersion: number): Promise<void> {
   await app.user.click(app.page.getByRole('button', { name: 'Stop Server', exact: true }))
   await expect(app.page.getByText('STOPPED', { exact: true })).toBeVisible()
   await expect(app.page.getByLabel('Server console output')).toContainText(
-    `Server save v${publishedVersion} published.`
+    new RegExp(`Server save v${publishedVersion} published in \\d+(?:\\.\\d+)? (?:ms|s)\\.`)
   )
 }
 

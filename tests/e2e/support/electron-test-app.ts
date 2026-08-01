@@ -2,7 +2,7 @@ import { createHash, randomUUID } from 'node:crypto'
 import { access, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import { join, relative, resolve } from 'node:path'
-import { _electron as electron, type ElectronApplication, type Page } from '@playwright/test'
+import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
 import type { GoogleAuthTokens } from '../../../src/main/auth/auth-model'
 import { GOOGLE_AUTH_TOKENS_FILE_NAME } from '../../../src/main/auth/auth-constants'
 import { DEFAULT_APP_STATE } from '../../../src/main/storage/core/support/storage-defaults'
@@ -75,6 +75,14 @@ export interface ChunkShareE2EApp {
   close: (options?: CloseChunkShareE2EAppOptions) => Promise<void>
 }
 
+interface MinecraftServerMockDiagnostics {
+  readyOutputEmittedAt: string | null
+  readyOutputWriteCompletedAt: string | null
+  spawnCalledAt: string | null
+  stdoutDataListenerAttachedAt: string | null
+  stdoutDataListenerCountAtEmission: number | null
+}
+
 export async function launchChunkShareE2EApp(
   options: LaunchChunkShareE2EAppOptions = {}
 ): Promise<ChunkShareE2EApp> {
@@ -117,6 +125,26 @@ export async function launchChunkShareE2EApp(
   } catch (error) {
     await electronApp.close().catch(() => undefined)
     await rm(paths.root, { force: true, recursive: true })
+    throw error
+  }
+}
+
+export async function expectServerRunning(app: ChunkShareE2EApp): Promise<void> {
+  try {
+    await expect(app.page.getByText('RUNNING', { exact: true })).toBeVisible()
+  } catch (error) {
+    const diagnostics = await readMinecraftServerMockDiagnostics(app.electronApp)
+    const diagnosticsJson = JSON.stringify(diagnostics, null, 2)
+
+    console.error(`[E2E Minecraft startup diagnostics]\n${diagnosticsJson}`)
+    await test
+      .info()
+      .attach('minecraft-startup-diagnostics', {
+        body: Buffer.from(diagnosticsJson),
+        contentType: 'application/json'
+      })
+      .catch(() => undefined)
+
     throw error
   }
 }
@@ -216,6 +244,19 @@ async function installMainProcessMocks(electronApp: ElectronApplication): Promis
       const path = process.getBuiltinModule('node:path')
       const stream = process.getBuiltinModule('node:stream')
       const googleFetch = globalThis.fetch
+      const testGlobal = globalThis as typeof globalThis & {
+        chunkShareE2EServerProcess?: { emit: (event: string, exitCode: number) => void }
+        chunkShareE2EServerMockDiagnostics?: MinecraftServerMockDiagnostics
+      }
+      const createDiagnostics = (): MinecraftServerMockDiagnostics => ({
+        readyOutputEmittedAt: null,
+        readyOutputWriteCompletedAt: null,
+        spawnCalledAt: null,
+        stdoutDataListenerAttachedAt: null,
+        stdoutDataListenerCountAtEmission: null
+      })
+
+      testGlobal.chunkShareE2EServerMockDiagnostics = createDiagnostics()
 
       globalThis.fetch = async (input, init): Promise<Response> => {
         const requestUrl = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
@@ -257,6 +298,15 @@ async function installMainProcessMocks(electronApp: ElectronApplication): Promis
           const serverProcess = new events.EventEmitter()
           const stdout = new stream.PassThrough()
           const stderr = new stream.PassThrough()
+          const diagnostics = createDiagnostics()
+
+          diagnostics.spawnCalledAt = new Date().toISOString()
+          testGlobal.chunkShareE2EServerMockDiagnostics = diagnostics
+          stdout.once('newListener', (eventName: string | symbol) => {
+            if (eventName === 'data') {
+              diagnostics.stdoutDataListenerAttachedAt = new Date().toISOString()
+            }
+          })
           const stdin = new stream.Writable({
             write(chunk, _encoding, callback) {
               const command = chunk.toString()
@@ -297,13 +347,14 @@ async function installMainProcessMocks(electronApp: ElectronApplication): Promis
             stdio: [stdin, stdout, stderr],
             stdout
           })
-          const testGlobal = globalThis as typeof globalThis & {
-            chunkShareE2EServerProcess?: typeof serverProcess
-          }
           testGlobal.chunkShareE2EServerProcess = serverProcess
 
           setImmediate(() => {
-            stdout.write('[Server thread/INFO]: Done (1.000s)! For help, type "help"\n')
+            diagnostics.readyOutputEmittedAt = new Date().toISOString()
+            diagnostics.stdoutDataListenerCountAtEmission = stdout.listenerCount('data')
+            stdout.write('[Server thread/INFO]: Done (1.000s)! For help, type "help"\n', () => {
+              diagnostics.readyOutputWriteCompletedAt = new Date().toISOString()
+            })
           })
 
           return serverProcess
@@ -321,6 +372,28 @@ async function installMainProcessMocks(electronApp: ElectronApplication): Promis
       worldData: E2E_WORLD_DATA
     }
   )
+}
+
+async function readMinecraftServerMockDiagnostics(
+  electronApp: ElectronApplication
+): Promise<MinecraftServerMockDiagnostics | { diagnosticError: string }> {
+  try {
+    return await electronApp.evaluate(() => {
+      const testGlobal = globalThis as typeof globalThis & {
+        chunkShareE2EServerMockDiagnostics?: MinecraftServerMockDiagnostics
+      }
+
+      return (
+        testGlobal.chunkShareE2EServerMockDiagnostics ?? {
+          diagnosticError: 'Minecraft server mock diagnostics were not initialized.'
+        }
+      )
+    })
+  } catch (error) {
+    return {
+      diagnosticError: error instanceof Error ? error.message : 'Unable to read diagnostics.'
+    }
+  }
 }
 
 async function seedAuthTokensIfMissing(
