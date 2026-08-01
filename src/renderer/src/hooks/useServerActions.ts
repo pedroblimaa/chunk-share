@@ -1,12 +1,13 @@
 import { useCallback, useEffect } from 'react'
 import { getErrorMessage } from '../utils/error-message'
-import { loadServerDisplayState } from '../utils/server-display-state'
+import { createOpeningServerDisplayState, loadServerDisplayState } from '../utils/server-display-state'
 import type { ServerActions, UseServerActionsInput } from './server.model'
 import type { WorldId } from '../../../shared/world'
 
 export function useServerActions({
   canAutoRefresh,
   handleStorageError,
+  serverDisplayState,
   setAppView,
   setErrorMessage,
   setServerDisplayState
@@ -35,7 +36,12 @@ export function useServerActions({
       setErrorMessage(null)
 
       try {
-        setServerDisplayState(await window.chunkShare.dashboard.selectWorld(worldId))
+        if (!serverDisplayState) {
+          throw new Error('Server data is not loaded yet.')
+        }
+
+        await window.chunkShare.dashboard.selectWorld(worldId)
+        setServerDisplayState(createOpeningServerDisplayState(serverDisplayState, worldId))
         setAppView('server-detail')
       } catch (error) {
         if (handleStorageError(error)) {
@@ -45,7 +51,7 @@ export function useServerActions({
         setErrorMessage(getErrorMessage(error, 'Unable to open this server.'))
       }
     },
-    [handleStorageError, setAppView, setErrorMessage, setServerDisplayState]
+    [handleStorageError, serverDisplayState, setAppView, setErrorMessage, setServerDisplayState]
   )
 
   const deleteServer = useCallback(

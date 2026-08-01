@@ -5,6 +5,7 @@ export default defineConfig({
   fullyParallel: true,
   workers: process.env.CI ? 3 : 1,
   retries: process.env.CI ? 1 : 0,
+  failOnFlakyTests: Boolean(process.env.CI),
   timeout: 30_000,
   expect: {
     timeout: 5_000

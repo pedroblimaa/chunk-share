@@ -6,6 +6,7 @@ export type AppView = 'servers' | 'server-detail' | 'server-setup' | 'settings'
 export interface UseServerActionsInput {
   canAutoRefresh: boolean
   handleStorageError: (error: unknown) => boolean
+  serverDisplayState: ServerDisplayState | null
   setAppView: (appView: AppView) => void
   setErrorMessage: (message: string | null) => void
   setServerDisplayState: (serverDisplayState: ServerDisplayState) => void

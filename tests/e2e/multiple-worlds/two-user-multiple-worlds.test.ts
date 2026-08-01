@@ -81,22 +81,26 @@ test('allows two users to host different shared worlds at the same time', async 
     await startServer(ownerApp)
     await startServer(friendApp)
 
-    expect(readDriveControl(driveMock, worldA.controlFileId)).toMatchObject({
-      worldId: WORLD_A.id,
-      serverLock: {
-        hostingStatus: ServerHostingStatus.Running,
-        lockedBy: GOOGLE_TEST_ACCOUNTS.owner.session.player,
-        status: ServerLockStatus.Locked
-      }
-    })
-    expect(readDriveControl(driveMock, worldB.controlFileId)).toMatchObject({
-      worldId: WORLD_B.id,
-      serverLock: {
-        hostingStatus: ServerHostingStatus.Running,
-        lockedBy: GOOGLE_TEST_ACCOUNTS.friend.session.player,
-        status: ServerLockStatus.Locked
-      }
-    })
+    await expect
+      .poll(() => readDriveControl(driveMock, worldA.controlFileId))
+      .toMatchObject({
+        worldId: WORLD_A.id,
+        serverLock: {
+          hostingStatus: ServerHostingStatus.Running,
+          lockedBy: GOOGLE_TEST_ACCOUNTS.owner.session.player,
+          status: ServerLockStatus.Locked
+        }
+      })
+    await expect
+      .poll(() => readDriveControl(driveMock, worldB.controlFileId))
+      .toMatchObject({
+        worldId: WORLD_B.id,
+        serverLock: {
+          hostingStatus: ServerHostingStatus.Running,
+          lockedBy: GOOGLE_TEST_ACCOUNTS.friend.session.player,
+          status: ServerLockStatus.Locked
+        }
+      })
 
     await stopServer(ownerApp, 2)
     await expect(friendApp.page.getByText('RUNNING', { exact: true })).toBeVisible()

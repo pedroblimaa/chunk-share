@@ -42,7 +42,8 @@ function DriveJoinDialog({ initialJoinLink, onClose, onJoined }: DriveJoinDialog
       onClose={onClose}
     >
       <p className="drive-join-description">
-        Paste the link from your friend. Google Drive will open so you can confirm the shared folder.
+        Paste the link from your friend. When Google Drive opens, select both <strong>control.json</strong>{' '}
+        and <strong>world.zip</strong>, then confirm the selection.
       </p>
 
       <form className="drive-join-form" onSubmit={joinWorld}>

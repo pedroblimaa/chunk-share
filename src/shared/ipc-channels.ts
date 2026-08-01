@@ -62,7 +62,7 @@ export interface IpcInvokeContract {
   [AUTH_SIGN_IN_WITH_GOOGLE_CHANNEL]: IpcOperation<[], ServerDisplayState>
   [AUTH_SIGN_OUT_CHANNEL]: IpcOperation<[], ServerDisplayState>
   [DASHBOARD_SNAPSHOT_CHANNEL]: IpcOperation<[], ServerDisplayState>
-  [DASHBOARD_SELECT_WORLD_CHANNEL]: IpcOperation<[worldId: string], ServerDisplayState>
+  [DASHBOARD_SELECT_WORLD_CHANNEL]: IpcOperation<[worldId: string], void>
   [DRIVE_SHARING_GET_AVAILABILITY_CHANNEL]: IpcOperation<[], GoogleDriveSharingAvailability>
   [DRIVE_SHARING_INVITE_MEMBER_CHANNEL]: IpcOperation<[email: string], GoogleDriveInviteResult>
   [DRIVE_SHARING_REVOKE_MEMBER_CHANNEL]: IpcOperation<[permissionId: string], GoogleDriveRevokeResult>

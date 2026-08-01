@@ -45,6 +45,7 @@ Keep renderer work UI-only. Filesystem, Java validation, Minecraft server proces
 - `pnpm test:watch`: run Vitest in watch mode.
 - `pnpm exec vitest run <test-file> --project unit`: run one focused unit test file; use `--project integration` for an integration test.
 - `pnpm e2e`: run Playwright Electron E2E tests against the existing build.
+- `pnpm e2e:parallel`: run the E2E suite fully parallel with three workers.
 - `pnpm e2e:slow <test-file>`: run E2E tests with optional pacing after user actions.
 - `pnpm test:e2e`: build the app and run the complete E2E suite.
 - `pnpm typecheck`: run both Node and web TypeScript checks.

@@ -67,6 +67,95 @@ test('owner invites a friend who joins and downloads the shared world', async ()
   }
 })
 
+test('opens a Drive world before its delayed snapshot finishes loading', async () => {
+  const driveMock = new GoogleDriveE2EMock()
+  const ownerPaths = createElectronE2EPaths()
+  let ownerApp: ChunkShareE2EApp | null = null
+
+  await driveMock.start()
+
+  try {
+    await prepareSharedWorld(driveMock, ownerPaths)
+    ownerApp = await launchChunkShareE2EApp({ accountName: 'owner', driveMock, paths: ownerPaths })
+    const refreshButton = ownerApp.page.getByRole('button', { name: 'Refresh servers' })
+    await ownerApp.user.click(refreshButton)
+    await expect(refreshButton).toHaveAttribute('aria-busy', 'false')
+    driveMock.delayRequest({
+      delayMs: 1_500,
+      method: 'GET',
+      times: 10
+    })
+
+    const openWorld = ownerApp.user.click(
+      ownerApp.page.getByRole('button', { name: 'Download', exact: true })
+    )
+
+    await expect(ownerApp.page.getByRole('heading', { name: 'Shared Test World' })).toBeVisible({
+      timeout: 1_000
+    })
+    await expect(ownerApp.page.getByText('UPDATING', { exact: true })).toBeVisible()
+    await expect(ownerApp.page.getByRole('button', { name: 'Updating...' })).toHaveAttribute(
+      'aria-busy',
+      'true'
+    )
+    await openWorld
+  } finally {
+    await ownerApp?.close()
+    await driveMock.close()
+  }
+})
+
+test('shows a remote starting state instead of a spinning download action', async () => {
+  const driveMock = new GoogleDriveE2EMock()
+  const ownerPaths = createElectronE2EPaths()
+  let ownerApp: ChunkShareE2EApp | null = null
+  let friendApp: ChunkShareE2EApp | null = null
+
+  await driveMock.start()
+
+  try {
+    await prepareSharedWorld(driveMock, ownerPaths)
+    ownerApp = await launchChunkShareE2EApp({ accountName: 'owner', driveMock, paths: ownerPaths })
+    await openSharedWorldDashboard(ownerApp)
+    await downloadSharedServer(ownerApp)
+    const joinLink = await inviteFriend(ownerApp)
+
+    friendApp = await launchChunkShareE2EApp({ accountName: 'friend', driveMock })
+    await joinSharedWorld(friendApp, joinLink)
+
+    driveMock.delayRequest({
+      delayMs: 1_500,
+      method: 'PATCH',
+      occurrence: 2,
+      pathname: `/upload/drive/v3/files/${GOOGLE_TEST_IDS.controlFile}`
+    })
+    await ownerApp.user.click(ownerApp.page.getByRole('button', { name: 'Start Server', exact: true }))
+    await expectDriveControl(driveMock, {
+      serverLock: {
+        hostingStatus: ServerHostingStatus.Starting,
+        status: ServerLockStatus.Locked
+      }
+    })
+
+    await friendApp.user.click(friendApp.page.getByRole('button', { name: 'Download', exact: true }))
+
+    await expect(friendApp.page.getByRole('button', { name: 'Starting...' })).toBeVisible()
+    await expect(friendApp.page.getByRole('button', { name: 'Download shared server' })).toHaveCount(0)
+
+    await expectDriveControl(driveMock, {
+      serverLock: {
+        hostingStatus: ServerHostingStatus.Running,
+        status: ServerLockStatus.Locked
+      }
+    })
+    await stopServer(ownerApp, 2)
+  } finally {
+    await friendApp?.close()
+    await ownerApp?.close()
+    await driveMock.close()
+  }
+})
+
 test('hands hosting from the owner to a friend', async () => {
   const driveMock = new GoogleDriveE2EMock()
   const ownerPaths = createElectronE2EPaths()
@@ -306,16 +395,21 @@ async function inviteFriend(ownerApp: ChunkShareE2EApp): Promise<string> {
 }
 
 async function joinAndDownloadSharedWorld(friendApp: ChunkShareE2EApp, joinLink: string): Promise<void> {
+  await joinSharedWorld(friendApp, joinLink)
+  await openSharedWorldDashboard(friendApp)
+  await downloadSharedServer(friendApp)
+}
+
+async function joinSharedWorld(friendApp: ChunkShareE2EApp, joinLink: string): Promise<void> {
   const { page, user } = friendApp
 
   await user.click(page.getByRole('button', { name: 'Join Shared World' }))
+  await expect(page.getByText(/select both control\.json and world\.zip/i)).toBeVisible()
   await user.fill(page.getByLabel('Join link'), joinLink)
   await user.click(page.getByRole('button', { name: 'Join World' }))
 
   await expect(page.getByRole('heading', { name: 'Shared Test World' })).toBeVisible()
   await expectJoinedDriveSettings(friendApp.paths)
-  await openSharedWorldDashboard(friendApp)
-  await downloadSharedServer(friendApp)
 }
 
 async function downloadSharedServer(app: ChunkShareE2EApp): Promise<void> {

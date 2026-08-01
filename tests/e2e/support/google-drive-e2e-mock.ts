@@ -13,6 +13,14 @@ interface DriveRequestFailure {
   status: number
 }
 
+interface DriveRequestDelay {
+  delayMs: number
+  matchesBeforeDelay: number
+  method: string
+  pathname: string | null
+  remainingDelays: number
+}
+
 interface PermissionBody {
   emailAddress?: string
   role?: string
@@ -29,6 +37,7 @@ export class GoogleDriveE2EMock {
   public readonly drive = new GoogleDriveTestEnvironment()
 
   private nextFailure: DriveRequestFailure | null = null
+  private requestDelay: DriveRequestDelay | null = null
   private server: Server | null = null
 
   public async start(): Promise<void> {
@@ -51,6 +60,7 @@ export class GoogleDriveE2EMock {
     const server = this.server
     this.server = null
     this.nextFailure = null
+    this.requestDelay = null
 
     if (!server) {
       return
@@ -82,10 +92,28 @@ export class GoogleDriveE2EMock {
     }
   }
 
+  public delayRequest(input: {
+    delayMs: number
+    method: string
+    pathname?: string
+    occurrence?: number
+    times?: number
+  }): void {
+    this.requestDelay = {
+      delayMs: input.delayMs,
+      matchesBeforeDelay: (input.occurrence ?? 1) - 1,
+      method: input.method.toUpperCase(),
+      pathname: input.pathname ?? null,
+      remainingDelays: input.times ?? 1
+    }
+  }
+
   private async handleRequest(request: IncomingMessage, response: ServerResponse): Promise<void> {
     try {
       const requestUrl = new URL(request.url ?? '/', this.url)
       const method = request.method?.toUpperCase() ?? 'GET'
+
+      await this.applyRequestDelay(method, requestUrl.pathname)
 
       if (this.consumeFailure(method, requestUrl.pathname, response)) {
         return
@@ -113,6 +141,28 @@ export class GoogleDriveE2EMock {
     } catch (error) {
       respondWithError(response, 500, error instanceof Error ? error.message : 'Drive mock failed.')
     }
+  }
+
+  private async applyRequestDelay(method: string, pathname: string): Promise<void> {
+    const requestDelay = this.requestDelay
+    if (
+      !requestDelay ||
+      requestDelay.method !== method ||
+      (requestDelay.pathname !== null && requestDelay.pathname !== pathname)
+    ) {
+      return
+    }
+
+    if (requestDelay.matchesBeforeDelay > 0) {
+      requestDelay.matchesBeforeDelay -= 1
+      return
+    }
+
+    requestDelay.remainingDelays -= 1
+    if (requestDelay.remainingDelays === 0) {
+      this.requestDelay = null
+    }
+    await new Promise((resolve) => setTimeout(resolve, requestDelay.delayMs))
   }
 
   private consumeFailure(method: string, pathname: string, response: ServerResponse): boolean {

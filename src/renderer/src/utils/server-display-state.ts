@@ -4,9 +4,42 @@ import {
   type ServerConnectionAddress,
   type ServerRuntimeSnapshot
 } from '../../../shared/server-runtime'
+import type { WorldId } from '../../../shared/world'
 
 export function loadServerDisplayState(): Promise<ServerDisplayState> {
   return window.chunkShare.dashboard.getSnapshot()
+}
+
+export function createOpeningServerDisplayState(
+  serverDisplayState: ServerDisplayState,
+  worldId: WorldId
+): ServerDisplayState {
+  const world = serverDisplayState.worlds.find((candidate) => candidate.worldId === worldId)
+  if (!world) {
+    return serverDisplayState
+  }
+
+  return {
+    ...serverDisplayState,
+    selectedWorldId: worldId,
+    serverAvailability: world.serverAvailability,
+    serverName: world.serverName,
+    serverStatus: 'updating',
+    serverType: world.serverType,
+    minecraftVersion: world.minecraftVersion,
+    currentHost: world.currentHost,
+    syncStatus: world.syncStatus,
+    connectionAddress: null,
+    connectionAddresses: [],
+    players: world.players,
+    resources: {
+      ...serverDisplayState.resources,
+      cpuPercent: 0,
+      memoryUsedMb: 0
+    },
+    consoleLogs: [],
+    allowedPlayers: []
+  }
 }
 
 export function applyRuntimeSnapshotToServerDisplayState(

@@ -71,6 +71,7 @@ function App(): React.JSX.Element {
     useServerActions({
       canAutoRefresh: Boolean(serverDisplayState?.signedInUser),
       handleStorageError,
+      serverDisplayState,
       setAppView,
       setErrorMessage,
       setServerDisplayState

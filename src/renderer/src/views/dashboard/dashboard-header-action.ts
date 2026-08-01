@@ -29,6 +29,19 @@ export function getDashboardPrimaryActionView({
     }
   }
 
+  if (
+    dashboardSnapshot.serverStatus === 'starting' ||
+    dashboardSnapshot.serverStatus === 'stopping' ||
+    dashboardSnapshot.serverStatus === 'updating'
+  ) {
+    return {
+      kind: 'none',
+      isDisabled: true,
+      tone: dashboardSnapshot.serverStatus === 'updating' ? 'sync' : 'default',
+      tooltip: dashboardSnapshot.serverStatus === 'updating' ? 'Loading the latest world state.' : undefined
+    }
+  }
+
   if (serverNeedsLocalDownload) {
     return {
       kind: 'download-server',
@@ -43,20 +56,8 @@ export function getDashboardPrimaryActionView({
     }
   }
 
-  if (dashboardSnapshot.serverStatus === 'updating') {
-    return {
-      kind: 'none',
-      isDisabled: true,
-      tone: 'sync',
-      tooltip: 'Downloading the latest shared save.',
-      ariaLabel: 'Updating shared save'
-    }
-  }
-
   const toggleIsDisabled =
     dashboardSnapshot.serverStatus === 'not-configured' ||
-    dashboardSnapshot.serverStatus === 'starting' ||
-    dashboardSnapshot.serverStatus === 'stopping' ||
     dashboardSnapshot.serverStatus === 'crashed' ||
     anotherWorldIsRunning ||
     (syncBlocksStart && !serverNeedsSaveDownload)

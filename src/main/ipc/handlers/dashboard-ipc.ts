@@ -14,7 +14,5 @@ export function registerDashboardIpcHandlers(): void {
     }
 
     await selectWorld(worldId)
-
-    return getServerDisplayState()
   })
 }
