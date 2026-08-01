@@ -31,6 +31,20 @@ export async function ensureGoogleDriveFolder(configuredFolderId?: string): Prom
   }
 }
 
+export async function createGoogleDriveWorldFolder(worldId: string): Promise<GoogleDriveWorldState> {
+  const authSession = await ensureGoogleDriveAuthSession()
+  const oauthClient = createAuthenticatedGoogleOAuthClient(authSession.tokens)
+  const folder = await createGoogleDriveFolder(oauthClient, {
+    name: `${DEFAULT_GOOGLE_DRIVE_FOLDER_NAME} ${worldId}`
+  })
+
+  return validateGoogleDriveFolderWithClient(
+    oauthClient,
+    resolveGoogleDriveFileId(folder),
+    authSession.player.id
+  )
+}
+
 async function validateGoogleDriveFolderWithClient(
   oauthClient: OAuth2Client,
   folderId: string,

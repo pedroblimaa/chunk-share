@@ -73,7 +73,8 @@ export async function getServerSyncSnapshot(
         worldFileExists,
         worldId: operationContext.worldId
       }),
-      localState
+      localState,
+      worldFileExists
     }
   }
 
@@ -92,7 +93,8 @@ export async function getServerSyncSnapshot(
         worldFileExists: false,
         worldId: null
       }),
-      localState
+      localState,
+      worldFileExists: false
     }
   }
 

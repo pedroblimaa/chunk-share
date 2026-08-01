@@ -10,21 +10,23 @@ import {
   type GoogleDriveWorldState
 } from '../../../shared/cloud-storage.model'
 import { ServerLockStatus } from '../../../shared/domain'
+import type { AppState, LocalWorldState } from '../../../shared/world'
 import { AuthError } from '../../auth/auth-error'
 import { AuthErrorCode } from '../../auth/auth-model'
 import { GoogleDriveError } from '../../cloud-storage/google-drive-error'
 import { ensureGoogleDriveFolder } from '../../cloud-storage/google-drive-service'
 import { getServerRuntimeSnapshot } from '../../server-runtime/server-runtime-service'
 import { validateSharedGoogleDriveWorld } from '../adapters/google-drive-storage-adapter'
-import { getStorageAdapterForProvider } from '../adapters/storage-adapter-service'
+import { getOrCreateStorageContext, getStorageAdapterForProvider } from '../adapters/storage-adapter-service'
 import { ensureLocalStorage } from '../adapters/local-storage-adapter'
 import type { StorageAdapter } from '../adapters/storage-adapter.model'
 import {
   createWorld,
   readAppState,
   readCloudStorageSettings,
-  saveLocalSaveVersion,
+  reconcileSelectedWorld,
   selectWorld,
+  saveWorldLocalSaveVersion,
   writeCloudStorageSettings
 } from '../persistence/local-state-store'
 import { runExclusiveStorageOperation } from './operations/operation-coordinator'
@@ -33,6 +35,12 @@ import type { StorageProviderCopyProgressListener } from './provider-copy/provid
 import { executeStorageProviderCopy, createVisibleProgressReporter } from './provider-copy-service'
 import { StorageError } from './support/storage-error'
 import { hasValidGoogleDriveFolder } from './support/storage-validation'
+import {
+  inspectWorldCatalog,
+  isWorldCatalogEntryVisible,
+  worldHasStorageProviderConfiguration
+} from '../../world-catalog/world-catalog-service'
+import { createWorldContext } from './world-context'
 
 const GOOGLE_DRIVE_NOT_READY_ERROR_MESSAGE =
   'Google Drive storage cannot be activated until the Drive folder is valid.'
@@ -51,14 +59,16 @@ export async function getCloudStorageProviderSwitchPreview(
   targetProvider: CloudStorageProvider
 ): Promise<CloudStorageProviderSwitchPreview> {
   const settings = await readCloudStorageSettings()
+  const appState = await readAppState()
   const sourceProvider = settings.activeProvider
 
   if (sourceProvider === targetProvider) {
     throw new StorageError('The selected storage provider is already active.')
   }
 
-  const sourceAdapter = await getStorageAdapterForProvider(sourceProvider)
-  const targetAdapter = await getStorageAdapterForProvider(targetProvider)
+  const selectedWorld = appState.worlds.find(({ id }) => id === appState.selectedWorldId) ?? null
+  const sourceAdapter = await getConfiguredWorldAdapter(appState, selectedWorld, sourceProvider)
+  const targetAdapter = await getConfiguredWorldAdapter(appState, selectedWorld, targetProvider)
   const [source, target] = await Promise.all([
     createCloudStorageProviderDataSummary(sourceProvider, sourceAdapter),
     createCloudStorageProviderDataSummary(targetProvider, targetAdapter)
@@ -107,7 +117,7 @@ export function clearGoogleDriveFolder(): Promise<CloudStorageSettings> {
       assertServerIsNotActive()
     }
 
-    return writeAndReturnCloudStorageSettings({
+    await writeAndReturnCloudStorageSettings({
       ...settings,
       googleDrive: {
         status: GoogleDriveSetupStatus.NotConfigured,
@@ -115,6 +125,10 @@ export function clearGoogleDriveFolder(): Promise<CloudStorageSettings> {
         errorMessage: null
       }
     })
+
+    await reconcileWorldCatalogSelection()
+
+    return readCloudStorageSettings()
   })
 }
 
@@ -130,20 +144,25 @@ export function setCloudStorageProvider(
     }
 
     await assertCloudStorageProviderCanSwitch(settings.activeProvider, request.provider)
-    const validatedSettings = await validateAndPrepareTargetProvider(settings, request.provider)
+    let validatedSettings = await validateAndPrepareTargetProvider(settings, request.provider)
 
     if (request.dataMode === StorageSwitchDataMode.UseTargetAsIs) {
-      return activateCloudStorageProvider(validatedSettings, request.provider)
+      await activateCloudStorageProvider(validatedSettings, request.provider)
+    } else {
+      validatedSettings = await prepareProviderCopyTarget(request.provider)
+      await executeStorageProviderCopy(
+        settings,
+        validatedSettings,
+        request.provider,
+        request.expectedPreview,
+        createVisibleProgressReporter(settings.activeProvider, request.provider, onCopyProgress),
+        activateCloudStorageProvider
+      )
     }
 
-    return executeStorageProviderCopy(
-      settings,
-      validatedSettings,
-      request.provider,
-      request.expectedPreview,
-      createVisibleProgressReporter(settings.activeProvider, request.provider, onCopyProgress),
-      activateCloudStorageProvider
-    )
+    await reconcileWorldCatalogSelection()
+
+    return readCloudStorageSettings()
   })
 }
 
@@ -186,7 +205,7 @@ async function saveSharedGoogleDriveWorld(
     await createWorld(world.worldId)
   }
 
-  await saveLocalSaveVersion(null)
+  await saveWorldLocalSaveVersion(world.worldId, null)
   const now = new Date().toISOString()
 
   return writeAndReturnCloudStorageSettings({
@@ -213,8 +232,6 @@ async function activateCloudStorageProvider(
   settings: CloudStorageSettings,
   provider: CloudStorageProvider
 ): Promise<CloudStorageSettings> {
-  await saveLocalSaveVersion(null)
-
   return writeAndReturnCloudStorageSettings({
     ...settings,
     activeProvider: provider
@@ -300,8 +317,17 @@ async function writeAndReturnCloudStorageSettings(
 
 async function createCloudStorageProviderDataSummary(
   provider: CloudStorageProvider,
-  storageAdapter: StorageAdapter
+  storageAdapter: StorageAdapter | null
 ): Promise<CloudStorageProviderDataSummary> {
+  if (!storageAdapter) {
+    return {
+      provider,
+      latestSaveVersion: null,
+      latestSaveRecordedAt: null,
+      hasWorldFile: false
+    }
+  }
+
   const [latestSave, hasWorldFile] = await Promise.all([
     storageAdapter.readLatestSave(),
     storageAdapter.worldFileExists()
@@ -341,13 +367,21 @@ async function assertCloudStorageProviderCanSwitch(
 }
 
 async function assertStorageProviderIsUnlocked(provider: CloudStorageProvider): Promise<void> {
-  const storageAdapter = await getStorageAdapterForProvider(provider)
-  const serverLock = await storageAdapter.readServerLock()
+  const appState = await readAppState()
 
-  if (serverLock.status === ServerLockStatus.Locked) {
-    throw new StorageError(
-      `Cannot switch storage while ${serverLock.lockedBy.displayName} is hosting this server.`
-    )
+  for (const world of appState.worlds) {
+    if (!worldHasStorageProviderConfiguration(appState, world, provider)) {
+      continue
+    }
+
+    const storageAdapter = await getStorageAdapterForProvider(provider, createWorldContext(world))
+    const serverLock = await storageAdapter.readServerLock()
+
+    if (serverLock.status === ServerLockStatus.Locked) {
+      throw new StorageError(
+        `Cannot switch storage while ${serverLock.lockedBy.displayName} is hosting this server.`
+      )
+    }
   }
 }
 
@@ -356,31 +390,54 @@ async function validateAndPrepareTargetProvider(
   provider: CloudStorageProvider
 ): Promise<CloudStorageSettings> {
   if (provider === CloudStorageProvider.Local) {
-    await ensureLocalStorage()
+    const appState = await readAppState()
+    const selectedWorld = appState.worlds.find(({ id }) => id === appState.selectedWorldId)
+
+    if (selectedWorld) {
+      await ensureLocalStorage(createWorldContext(selectedWorld))
+    }
+
     return settings
   }
 
-  if (!hasValidGoogleDriveFolder(settings.googleDrive)) {
+  if (settings.googleDrive.status !== GoogleDriveSetupStatus.Valid) {
     throw new StorageError(settings.googleDrive.errorMessage ?? GOOGLE_DRIVE_NOT_READY_ERROR_MESSAGE)
   }
 
-  let validatedFolder: GoogleDriveWorldState
+  return settings
+}
 
-  try {
-    validatedFolder = await validateConfiguredGoogleDriveFolder(settings.googleDrive.folder)
-  } catch (error) {
-    await saveGoogleDriveFolderFailure(settings, error)
-    throw new StorageError(getCloudStorageErrorMessage(error))
+async function getConfiguredWorldAdapter(
+  appState: AppState,
+  world: LocalWorldState | null,
+  provider: CloudStorageProvider
+): Promise<StorageAdapter | null> {
+  if (!world || !worldHasStorageProviderConfiguration(appState, world, provider)) {
+    return null
   }
 
-  return {
-    ...settings,
-    googleDrive: {
-      status: GoogleDriveSetupStatus.Valid,
-      folder: validatedFolder,
-      errorMessage: null
-    }
+  return getStorageAdapterForProvider(provider, createWorldContext(world))
+}
+
+async function prepareProviderCopyTarget(provider: CloudStorageProvider): Promise<CloudStorageSettings> {
+  const appState = await readAppState()
+  const selectedWorld = appState.worlds.find(({ id }) => id === appState.selectedWorldId)
+
+  if (!selectedWorld) {
+    throw new StorageError('Select a world before copying provider data.')
   }
+
+  await getOrCreateStorageContext(provider, createWorldContext(selectedWorld))
+
+  return readCloudStorageSettings()
+}
+
+async function reconcileWorldCatalogSelection(): Promise<void> {
+  const appState = await readAppState()
+  const catalog = await inspectWorldCatalog(appState)
+  const visibleWorldIds = catalog.filter(isWorldCatalogEntryVisible).map(({ world }) => world.id)
+
+  await reconcileSelectedWorld(visibleWorldIds)
 }
 
 function getCloudStorageErrorStatus(error: unknown): GoogleDriveSetupStatus {

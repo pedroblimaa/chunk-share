@@ -1,8 +1,13 @@
+import { readFile } from 'node:fs/promises'
+import { join } from 'node:path'
 import { expect, test, type Locator, type Page } from '@playwright/test'
+import { ServerLockStatus } from '../../../src/shared/domain'
+import type { AppState } from '../../../src/shared/world'
 import {
   E2E_MINECRAFT_VERSION,
   launchChunkShareE2EApp,
-  type ChunkShareE2EApp
+  type ChunkShareE2EApp,
+  type ElectronE2EPaths
 } from '../support/electron-test-app'
 
 const WORLD_A_NAME = 'World Alpha'
@@ -71,6 +76,71 @@ test('reenables world creation in Settings after the running server crashes', as
   }
 })
 
+test('restores multiple worlds and their selection after relaunch', async () => {
+  let app: ChunkShareE2EApp | null = await launchChunkShareE2EApp()
+
+  try {
+    await createWorld(app, WORLD_A_NAME, 25570)
+    await navigateToServers(app)
+    await createWorld(app, WORLD_B_NAME, 25571)
+
+    const selectedWorldId = (await readE2EAppState(app.paths)).selectedWorldId
+    const paths = app.paths
+    await app.close({ preserveData: true })
+    app = null
+    app = await launchChunkShareE2EApp({ paths })
+    await navigateToServers(app)
+
+    await expect(getServerCard(app.page, WORLD_A_NAME)).toBeVisible()
+    await expect(getServerCard(app.page, WORLD_B_NAME)).toBeVisible()
+    expect((await readE2EAppState(app.paths)).selectedWorldId).toBe(selectedWorldId)
+  } finally {
+    await app?.close()
+  }
+})
+
+test('keeps a crashed world locked while another world runs after relaunch', async () => {
+  let app: ChunkShareE2EApp | null = await launchChunkShareE2EApp()
+
+  try {
+    await createWorld(app, WORLD_A_NAME, 25570)
+    const worldAId = findWorldId(await readE2EAppState(app.paths), WORLD_A_NAME)
+    await app.user.click(app.page.getByRole('button', { name: 'Start Server', exact: true }))
+    await expect(app.page.getByText('RUNNING', { exact: true })).toBeVisible()
+    await app.crashMinecraftServer()
+    await app.user.click(app.page.getByRole('button', { name: 'Settings', exact: true }).first())
+    await expect(app.page.getByRole('button', { name: 'Create Instance', exact: true })).toBeEnabled()
+
+    await createWorld(app, WORLD_B_NAME, 25571)
+    const worldBId = findWorldId(await readE2EAppState(app.paths), WORLD_B_NAME)
+    await app.user.click(app.page.getByRole('button', { name: 'Start Server', exact: true }))
+    await expect(app.page.getByText('RUNNING', { exact: true })).toBeVisible()
+    await app.user.click(app.page.getByRole('button', { name: 'Stop Server', exact: true }))
+    await expect(app.page.getByText('STOPPED', { exact: true })).toBeVisible()
+
+    let state = await readE2EAppState(app.paths)
+    expect(state.worlds.find(({ id }) => id === worldAId)?.activeSessionId).not.toBeNull()
+    expect(state.worlds.find(({ id }) => id === worldBId)?.activeSessionId).toBeNull()
+
+    const paths = app.paths
+    await app.close({ preserveData: true })
+    app = null
+    app = await launchChunkShareE2EApp({ paths })
+    state = await readE2EAppState(app.paths)
+
+    expect(state.worlds.find(({ id }) => id === worldAId)?.activeSessionId).not.toBeNull()
+    expect(state.worlds.find(({ id }) => id === worldBId)?.activeSessionId).toBeNull()
+    await expect(readWorldControl(app.paths, worldAId)).resolves.toMatchObject({
+      serverLock: { status: ServerLockStatus.Locked }
+    })
+    await navigateToServers(app)
+    await expect(getServerCard(app.page, WORLD_A_NAME)).toBeVisible()
+    await expect(getServerCard(app.page, WORLD_B_NAME)).toBeVisible()
+  } finally {
+    await app?.close()
+  }
+})
+
 async function createWorld(app: ChunkShareE2EApp, name: string, port: number): Promise<void> {
   await app.user.click(app.page.getByRole('button', { name: 'Create Instance', exact: true }).first())
   await expect(app.page.getByRole('heading', { name: 'Create New Instance' })).toBeVisible()
@@ -96,4 +166,23 @@ async function openServer(app: ChunkShareE2EApp, name: string): Promise<void> {
 
 function getServerCard(page: Page, name: string): Locator {
   return page.locator('article.server-card').filter({ has: page.getByRole('heading', { name }) })
+}
+
+function readE2EAppState(paths: ElectronE2EPaths): Promise<AppState> {
+  return readFile(paths.localStateFile, 'utf8').then((content) => JSON.parse(content) as AppState)
+}
+
+async function readWorldControl(paths: ElectronE2EPaths, worldId: string): Promise<unknown> {
+  const content = await readFile(join(paths.root, '.storage', worldId, 'control.json'), 'utf8')
+  return JSON.parse(content) as unknown
+}
+
+function findWorldId(state: AppState, name: string): string {
+  const worldId = state.worlds.find((world) => world.serverConfig.name === name)?.id
+
+  if (!worldId) {
+    throw new Error(`Expected ${name} to exist in E2E state.`)
+  }
+
+  return worldId
 }

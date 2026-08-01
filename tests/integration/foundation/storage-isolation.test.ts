@@ -8,9 +8,12 @@ import {
   writeLocalState
 } from '../../../src/main/storage/persistence/local-state-store'
 import { getWorldContext } from '../../../src/main/storage/core/world-context'
-import { createGoogleDriveStorageAdapter } from '../../../src/main/storage/adapters/google-drive-storage-adapter'
+import {
+  createGoogleDriveStorageAdapter,
+  deleteGoogleDriveWorldFilesIfOwned
+} from '../../../src/main/storage/adapters/google-drive-storage-adapter'
 import { createLocalStorageAdapter } from '../../../src/main/storage/adapters/local-storage-adapter'
-import type { LatestSave } from '../../../src/shared/domain'
+import { ServerLockStatus, type LatestSave } from '../../../src/shared/domain'
 import { integrationTestDataPath } from '../support/integration-test-storage'
 import {
   GOOGLE_TEST_ACCOUNTS,
@@ -118,7 +121,108 @@ describe('integration test storage', () => {
     await expect(adapter.uploadWorld(sourceWorldFile)).rejects.toThrow('does not match')
     expect(googleDriveTestEnvironment.getFileContent('owner', foreignWorldFile.id)).toBe('foreign-world')
   })
+
+  it('keeps reads, publishes, and deletion isolated between two Drive worlds', async () => {
+    googleDriveTestEnvironment.setActiveAccount('owner')
+    const driveWorldA = createDriveWorld(WORLD_A_ID, 1)
+    const driveWorldB = createDriveWorld(WORLD_B_ID, 7)
+    const replacementWorld = join(integrationTestDataPath, 'drive-world-a.zip')
+    await mkdir(integrationTestDataPath, { recursive: true })
+    await writeFile(replacementWorld, 'updated-world-a')
+
+    await expect(driveWorldA.adapter.readServerSyncData()).resolves.toMatchObject({
+      latestSave: { saveVersion: 1 }
+    })
+    await expect(driveWorldB.adapter.readServerSyncData()).resolves.toMatchObject({
+      latestSave: { saveVersion: 7 }
+    })
+
+    await driveWorldA.adapter.writeLatestSave(createLatestSave(2))
+    await driveWorldA.adapter.uploadWorld(replacementWorld)
+
+    await expect(driveWorldA.adapter.readLatestSave()).resolves.toMatchObject({ saveVersion: 2 })
+    await expect(driveWorldB.adapter.readLatestSave()).resolves.toMatchObject({ saveVersion: 7 })
+    expect(googleDriveTestEnvironment.getFileContent('owner', driveWorldB.worldFileId)).toBe(
+      'world-ee1a5480-bf99-4f2f-84f1-327c4807af6f'
+    )
+
+    await deleteGoogleDriveWorldFilesIfOwned(driveWorldA.context)
+
+    expect(googleDriveTestEnvironment.getFileContent('owner', driveWorldA.controlFileId)).toBeNull()
+    expect(googleDriveTestEnvironment.getFileContent('owner', driveWorldA.worldFileId)).toBeNull()
+    await expect(driveWorldB.adapter.readServerSyncData()).resolves.toMatchObject({
+      latestSave: { saveVersion: 7 },
+      worldFileExists: true
+    })
+  })
 })
+
+function createDriveWorld(
+  worldId: string,
+  saveVersion: number
+): {
+  adapter: ReturnType<typeof createGoogleDriveStorageAdapter>
+  context: ReturnType<typeof createWorldContext>
+  controlFileId: string
+  worldFileId: string
+} {
+  const folder = googleDriveTestEnvironment.createFile('owner', {
+    mimeType: 'application/vnd.google-apps.folder',
+    name: `Folder ${worldId}`
+  })
+  const controlFile = googleDriveTestEnvironment.createFile('owner', {
+    mimeType: 'application/json',
+    name: 'control.json',
+    parents: [requireFileId(folder)]
+  })
+  const worldFile = googleDriveTestEnvironment.createFile('owner', {
+    mimeType: 'application/zip',
+    name: 'world.zip',
+    parents: [requireFileId(folder)]
+  })
+  const controlFileId = requireFileId(controlFile)
+  const worldFileId = requireFileId(worldFile)
+  googleDriveTestEnvironment.uploadFile(
+    'owner',
+    controlFileId,
+    JSON.stringify({
+      formatVersion: 1,
+      worldId,
+      latestSave: createLatestSave(saveVersion),
+      serverLock: { status: ServerLockStatus.Unlocked },
+      storageMutation: null
+    }),
+    false
+  )
+  googleDriveTestEnvironment.uploadFile('owner', worldFileId, `world-${worldId}`, false)
+
+  const world = {
+    ...createDefaultLocalWorldState(worldId),
+    googleDrive: {
+      configuredAt: '2026-07-29T12:00:00.000Z',
+      folderId: requireFileId(folder),
+      ownerAccountId: GOOGLE_TEST_ACCOUNTS.owner.session.player.id,
+      validatedAt: '2026-07-29T12:00:00.000Z',
+      worldFileIds: { controlFileId, worldFileId }
+    }
+  }
+  const context = createWorldContext(world)
+
+  return {
+    adapter: createGoogleDriveStorageAdapter(context),
+    context,
+    controlFileId,
+    worldFileId
+  }
+}
+
+function requireFileId(file: { id?: string | null } | null): string {
+  if (!file?.id) {
+    throw new Error('Expected the mocked Drive file to be created.')
+  }
+
+  return file.id
+}
 
 function createLatestSave(saveVersion: number): Exclude<LatestSave, null> {
   return {

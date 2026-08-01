@@ -11,11 +11,14 @@ import {
   setCloudStorageProvider
 } from '../../../src/main/storage/core/cloud-storage-service'
 import { createLocalStorageAdapter } from '../../../src/main/storage/adapters/local-storage-adapter'
+import { createGoogleDriveStorageAdapter } from '../../../src/main/storage/adapters/google-drive-storage-adapter'
 import type { StorageAdapter } from '../../../src/main/storage/adapters/storage-adapter.model'
 import { getSelectedWorldContext } from '../../../src/main/storage/core/world-context'
 import { publishServerSave } from '../../../src/main/storage/server-save/server-save-publisher'
 import {
+  readAppState,
   readCloudStorageSettings,
+  writeAppState,
   writeCloudStorageSettings
 } from '../../../src/main/storage/persistence/local-state-store'
 import { saveOwnerGoogleDriveWorld } from '../share-join/share-join-test-data'
@@ -105,6 +108,26 @@ describe('storage provider switching', () => {
       latestSave: localLatestSave,
       serverLock: { status: ServerLockStatus.Unlocked },
       storageMutation: null
+    })
+  })
+
+  it('creates a Drive folder when copying a local-only world to Google Drive', async () => {
+    const appState = await readAppState()
+    await writeAppState({ ...appState, activeProvider: CloudStorageProvider.Local })
+    await createLocalTestWorld('00000000-0000-4000-8000-000000000055')
+    await publishServerSave()
+    const preview = await getCloudStorageProviderSwitchPreview(CloudStorageProvider.GoogleDrive)
+
+    await setCloudStorageProvider({
+      dataMode: StorageSwitchDataMode.CopyCurrentToTarget,
+      expectedPreview: preview,
+      provider: CloudStorageProvider.GoogleDrive
+    })
+
+    const context = await getSelectedWorldContext()
+    expect(context.world.googleDrive).not.toBeNull()
+    await expect(createGoogleDriveStorageAdapter(context).readLatestSave()).resolves.toMatchObject({
+      saveVersion: 1
     })
   })
 })

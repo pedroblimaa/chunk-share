@@ -20,8 +20,10 @@ import { runExclusiveStorageOperation } from '../storage/core/operations/operati
 import { ExclusiveStorageOperation } from '../storage/core/operations/operation.model'
 import {
   getSelectedWorldOperationContext,
+  resolvePublishingWorldOperationContext,
   type WorldOperationContext
 } from '../storage/core/world-operation-context'
+import { getSelectedWorldContext } from '../storage/core/world-context'
 import { startHeartbeat, stopHeartbeat } from './lifecycle/heartbeat-manager'
 import {
   clearHostingLockAfterCleanStop,
@@ -111,7 +113,8 @@ class ServerRuntime {
   }
 
   private async startServerSession(): Promise<ServerRuntimeSnapshot> {
-    const operationContext = await getSelectedWorldOperationContext()
+    const worldContext = await getSelectedWorldContext()
+    const operationContext = await resolvePublishingWorldOperationContext(worldContext)
     this.runningWorld = operationContext
     this.runtimeWorldId = operationContext.worldId
     this.beginServerStart()

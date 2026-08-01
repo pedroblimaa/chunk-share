@@ -153,9 +153,11 @@ export class GoogleDriveE2EMock {
     const path = requestUrl.pathname
 
     if (path === '/drive/v3/files' && method === 'GET') {
+      const query = requestUrl.searchParams.get('q')
       const files = this.drive.listWorldFiles(
         accountName,
-        getRequestedFileName(requestUrl.searchParams.get('q'))
+        getRequestedParentFolderId(query),
+        getRequestedFileName(query)
       )
       files ? respondWithJson(response, 200, { files }) : respondNotFound(response)
       return
@@ -374,6 +376,10 @@ function toAccountName(value: string | null): GoogleTestAccountName | null {
 
 function getRequestedFileName(query: string | null): string | undefined {
   return query?.match(/name = '([^']+)'/)?.[1]
+}
+
+function getRequestedParentFolderId(query: string | null): string | undefined {
+  return query?.match(/'([^']+)' in parents/)?.[1]
 }
 
 async function readJsonBody<T>(request: IncomingMessage): Promise<T> {

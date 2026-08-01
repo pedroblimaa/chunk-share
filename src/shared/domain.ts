@@ -100,4 +100,5 @@ export interface ServerStorageSnapshot {
   serverLock: ServerLock
   serverSync: ServerSyncSnapshot
   localState: LocalState
+  worldFileExists: boolean
 }

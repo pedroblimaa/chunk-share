@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto'
-import type { CloudStorageSettings } from '../../../shared/cloud-storage.model'
+import type { CloudStorageSettings, GoogleDriveWorldState } from '../../../shared/cloud-storage.model'
 import type { LocalState, Player, ServerConfig, ServerSetupState } from '../../../shared/domain'
 import type { AppState, LocalWorldState, WorldId } from '../../../shared/world'
 import {
@@ -204,16 +204,18 @@ export async function saveWorldRestoredServerSetupResult(
   })
 }
 
-export function saveLocalSaveVersion(localSaveVersion: number | null): Promise<LocalState> {
-  // TODO(multiple-worlds/provider-reconciliation): Pass the reconciled world ID explicitly.
-  return saveSelectedWorldChanges({ localSaveVersion })
-}
-
 export function saveWorldLocalSaveVersion(
   worldId: WorldId,
   localSaveVersion: number | null
 ): Promise<LocalState> {
   return saveWorldChanges(worldId, { localSaveVersion })
+}
+
+export function saveWorldGoogleDriveState(
+  worldId: WorldId,
+  googleDrive: GoogleDriveWorldState
+): Promise<LocalWorldState> {
+  return updateWorld(worldId, (world) => ({ ...world, googleDrive }))
 }
 
 export function saveWorldActiveSessionId(
@@ -235,6 +237,21 @@ export async function clearPlayer(): Promise<LocalState> {
   await writeAppState({ ...appState, player: null })
 
   return toLocalState(null, getSelectedWorld(appState))
+}
+
+export async function reconcileSelectedWorld(visibleWorldIds: readonly WorldId[]): Promise<void> {
+  const appState = await readAppState()
+  const existingWorldIds = new Set(appState.worlds.map(({ id }) => id))
+  const availableWorldIds = visibleWorldIds.filter((worldId) => existingWorldIds.has(worldId))
+  const selectedWorldId = availableWorldIds.includes(appState.selectedWorldId ?? '')
+    ? appState.selectedWorldId
+    : (availableWorldIds[0] ?? null)
+
+  if (selectedWorldId === appState.selectedWorldId) {
+    return
+  }
+
+  await writeAppState({ ...appState, selectedWorldId })
 }
 
 export async function resetConfiguredServer(): Promise<LocalState> {

@@ -124,6 +124,37 @@ describe('multi-world runtime', () => {
     })
   })
 
+  it('cleanly hands runtime and saves from one world to another', async () => {
+    const worldAId = '00000000-0000-4000-8000-000000000024'
+    const worldBId = '00000000-0000-4000-8000-000000000025'
+    await createLocalTestWorld(worldAId)
+    const worldAStorage = createLocalStorageAdapter(await getSelectedWorldContext())
+    await createLocalTestWorld(worldBId)
+    const worldBContext = await getSelectedWorldContext()
+    const worldBStorage = createLocalStorageAdapter(worldBContext)
+
+    await selectWorld(worldAId)
+    await startAndWaitForRunning()
+    await stopAndWaitForStopped()
+    await selectWorld(worldBId)
+    await startAndWaitForRunning()
+
+    expect(getMinecraftSpawnInvocation().options.cwd).toBe(worldBContext.paths.serverFolder)
+
+    await stopAndWaitForStopped()
+
+    await expect(worldAStorage.readLatestSave()).resolves.toMatchObject({ saveVersion: 1 })
+    await expect(worldBStorage.readLatestSave()).resolves.toMatchObject({ saveVersion: 1 })
+    await expect(readWorld(worldAId)).resolves.toMatchObject({
+      activeSessionId: null,
+      localSaveVersion: 1
+    })
+    await expect(readWorld(worldBId)).resolves.toMatchObject({
+      activeSessionId: null,
+      localSaveVersion: 1
+    })
+  })
+
   it('allows deleting a different world while one world is running', async () => {
     const worldAId = '00000000-0000-4000-8000-00000000000e'
     const worldBId = '00000000-0000-4000-8000-00000000000f'
@@ -136,6 +167,25 @@ describe('multi-world runtime', () => {
       localState: { activeSessionId: expect.any(String) }
     })
     await expect(readWorld(worldBId)).rejects.toThrow(`World ${worldBId} was not found.`)
+    expect(getServerRuntimeSnapshot()).toMatchObject({ runningWorldId: worldAId, status: 'running' })
+
+    await stopAndWaitForStopped()
+  })
+
+  it('rejects deleting the running world by ID after selection changes', async () => {
+    const worldAId = '00000000-0000-4000-8000-000000000026'
+    const worldBId = '00000000-0000-4000-8000-000000000027'
+    await createLocalTestWorld(worldAId)
+    await createLocalTestWorld(worldBId)
+    await selectWorld(worldAId)
+    await startAndWaitForRunning()
+    await selectWorld(worldBId)
+
+    await expect(deleteConfiguredWorld(worldAId)).rejects.toThrow(
+      'Cannot remove this server while it is running.'
+    )
+    await expect(readWorld(worldAId)).resolves.toMatchObject({ id: worldAId })
+    await expect(readWorld(worldBId)).resolves.toMatchObject({ id: worldBId })
     expect(getServerRuntimeSnapshot()).toMatchObject({ runningWorldId: worldAId, status: 'running' })
 
     await stopAndWaitForStopped()

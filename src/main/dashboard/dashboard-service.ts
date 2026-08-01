@@ -20,13 +20,9 @@ import {
 import { ServerSyncStatus, type ServerSyncSnapshot } from '../../shared/server-sync'
 import type { LocalWorldState, WorldId } from '../../shared/world'
 import { getServerRuntimeSnapshot } from '../server-runtime/server-runtime-service'
-import { getServerSyncSnapshot } from '../server-sync/server-sync-service'
-import { getStorageAdapterForProvider } from '../storage/adapters/storage-adapter-service'
 import { DEFAULT_SERVER_CONFIG, DEFAULT_SERVER_LOCK } from '../storage/core/support/storage-defaults'
-import { StorageError } from '../storage/core/support/storage-error'
-import { createWorldContext } from '../storage/core/world-context'
-import type { WorldOperationContext } from '../storage/core/world-operation-context'
 import { readAppState } from '../storage/persistence/local-state-store'
+import { inspectWorldCatalog, isWorldCatalogEntryVisible } from '../world-catalog/world-catalog-service'
 
 type SelectedWorldDisplayData = Omit<
   ServerDisplayState,
@@ -41,32 +37,29 @@ export async function getServerDisplayState(): Promise<ServerDisplayState> {
   const appState = await readAppState()
   const runtimeSnapshot = getServerRuntimeSnapshot()
   const signedInUser = getSignedInUserFromPlayer(appState.player)
-  const worlds = await Promise.all(
-    appState.worlds.map(async (world) => {
-      try {
-        const worldContext = createWorldContext(world)
-        const operationContext: WorldOperationContext = {
-          ...worldContext,
-          storageAdapter: await getStorageAdapterForProvider(appState.activeProvider, worldContext)
-        }
-        const storageSnapshot = await getServerSyncSnapshot(operationContext)
-
-        return buildWorldDisplayData(
-          world.id,
-          storageSnapshot,
-          signedInUser,
-          appState.selectedWorldId,
-          runtimeSnapshot
-        )
-      } catch (error) {
-        if (world.id === appState.selectedWorldId || !(error instanceof StorageError)) {
-          throw error
-        }
-
-        return createUnavailableWorldDisplayData(world)
+  const catalog = (await inspectWorldCatalog(appState)).filter(isWorldCatalogEntryVisible)
+  const worlds = catalog.map((inspection): WorldDisplayData => {
+    if (inspection.error) {
+      if (inspection.world.id === appState.selectedWorldId) {
+        throw inspection.error
       }
-    })
-  )
+
+      return createUnavailableWorldDisplayData(inspection.world, inspection.isInstalled)
+    }
+
+    if (!inspection.storageSnapshot) {
+      return createInstalledOnlyWorldDisplayData(inspection.world)
+    }
+
+    return buildWorldDisplayData(
+      inspection.world.id,
+      inspection.storageSnapshot,
+      inspection.isInstalled,
+      signedInUser,
+      appState.selectedWorldId,
+      runtimeSnapshot
+    )
+  })
   const selectedWorld = worlds.find(({ worldId }) => worldId === appState.selectedWorldId)
   const selectedDisplay = selectedWorld ?? createEmptyWorldDisplayData()
 
@@ -94,12 +87,13 @@ export async function getServerDisplayState(): Promise<ServerDisplayState> {
 function buildWorldDisplayData(
   worldId: WorldId,
   storageSnapshot: ServerStorageSnapshot,
+  isInstalled: boolean,
   signedInUser: SignedInUser | null,
   selectedWorldId: WorldId | null,
   runtimeSnapshot: ServerRuntimeSnapshot
 ): WorldDisplayData {
   const { localState, serverSync } = storageSnapshot
-  const serverAvailability = getServerAvailability(storageSnapshot)
+  const serverAvailability = getServerAvailability(storageSnapshot, isInstalled)
   const remoteSave =
     serverAvailability === ServerAvailability.RemoteAvailable ? storageSnapshot.latestSave : null
   const runtimeAppliesToWorld = getRuntimeAppliesToWorld(
@@ -191,17 +185,32 @@ function createEmptyWorldDisplayData(): SelectedWorldDisplayData {
   }
 }
 
-function createUnavailableWorldDisplayData(world: LocalWorldState): WorldDisplayData {
+function createInstalledOnlyWorldDisplayData(world: LocalWorldState): WorldDisplayData {
+  return createWorldStateFallback(world, ServerAvailability.LocalReady, 'stopped')
+}
+
+function createUnavailableWorldDisplayData(world: LocalWorldState, isInstalled: boolean): WorldDisplayData {
+  return createWorldStateFallback(
+    world,
+    isInstalled ? ServerAvailability.LocalReady : ServerAvailability.RemoteAvailable,
+    'error'
+  )
+}
+
+function createWorldStateFallback(
+  world: LocalWorldState,
+  serverAvailability: ServerAvailability,
+  serverStatus: ServerStatus
+): WorldDisplayData {
   return {
     worldId: world.id,
-    serverAvailability:
-      world.serverSetup.status === 'ready' ? ServerAvailability.LocalReady : ServerAvailability.None,
+    serverAvailability,
     serverName: world.serverConfig.name,
-    serverStatus: 'error',
+    serverStatus,
     serverType: formatServerType(world.serverConfig.serverType),
     minecraftVersion: world.serverConfig.minecraftVersion,
     currentHost: null,
-    syncStatus: createEmptySyncStatus(),
+    syncStatus: createEmptySyncStatus(world.localSaveVersion),
     connectionAddress: null,
     connectionAddresses: [],
     players: { online: 0, max: 20 },
@@ -211,12 +220,12 @@ function createUnavailableWorldDisplayData(world: LocalWorldState): WorldDisplay
   }
 }
 
-function createEmptySyncStatus(): ServerSyncSnapshot {
+function createEmptySyncStatus(localSaveVersion: number | null = null): ServerSyncSnapshot {
   return {
     status: ServerSyncStatus.NoCloudSave,
     latestSave: null,
     serverLock: DEFAULT_SERVER_LOCK,
-    localSaveVersion: null,
+    localSaveVersion,
     cloudSaveVersion: null,
     lockedBy: null,
     isStaleLock: false,
@@ -300,8 +309,11 @@ function getDisplayServerStatus(
   return getRemoteHostingStatus(storageSnapshot) ?? runtimeStatus
 }
 
-function getServerAvailability(storageSnapshot: ServerStorageSnapshot): ServerAvailability {
-  if (storageSnapshot.localState.serverSetup.status === 'ready') {
+function getServerAvailability(
+  storageSnapshot: ServerStorageSnapshot,
+  isInstalled: boolean
+): ServerAvailability {
+  if (isInstalled) {
     return ServerAvailability.LocalReady
   }
 

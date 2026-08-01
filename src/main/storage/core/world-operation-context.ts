@@ -1,6 +1,6 @@
 import type { StorageAdapter } from '../adapters/storage-adapter.model'
-import { getActiveStorageAdapter } from '../adapters/storage-adapter-service'
-import { createWorld, readOrCreateSelectedWorld } from '../persistence/local-state-store'
+import { getActiveStorageAdapter, getOrCreateStorageContext } from '../adapters/storage-adapter-service'
+import { createWorld, readAppState, readOrCreateSelectedWorld } from '../persistence/local-state-store'
 import { createWorldContext, getSelectedWorldContext, type WorldContext } from './world-context'
 
 export interface WorldOperationContext extends WorldContext {
@@ -14,11 +14,23 @@ export async function getSelectedWorldOperationContext(): Promise<WorldOperation
 }
 
 export async function getOrCreateSelectedWorldOperationContext(): Promise<WorldOperationContext> {
-  return resolveWorldOperationContext(createWorldContext(await readOrCreateSelectedWorld()))
+  return resolvePublishingWorldOperationContext(createWorldContext(await readOrCreateSelectedWorld()))
 }
 
 export async function createNewWorldOperationContext(): Promise<WorldOperationContext> {
-  return resolveWorldOperationContext(createWorldContext(await createWorld()))
+  return resolvePublishingWorldOperationContext(createWorldContext(await createWorld()))
+}
+
+export async function resolvePublishingWorldOperationContext(
+  worldContext: WorldContext
+): Promise<WorldOperationContext> {
+  const appState = await readAppState()
+  const resolved = await getOrCreateStorageContext(appState.activeProvider, worldContext)
+
+  return {
+    ...resolved.worldContext,
+    storageAdapter: resolved.storageAdapter
+  }
 }
 
 async function resolveWorldOperationContext(worldContext: WorldContext): Promise<WorldOperationContext> {
