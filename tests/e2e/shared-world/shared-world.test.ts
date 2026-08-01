@@ -3,13 +3,14 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { PassThrough } from 'node:stream'
 import { expect, test } from '@playwright/test'
-import {
-  CloudStorageProvider,
-  GoogleDriveSetupStatus,
-  type CloudStorageSettings
-} from '../../../src/shared/cloud-storage.model'
+import { CloudStorageProvider, GoogleDriveSetupStatus } from '../../../src/shared/cloud-storage.model'
+import type { AppState } from '../../../src/shared/world'
 import { ServerHostingStatus, ServerLockStatus } from '../../../src/shared/domain'
 import type { StorageControl } from '../../../src/main/storage/adapters/storage-adapter.model'
+import {
+  DEFAULT_APP_STATE,
+  createDefaultLocalWorldState
+} from '../../../src/main/storage/core/support/storage-defaults'
 import {
   GOOGLE_TEST_ACCOUNTS,
   GOOGLE_TEST_IDS
@@ -18,6 +19,7 @@ import {
   E2E_WORLD_DATA,
   createElectronE2EPaths,
   launchChunkShareE2EApp,
+  readSelectedWorldE2EPaths,
   type ChunkShareE2EApp,
   type ElectronE2EPaths
 } from '../support/electron-test-app'
@@ -58,6 +60,95 @@ test('owner invites a friend who joins and downloads the shared world', async ()
       ])
     )
     await expectJoinedWorldFiles(friendApp.paths)
+  } finally {
+    await friendApp?.close()
+    await ownerApp?.close()
+    await driveMock.close()
+  }
+})
+
+test('opens a Drive world before its delayed snapshot finishes loading', async () => {
+  const driveMock = new GoogleDriveE2EMock()
+  const ownerPaths = createElectronE2EPaths()
+  let ownerApp: ChunkShareE2EApp | null = null
+
+  await driveMock.start()
+
+  try {
+    await prepareSharedWorld(driveMock, ownerPaths)
+    ownerApp = await launchChunkShareE2EApp({ accountName: 'owner', driveMock, paths: ownerPaths })
+    const refreshButton = ownerApp.page.getByRole('button', { name: 'Refresh servers' })
+    await ownerApp.user.click(refreshButton)
+    await expect(refreshButton).toHaveAttribute('aria-busy', 'false')
+    driveMock.delayRequest({
+      delayMs: 1_500,
+      method: 'GET',
+      times: 10
+    })
+
+    const openWorld = ownerApp.user.click(
+      ownerApp.page.getByRole('button', { name: 'Download', exact: true })
+    )
+
+    await expect(ownerApp.page.getByRole('heading', { name: 'Shared Test World' })).toBeVisible({
+      timeout: 1_000
+    })
+    await expect(ownerApp.page.getByText('UPDATING', { exact: true })).toBeVisible()
+    await expect(ownerApp.page.getByRole('button', { name: 'Updating...' })).toHaveAttribute(
+      'aria-busy',
+      'true'
+    )
+    await openWorld
+  } finally {
+    await ownerApp?.close()
+    await driveMock.close()
+  }
+})
+
+test('shows a remote starting state instead of a spinning download action', async () => {
+  const driveMock = new GoogleDriveE2EMock()
+  const ownerPaths = createElectronE2EPaths()
+  let ownerApp: ChunkShareE2EApp | null = null
+  let friendApp: ChunkShareE2EApp | null = null
+
+  await driveMock.start()
+
+  try {
+    await prepareSharedWorld(driveMock, ownerPaths)
+    ownerApp = await launchChunkShareE2EApp({ accountName: 'owner', driveMock, paths: ownerPaths })
+    await openSharedWorldDashboard(ownerApp)
+    await downloadSharedServer(ownerApp)
+    const joinLink = await inviteFriend(ownerApp)
+
+    friendApp = await launchChunkShareE2EApp({ accountName: 'friend', driveMock })
+    await joinSharedWorld(friendApp, joinLink)
+
+    driveMock.delayRequest({
+      delayMs: 1_500,
+      method: 'PATCH',
+      occurrence: 2,
+      pathname: `/upload/drive/v3/files/${GOOGLE_TEST_IDS.controlFile}`
+    })
+    await ownerApp.user.click(ownerApp.page.getByRole('button', { name: 'Start Server', exact: true }))
+    await expectDriveControl(driveMock, {
+      serverLock: {
+        hostingStatus: ServerHostingStatus.Starting,
+        status: ServerLockStatus.Locked
+      }
+    })
+
+    await friendApp.user.click(friendApp.page.getByRole('button', { name: 'Download', exact: true }))
+
+    await expect(friendApp.page.getByRole('button', { name: 'Starting...' })).toBeVisible()
+    await expect(friendApp.page.getByRole('button', { name: 'Download shared server' })).toHaveCount(0)
+
+    await expectDriveControl(driveMock, {
+      serverLock: {
+        hostingStatus: ServerHostingStatus.Running,
+        status: ServerLockStatus.Locked
+      }
+    })
+    await stopServer(ownerApp, 2)
   } finally {
     await friendApp?.close()
     await ownerApp?.close()
@@ -304,16 +395,21 @@ async function inviteFriend(ownerApp: ChunkShareE2EApp): Promise<string> {
 }
 
 async function joinAndDownloadSharedWorld(friendApp: ChunkShareE2EApp, joinLink: string): Promise<void> {
+  await joinSharedWorld(friendApp, joinLink)
+  await openSharedWorldDashboard(friendApp)
+  await downloadSharedServer(friendApp)
+}
+
+async function joinSharedWorld(friendApp: ChunkShareE2EApp, joinLink: string): Promise<void> {
   const { page, user } = friendApp
 
   await user.click(page.getByRole('button', { name: 'Join Shared World' }))
+  await expect(page.getByText(/select both control\.json and world\.zip/i)).toBeVisible()
   await user.fill(page.getByLabel('Join link'), joinLink)
   await user.click(page.getByRole('button', { name: 'Join World' }))
 
   await expect(page.getByRole('heading', { name: 'Shared Test World' })).toBeVisible()
   await expectJoinedDriveSettings(friendApp.paths)
-  await openSharedWorldDashboard(friendApp)
-  await downloadSharedServer(friendApp)
 }
 
 async function downloadSharedServer(app: ChunkShareE2EApp): Promise<void> {
@@ -342,24 +438,36 @@ async function refreshServer(app: ChunkShareE2EApp): Promise<void> {
 }
 
 async function saveOwnerDriveSettings(paths: ElectronE2EPaths): Promise<void> {
-  const settings: CloudStorageSettings = {
+  const now = '2026-07-25T12:00:00.000Z'
+  const world = {
+    ...createDefaultLocalWorldState(GOOGLE_TEST_IDS.world, now),
+    googleDrive: {
+      configuredAt: now,
+      folderId: GOOGLE_TEST_IDS.folder,
+      ownerAccountId: GOOGLE_TEST_ACCOUNTS.owner.session.player.id,
+      validatedAt: now,
+      worldFileIds: null
+    },
+    serverConfig: {
+      ...createDefaultLocalWorldState(GOOGLE_TEST_IDS.world, now).serverConfig,
+      name: 'Shared Test World',
+      minecraftVersion: '1.21.8'
+    }
+  }
+  const appState: AppState = {
+    ...DEFAULT_APP_STATE,
+    player: GOOGLE_TEST_ACCOUNTS.owner.session.player,
+    selectedWorldId: world.id,
     activeProvider: CloudStorageProvider.GoogleDrive,
     googleDrive: {
       errorMessage: null,
-      folder: {
-        configuredAt: '2026-07-25T12:00:00.000Z',
-        folderId: GOOGLE_TEST_IDS.folder,
-        folderName: 'Shared Test World',
-        ownerAccountId: GOOGLE_TEST_ACCOUNTS.owner.session.player.id,
-        validatedAt: '2026-07-25T12:00:00.000Z',
-        worldFileIds: null
-      },
       status: GoogleDriveSetupStatus.Valid
-    }
+    },
+    worlds: [world]
   }
 
   await mkdir(paths.root, { recursive: true })
-  await writeFile(join(paths.root, 'cloudStorageSettings.json'), JSON.stringify(settings, null, 2))
+  await writeFile(paths.localStateFile, JSON.stringify(appState, null, 2))
 }
 
 async function createSharedServerZip(): Promise<Uint8Array> {
@@ -386,28 +494,36 @@ async function createSharedServerZip(): Promise<Uint8Array> {
 }
 
 async function expectJoinedDriveSettings(paths: ElectronE2EPaths): Promise<void> {
-  const settings: unknown = JSON.parse(await readFile(join(paths.root, 'cloudStorageSettings.json'), 'utf8'))
+  const appState: unknown = JSON.parse(await readFile(paths.localStateFile, 'utf8'))
 
-  expect(settings).toMatchObject({
+  expect(appState).toMatchObject({
     activeProvider: CloudStorageProvider.GoogleDrive,
     googleDrive: {
-      folder: {
-        folderId: GOOGLE_TEST_IDS.folder,
-        ownerAccountId: null,
-        worldFileIds: {
-          controlFileId: GOOGLE_TEST_IDS.controlFile,
-          worldFileId: GOOGLE_TEST_IDS.worldFile
-        }
-      },
       status: GoogleDriveSetupStatus.Valid
-    }
+    },
+    selectedWorldId: GOOGLE_TEST_IDS.world,
+    worlds: [
+      {
+        id: GOOGLE_TEST_IDS.world,
+        googleDrive: {
+          folderId: GOOGLE_TEST_IDS.folder,
+          ownerAccountId: null,
+          worldFileIds: {
+            controlFileId: GOOGLE_TEST_IDS.controlFile,
+            worldFileId: GOOGLE_TEST_IDS.worldFile
+          }
+        }
+      }
+    ]
   })
 }
 
 async function expectLocalSaveVersion(paths: ElectronE2EPaths, expectedVersion: number): Promise<void> {
   const localState: unknown = JSON.parse(await readFile(paths.localStateFile, 'utf8'))
 
-  expect(localState).toMatchObject({ localSaveVersion: expectedVersion })
+  expect(localState).toMatchObject({
+    worlds: [{ localSaveVersion: expectedVersion }]
+  })
 }
 
 async function expectDriveControl(
@@ -428,21 +544,29 @@ function readDriveControl(driveMock: GoogleDriveE2EMock): StorageControl {
 }
 
 async function expectJoinedWorldFiles(paths: ElectronE2EPaths): Promise<void> {
-  await expect(readFile(join(paths.serverFolder, 'server.jar'), 'utf8')).resolves.toBe(
+  const worldPaths = await readSelectedWorldE2EPaths(paths)
+
+  await expect(readFile(join(worldPaths.serverFolder, 'server.jar'), 'utf8')).resolves.toBe(
     'chunkshare-e2e-server'
   )
-  await expect(readFile(join(paths.serverFolder, 'world', 'level.dat'), 'utf8')).resolves.toBe(E2E_WORLD_DATA)
-  await expect(readFile(join(paths.serverFolder, 'eula.txt'), 'utf8')).resolves.toContain('eula=true')
+  await expect(readFile(join(worldPaths.serverFolder, 'world', 'level.dat'), 'utf8')).resolves.toBe(
+    E2E_WORLD_DATA
+  )
+  await expect(readFile(join(worldPaths.serverFolder, 'eula.txt'), 'utf8')).resolves.toContain('eula=true')
 
   const localState: unknown = JSON.parse(await readFile(paths.localStateFile, 'utf8'))
   expect(localState).toMatchObject({
-    localSaveVersion: 1,
-    serverConfig: {
-      minecraftVersion: '1.21.8',
-      name: 'Shared Test World'
-    },
-    serverSetup: {
-      status: 'ready'
-    }
+    worlds: [
+      {
+        localSaveVersion: 1,
+        serverConfig: {
+          minecraftVersion: '1.21.8',
+          name: 'Shared Test World'
+        },
+        serverSetup: {
+          status: 'ready'
+        }
+      }
+    ]
   })
 }

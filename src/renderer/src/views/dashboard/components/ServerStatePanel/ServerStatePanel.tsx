@@ -10,8 +10,8 @@ interface ServerStatePanelProps {
   lastActiveLabel: string
   snapshot: ServerDisplayState
   toggleDisabled?: boolean
-  toggleButtonAriaLabel?: string
-  toggleButtonTooltip?: string
+  toggleButtonAriaLabel?: string | undefined
+  toggleButtonTooltip?: string | undefined
   onToggleServer: () => void
 }
 
@@ -20,7 +20,7 @@ function formatState(status: ServerDisplayState['serverStatus']): string {
     return 'Not Configured'
   }
 
-  return status[0].toUpperCase() + status.slice(1)
+  return status.charAt(0).toUpperCase() + status.slice(1)
 }
 
 function ServerStatePanel({

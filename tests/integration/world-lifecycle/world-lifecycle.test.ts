@@ -12,16 +12,14 @@ import {
 } from '../../../src/main/server-runtime/server-runtime-service'
 import { setupVanillaServer } from '../../../src/main/server-setup/server-setup-service'
 import { deleteConfiguredServer } from '../../../src/main/storage/core/storage-service'
+import { createLocalStorageAdapter } from '../../../src/main/storage/adapters/local-storage-adapter'
+import type { StorageAdapter } from '../../../src/main/storage/adapters/storage-adapter.model'
+import { getSelectedWorldContext } from '../../../src/main/storage/core/world-context'
 import {
-  localServerBackupsFolderPath,
-  localServerEulaFilePath,
-  localServerFolderPath,
-  localServerJarFilePath,
-  localServerPropertiesFilePath,
-  localStorageWorldFilePath
-} from '../../../src/main/storage/core/support/storage-paths'
-import { localStorageAdapter } from '../../../src/main/storage/adapters/local-storage-adapter'
-import { readLocalState } from '../../../src/main/storage/persistence/local-state-store'
+  readAppState,
+  readLocalState,
+  savePlayer
+} from '../../../src/main/storage/persistence/local-state-store'
 import {
   TEST_WORLD_DATA,
   TEST_WORLD_NAME,
@@ -42,14 +40,12 @@ import {
   GOOGLE_TEST_IDS,
   googleDriveTestEnvironment
 } from '../../support/google-drive/google-drive-test-environment'
-import { DEFAULT_LOCAL_STATE } from '../../../src/main/storage/core/support/storage-defaults'
-import { writeLocalState } from '../../../src/main/storage/persistence/local-state-store'
 import { publishServerSave } from '../../../src/main/storage/server-save/server-save-publisher'
 import { integrationTestDataPath } from '../support/integration-test-storage'
 import {
   readCloudStorageSettings,
   writeCloudStorageSettings
-} from '../../../src/main/storage/persistence/cloud-storage-settings-store'
+} from '../../../src/main/storage/persistence/local-state-store'
 
 const INTEGRATION_WAIT_TIMEOUT_MS = 5_000
 
@@ -70,10 +66,7 @@ describe('world lifecycle', () => {
 
   it('creates a new local world', async () => {
     const progressSteps: ServerSetupProgressStep[] = []
-    await writeLocalState({
-      ...DEFAULT_LOCAL_STATE,
-      player: GOOGLE_TEST_ACCOUNTS.owner.session.player
-    })
+    await savePlayer(GOOGLE_TEST_ACCOUNTS.owner.session.player)
 
     const localState = await setupVanillaServer(
       {
@@ -96,22 +89,31 @@ describe('world lifecycle', () => {
       serverSetup: { status: 'ready' }
     })
     expect(progressSteps).toEqual(Object.values(ServerSetupProgressStep))
-    await expect(stat(localServerJarFilePath)).resolves.toMatchObject({ size: expect.any(Number) })
-    await expect(readFile(localServerEulaFilePath, 'utf8')).resolves.toContain('eula=true')
-    await expect(readFile(localServerPropertiesFilePath, 'utf8')).resolves.toContain(
+    await expect(readAppState()).resolves.toMatchObject({
+      selectedWorldId: expect.any(String),
+      worlds: [{ id: expect.any(String) }]
+    })
+    const worldPaths = (await getSelectedWorldContext()).paths
+    await expect(stat(worldPaths.serverJarFile)).resolves.toMatchObject({ size: expect.any(Number) })
+    await expect(readFile(worldPaths.serverEulaFile, 'utf8')).resolves.toContain('eula=true')
+    await expect(readFile(worldPaths.serverPropertiesFile, 'utf8')).resolves.toContain(
       `server-port=${TEST_WORLD_PORT}`
     )
   })
 
   it('starts, stops, and publishes the world', async () => {
     await createLocalTestWorld()
+    const worldContext = await getSelectedWorldContext()
 
-    await expect(startMinecraftServer()).resolves.toMatchObject({ status: 'starting' })
+    await expect(startMinecraftServer()).resolves.toMatchObject({
+      runningWorldId: worldContext.worldId,
+      status: 'starting'
+    })
     expect(getMinecraftSpawnInvocation()).toEqual({
       args: ['-Xmx4G', '-Xms2G', '-jar', 'server.jar', 'nogui'],
       command: 'java',
       options: {
-        cwd: localServerFolderPath,
+        cwd: worldContext.paths.serverFolder,
         windowsHide: true
       }
     })
@@ -120,7 +122,7 @@ describe('world lifecycle', () => {
     await vi.waitFor(
       async () => {
         expect(getServerRuntimeSnapshot().status).toBe('running')
-        await expect(localStorageAdapter.readServerLock()).resolves.toMatchObject({
+        await expect((await getLocalStorageAdapter()).readServerLock()).resolves.toMatchObject({
           hostingStatus: ServerHostingStatus.Running,
           status: ServerLockStatus.Locked
         })
@@ -135,12 +137,12 @@ describe('world lifecycle', () => {
 
     expect(getMinecraftProcessMock().commands.slice(-2)).toEqual(['save-all flush\n', 'stop\n'])
     await expect(readPublishedWorldData()).resolves.toBe(TEST_WORLD_DATA)
-    await expect(localStorageAdapter.readLatestSave()).resolves.toMatchObject({
+    await expect((await getLocalStorageAdapter()).readLatestSave()).resolves.toMatchObject({
       minecraftVersion: TEST_MINECRAFT_VERSION,
       saveVersion: 1,
       serverName: TEST_WORLD_NAME
     })
-    await expect(localStorageAdapter.readServerLock()).resolves.toEqual({
+    await expect((await getLocalStorageAdapter()).readServerLock()).resolves.toEqual({
       status: ServerLockStatus.Unlocked
     })
     await expect(readLocalState()).resolves.toMatchObject({
@@ -152,22 +154,27 @@ describe('world lifecycle', () => {
   it('deletes a local world and keeps its server-folder backup', async () => {
     await createLocalTestWorld()
     await publishServerSave()
+    const worldPaths = (await getSelectedWorldContext()).paths
 
     const snapshot = await deleteConfiguredServer()
 
     expect(snapshot.localState.serverSetup.status).toBe('not-configured')
     expect(snapshot.latestSave).toBeNull()
-    await expect(stat(localServerFolderPath)).rejects.toMatchObject({ code: 'ENOENT' })
-    await expect(stat(localStorageWorldFilePath)).rejects.toMatchObject({ code: 'ENOENT' })
-    const backupFolderNames = await readdir(localServerBackupsFolderPath)
+    await expect(stat(worldPaths.serverFolder)).rejects.toMatchObject({ code: 'ENOENT' })
+    await expect(stat(worldPaths.storageWorldFile)).rejects.toMatchObject({ code: 'ENOENT' })
+    const backupFolderNames = await readdir(worldPaths.backupsFolder)
     expect(backupFolderNames).toHaveLength(1)
+    const backupFolderName = backupFolderNames[0]
+    if (!backupFolderName) {
+      throw new Error('Expected the deleted world backup folder to exist.')
+    }
     await expect(
-      readFile(join(localServerBackupsFolderPath, backupFolderNames[0], 'world', 'level.dat'), 'utf8')
+      readFile(join(worldPaths.backupsFolder, backupFolderName, 'world', 'level.dat'), 'utf8')
     ).resolves.toBe(TEST_WORLD_DATA)
   })
 
   it('deletes an owned Google Drive world and resets its local configuration', async () => {
-    await createLocalTestWorld()
+    await createLocalTestWorld(GOOGLE_TEST_IDS.world)
     await configureOwnedGoogleDriveWorld()
 
     const snapshot = await deleteConfiguredServer()
@@ -188,8 +195,9 @@ describe('world lifecycle', () => {
 
 async function readPublishedWorldData(): Promise<string> {
   const extractedWorldPath = join(integrationTestDataPath, 'published-world')
+  const worldFilePath = (await getSelectedWorldContext()).paths.storageWorldFile
   await mkdir(extractedWorldPath, { recursive: true })
-  await extractZip(localStorageWorldFilePath, { dir: extractedWorldPath })
+  await extractZip(worldFilePath, { dir: extractedWorldPath })
 
   return readFile(join(extractedWorldPath, 'world', 'level.dat'), 'utf8')
 }
@@ -204,7 +212,6 @@ function configureOwnedGoogleDriveWorld(): Promise<void> {
       folder: {
         configuredAt: now,
         folderId: GOOGLE_TEST_IDS.folder,
-        folderName: TEST_WORLD_NAME,
         ownerAccountId: GOOGLE_TEST_ACCOUNTS.owner.session.player.id,
         validatedAt: now,
         worldFileIds: {
@@ -215,4 +222,8 @@ function configureOwnedGoogleDriveWorld(): Promise<void> {
       status: GoogleDriveSetupStatus.Valid
     }
   })
+}
+
+async function getLocalStorageAdapter(): Promise<StorageAdapter> {
+  return createLocalStorageAdapter(await getSelectedWorldContext())
 }

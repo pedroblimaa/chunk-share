@@ -9,7 +9,10 @@
   ],
   "compilerOptions": {
     "composite": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitAny": true,
     "noEmit": true,
+    "noUncheckedIndexedAccess": true,
     "jsx": "react-jsx",
     "paths": {
       "@renderer/*": [

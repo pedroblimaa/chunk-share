@@ -29,6 +29,7 @@ import TopBar from '../components/TopBar/TopBar'
 interface DashboardViewProps {
   serverDisplayState: ServerDisplayState
   onServerDisplayStateChange: (serverDisplayState: ServerDisplayState) => void
+  onCreateServer: () => void
   onNavigateToServers: () => void
   onOpenSettings: () => void
   onSignOut: () => void
@@ -51,6 +52,7 @@ const COPY_STATUS_ICONS: Record<CopyStatus, string> = {
 function DashboardView({
   serverDisplayState,
   onServerDisplayStateChange,
+  onCreateServer,
   onNavigateToServers,
   onOpenSettings,
   onSignOut
@@ -323,6 +325,10 @@ function DashboardView({
     downloadEulaAccepted
   })
   const primaryActionIsDisabled = isInitialSnapshotRefreshing || primaryActionView.isDisabled
+  const createServerIsDisabled = dashboardSnapshot.runningWorldId !== null
+  const createServerDisabledReason = createServerIsDisabled
+    ? 'Stop the running server before creating another one.'
+    : undefined
   const connectionAddressDetails = dashboardSnapshot.connectionAddresses
     .map((connectionAddress) => `${connectionAddress.label}: ${connectionAddress.address}`)
     .join(', ')
@@ -346,8 +352,9 @@ function DashboardView({
     >
       <AppSidebar
         activeItem="servers"
-        addServerDisabled
-        addServerTitle="Only one server is supported in the MVP."
+        addServerDisabled={createServerIsDisabled}
+        addServerTitle={createServerDisabledReason}
+        onAddServer={createServerIsDisabled ? undefined : onCreateServer}
         onOpenServers={onNavigateToServers}
         onOpenSettings={onOpenSettings}
       />
@@ -359,13 +366,14 @@ function DashboardView({
             { label: 'Servers', onClick: onNavigateToServers },
             { label: dashboardSnapshot.serverName }
           ]}
-          createInstanceDisabled
-          createInstanceTitle="Only one server is supported in the MVP."
+          createInstanceDisabled={createServerIsDisabled}
+          createInstanceTitle={createServerDisabledReason}
           refreshAction={{
             isRefreshing: isDashboardRefreshing,
             label: 'Refresh server',
             onClick: refreshDashboard
           }}
+          onCreateInstance={createServerIsDisabled ? undefined : onCreateServer}
           onOpenSettings={onOpenSettings}
           onSignOut={onSignOut}
         />

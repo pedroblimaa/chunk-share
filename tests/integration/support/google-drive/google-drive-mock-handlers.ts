@@ -26,9 +26,11 @@ export function createGoogleDriveMockHandlers(): HttpHandler[] {
         return permissionDenied()
       }
 
+      const query = new URL(request.url).searchParams.get('q')
       const files = googleDriveTestEnvironment.listWorldFiles(
         accountName,
-        getRequestedFileName(new URL(request.url).searchParams.get('q'))
+        getRequestedParentFolderId(query),
+        getRequestedFileName(query)
       )
       return files ? HttpResponse.json({ files }) : permissionDenied()
     }),
@@ -44,7 +46,7 @@ export function createGoogleDriveMockHandlers(): HttpHandler[] {
       const file = googleDriveTestEnvironment.createFile(accountName, {
         mimeType: body.mimeType,
         name: body.name,
-        parents: body.parents
+        ...(body.parents ? { parents: body.parents } : {})
       })
 
       return file ? HttpResponse.json(file) : permissionDenied()
@@ -219,6 +221,10 @@ export function createGoogleDriveMockHandlers(): HttpHandler[] {
 
 function getRequestedFileName(query: string | null): string | undefined {
   return query?.match(/name = '([^']+)'/)?.[1]
+}
+
+function getRequestedParentFolderId(query: string | null): string | undefined {
+  return query?.match(/'([^']+)' in parents/)?.[1]
 }
 
 function requireAccount(request: Request): GoogleTestAccountName | null {

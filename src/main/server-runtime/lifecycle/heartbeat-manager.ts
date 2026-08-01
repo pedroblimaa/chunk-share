@@ -1,6 +1,6 @@
 import { ServerLockStatus } from '../../../shared/domain'
 import type { ServerRuntimeLogLine, ServerRuntimeStatus } from '../../../shared/server-runtime'
-import { getActiveStorageAdapter } from '../../storage/adapters/storage-adapter-service'
+import type { StorageAdapter } from '../../storage/adapters/storage-adapter.model'
 
 type RuntimeLogTone = ServerRuntimeLogLine['tone']
 
@@ -8,6 +8,7 @@ const HEARTBEAT_INTERVAL_MS = 60_000
 
 interface StartHeartbeatInput {
   sessionId: string
+  storageAdapter: StorageAdapter
   getStatus: () => ServerRuntimeStatus
   addLogLine: (source: string, message: string, tone?: RuntimeLogTone) => void
 }
@@ -48,13 +49,17 @@ class HeartbeatManager {
     void heartbeat.then((shouldContinue) => this.finishHeartbeat(heartbeat, shouldContinue))
   }
 
-  private async updateHeartbeat({ sessionId, getStatus, addLogLine }: StartHeartbeatInput): Promise<boolean> {
+  private async updateHeartbeat({
+    sessionId,
+    storageAdapter,
+    getStatus,
+    addLogLine
+  }: StartHeartbeatInput): Promise<boolean> {
     try {
       if (getStatus() !== 'running') {
         return false
       }
 
-      const storageAdapter = await getActiveStorageAdapter()
       const lockUpdated = await storageAdapter.updateServerLock((serverLock) => {
         if (serverLock.status !== ServerLockStatus.Locked || serverLock.sessionId !== sessionId) {
           return null

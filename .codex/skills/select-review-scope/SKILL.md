@@ -1,30 +1,41 @@
 ---
-name: select-review-scope
-description: Give a developer a fast, high-confidence review path after AI completes an implementation. Use when the user wants to review only the few highest-leverage code decisions instead of reading the full diff.
+name: select-architecture-review-scope
+description: Identify the highest-value architecture decisions to review after AI completes an implementation.
 ---
 
-# Select Review Scope
+# Select Architecture Review Scope
 
-Treat the user's time and attention as limited. Inspect and validate the full implementation yourself
-when needed; do not delegate normal code review back to the user.
+The user's time is limited. Do not ask for a full diff review.
 
-Select only the residual code where human judgment materially improves confidence. Prioritize intent,
-important tradeoffs, and behavior that would be costly to get wrong. Risk alone is not enough when the
-agent can verify the code itself.
+Inspect the implementation and identify the 1-3 architecture decisions where human judgment provides the most value.
 
-Aim for a five-to-ten-minute review, usually one to three narrow blocks. If more candidates exist,
-rank them and omit the lower-value ones unless the user asks for another batch.
+Prioritize:
 
-For each selected block:
+- Component boundaries and responsibilities
+- Data flow and ownership
+- Abstractions and interfaces
+- Dependencies and coupling
+- State management
+- API contracts
+- Scalability, reliability, and security tradeoffs
 
-- Re-read the current file immediately before responding and give the exact file and changed-line range.
-- Start at the first relevant statement and end at the last. Exclude nearby imports, blank lines,
-  unchanged setup, and function declarations unless they are part of the decision being reviewed.
-- List non-contiguous relevant blocks as separate ranges, even when they are in the same function.
-- Show the location in two parts. First write the basename and complete range as inline code, such as
-  `file.ts:20-35`. Immediately follow it with a short separate link such as `[Open](/full/path/file.ts:20)`.
-  Keep directory paths out of visible text and never omit the ending line from a multi-line range.
-- State why the user's judgment is useful.
-- Ask one concrete question to verify.
+Ignore:
 
-Do not restate the code or provide a broad walkthrough. Say clearly when no manual review is needed.
+- Style
+- Naming
+- Simple implementation details
+- Issues the agent can verify automatically
+
+For each selected decision:
+
+- Give the topic.
+- Explain why it matters.
+- Provide the exact location:
+  `file.ts:20-35`
+  `[Open](/full/path/file.ts:20)`
+- Ask one concrete question.
+
+Focus on architectural choices introduced by this change, not the whole codebase.
+
+If no meaningful architecture decision needs review, say:
+"No architecture review needed."

@@ -1,4 +1,3 @@
-import { ipcMain } from 'electron'
 import {
   DRIVE_SHARING_GET_AVAILABILITY_CHANNEL,
   DRIVE_SHARING_INVITE_MEMBER_CHANNEL,
@@ -10,15 +9,16 @@ import {
   revokeGoogleDriveMember
 } from '../../cloud-storage/google-drive-sharing-service'
 import { GoogleDriveError } from '../../cloud-storage/google-drive-error'
+import { handleIpc } from '../typed-ipc'
 
 export function registerDriveSharingIpcHandlers(): void {
-  ipcMain.handle(DRIVE_SHARING_GET_AVAILABILITY_CHANNEL, () => getGoogleDriveSharingAvailability())
+  handleIpc(DRIVE_SHARING_GET_AVAILABILITY_CHANNEL, () => getGoogleDriveSharingAvailability())
 
-  ipcMain.handle(DRIVE_SHARING_INVITE_MEMBER_CHANNEL, (_, email: unknown) => {
+  handleIpc(DRIVE_SHARING_INVITE_MEMBER_CHANNEL, (_, email: unknown) => {
     return inviteGoogleDriveMember(normalizeGoogleEmail(email))
   })
 
-  ipcMain.handle(DRIVE_SHARING_REVOKE_MEMBER_CHANNEL, (_, permissionId: unknown) => {
+  handleIpc(DRIVE_SHARING_REVOKE_MEMBER_CHANNEL, (_, permissionId: unknown) => {
     assertNonEmptyString(permissionId, 'Invalid Google Drive member permission.')
     return revokeGoogleDriveMember(permissionId)
   })

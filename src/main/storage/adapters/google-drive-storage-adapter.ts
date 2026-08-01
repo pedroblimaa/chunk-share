@@ -8,10 +8,12 @@ import type { Readable } from 'stream'
 import { pipeline } from 'stream/promises'
 import type { LatestSave, ServerLock } from '../../../shared/domain'
 import type {
-  GoogleDriveFolderConfig,
   GoogleDriveWorldFileIds,
-  GoogleDriveWorldReference
+  GoogleDriveWorldReference,
+  GoogleDriveWorldState
 } from '../../../shared/cloud-storage.model'
+import type { WorldContext } from '../core/world-context'
+import { getSelectedWorldContext } from '../core/world-context'
 import { ensureGoogleDriveAuthSession } from '../../auth/auth-service'
 import { createAuthenticatedGoogleOAuthClient } from '../../auth/google-oauth-client'
 import {
@@ -24,13 +26,13 @@ import {
 } from '../../cloud-storage/google-drive.model'
 import { GoogleDriveError } from '../../cloud-storage/google-drive-error'
 import {
+  createDefaultStorageControl,
   DEFAULT_LATEST_SAVE,
-  DEFAULT_SERVER_LOCK,
-  DEFAULT_STORAGE_CONTROL
+  DEFAULT_SERVER_LOCK
 } from '../core/support/storage-defaults'
 import { isRecoverableStorageControl, isStorageControl } from '../core/support/storage-validation'
-import { readCloudStorageSettings } from '../persistence/cloud-storage-settings-store'
 import type {
+  RecoverableStorageControl,
   ServerLockUpdate,
   ServerSavesReplacement,
   ServerSyncStorageData,
@@ -45,20 +47,35 @@ const ZIP_MIME_TYPE = 'application/zip'
 const MAX_RETAINED_WORLD_REVISIONS = 2
 const MUTATION_LOCK_STALE_MS = 60 * 60 * 1000
 
-export const googleDriveStorageAdapter: StorageAdapter = {
-  assertNoStorageMutationInProgress,
-  downloadWorld,
-  readLatestSave,
-  readServerLock,
-  readServerSyncData,
-  resetServerLock,
-  resetServerSaves,
-  runExclusiveStorageMutation,
-  stageServerSavesReplacement,
-  uploadWorld,
-  updateServerLock,
-  worldFileExists,
-  writeLatestSave
+interface DriveStorageContext {
+  folder: GoogleDriveWorldState
+  defaultControl: StorageControl
+  worldId: string
+}
+
+export function createGoogleDriveStorageAdapter(context: WorldContext): StorageAdapter {
+  const storageContext: DriveStorageContext = {
+    folder: getContextDriveFolder(context),
+    defaultControl: createDefaultStorageControl(context.worldId),
+    worldId: context.worldId
+  }
+
+  return {
+    assertNoStorageMutationInProgress: () => assertNoStorageMutationInProgress(storageContext),
+    downloadWorld: (localDestinationPath) => downloadWorld(storageContext, localDestinationPath),
+    readLatestSave: () => readLatestSave(storageContext),
+    readServerLock: () => readServerLock(storageContext),
+    readServerSyncData: () => readServerSyncData(storageContext),
+    resetServerLock: () => resetServerLock(storageContext),
+    resetServerSaves: () => resetServerSaves(storageContext),
+    runExclusiveStorageMutation: (executeMutation) =>
+      runExclusiveStorageMutation(storageContext, executeMutation),
+    stageServerSavesReplacement: () => stageServerSavesReplacement(storageContext),
+    uploadWorld: (localZipPath) => uploadWorld(storageContext, localZipPath),
+    updateServerLock: (update) => updateServerLock(storageContext, update),
+    worldFileExists: () => worldFileExists(storageContext),
+    writeLatestSave: (latestSave) => writeLatestSave(storageContext, latestSave)
+  }
 }
 
 export async function resolveGoogleDriveWorldFileIds(folderId: string): Promise<GoogleDriveWorldFileIds> {
@@ -77,8 +94,9 @@ export async function resolveGoogleDriveWorldFileIds(folderId: string): Promise<
   }
 }
 
-export async function deleteGoogleDriveWorldFilesIfOwned(): Promise<void> {
-  const folder = await getConfiguredDriveFolder()
+export async function deleteGoogleDriveWorldFilesIfOwned(context?: WorldContext): Promise<void> {
+  const resolvedContext = context ?? (await getSelectedWorldContext())
+  const folder = getContextDriveFolder(resolvedContext)
 
   if (!folder.ownerAccountId) {
     return
@@ -91,10 +109,33 @@ export async function deleteGoogleDriveWorldFilesIfOwned(): Promise<void> {
   }
 
   const oauthClient = createAuthenticatedGoogleOAuthClient(authSession.tokens)
+  if (folder.worldFileIds) {
+    const world = await validateSharedGoogleDriveWorld({
+      folderId: folder.folderId,
+      ...folder.worldFileIds
+    })
+    assertGoogleDriveWorldId(world.worldId, resolvedContext.worldId)
+
+    await Promise.all(
+      [folder.worldFileIds.controlFileId, folder.worldFileIds.worldFileId].map((fileId) =>
+        deleteDriveFileIfExists(oauthClient, fileId)
+      )
+    )
+    return
+  }
+
   const [controlFile, worldFile] = await Promise.all([
     findConfiguredFile(oauthClient, folder, CONTROL_FILE_NAME),
     findConfiguredFile(oauthClient, folder, WORLD_FILE_NAME)
   ])
+  const control = await readJsonDriveFileWithClient(
+    oauthClient,
+    controlFile,
+    CONTROL_FILE_NAME,
+    undefined,
+    isStorageControl
+  )
+  assertGoogleDriveWorldId(control.worldId, resolvedContext.worldId)
   const fileIds = [controlFile?.id, worldFile?.id].filter((fileId): fileId is string => Boolean(fileId))
 
   await Promise.all(fileIds.map((fileId) => deleteDriveFileIfExists(oauthClient, fileId)))
@@ -102,9 +143,24 @@ export async function deleteGoogleDriveWorldFilesIfOwned(): Promise<void> {
 
 export async function validateSharedGoogleDriveWorld(
   reference: GoogleDriveWorldReference
-): Promise<ServerSyncStorageData & { ownerAccountId: string | null }> {
+): Promise<ServerSyncStorageData & { ownerAccountId: string | null; worldId: string }> {
   const authSession = await ensureGoogleDriveAuthSession()
   const oauthClient = createAuthenticatedGoogleOAuthClient(authSession.tokens)
+  const world = await readValidatedSharedGoogleDriveWorld(oauthClient, reference)
+
+  return {
+    ownerAccountId: world.controlFile.ownedByMe ? authSession.player.id : null,
+    worldId: world.control.worldId,
+    latestSave: world.control.latestSave,
+    serverLock: world.control.serverLock,
+    worldFileExists: true
+  }
+}
+
+async function readValidatedSharedGoogleDriveWorld(
+  oauthClient: OAuth2Client,
+  reference: GoogleDriveWorldReference
+): Promise<{ control: StorageControl; controlFile: GoogleDriveFileResponse }> {
   const [controlFile, worldFile] = await Promise.all([
     readDriveFileMetadata(oauthClient, reference.controlFileId),
     readDriveFileMetadata(oauthClient, reference.worldFileId)
@@ -123,21 +179,27 @@ export async function validateSharedGoogleDriveWorld(
     oauthClient,
     controlFile,
     CONTROL_FILE_NAME,
-    DEFAULT_STORAGE_CONTROL,
+    undefined,
     isStorageControl
   )
 
-  return {
-    ownerAccountId: controlFile.ownedByMe ? authSession.player.id : null,
-    latestSave: control.latestSave,
-    serverLock: control.serverLock,
-    worldFileExists: true
-  }
+  return { control, controlFile }
 }
 
-async function readGoogleDriveStorageData(folder: GoogleDriveFolderConfig): Promise<ServerSyncStorageData> {
+async function readGoogleDriveStorageData(context: DriveStorageContext): Promise<ServerSyncStorageData> {
+  const { folder } = context
   if (folder.worldFileIds) {
-    return validateSharedGoogleDriveWorld({ folderId: folder.folderId, ...folder.worldFileIds })
+    const world = await validateSharedGoogleDriveWorld({
+      folderId: folder.folderId,
+      ...folder.worldFileIds
+    })
+    assertGoogleDriveWorldId(world.worldId, context.worldId)
+
+    return {
+      latestSave: world.latestSave,
+      serverLock: world.serverLock,
+      worldFileExists: world.worldFileExists
+    }
   }
 
   const oauthClient = await createAuthenticatedDriveClient()
@@ -148,8 +210,8 @@ async function readGoogleDriveStorageData(folder: GoogleDriveFolderConfig): Prom
     oauthClient,
     controlFile,
     CONTROL_FILE_NAME,
-    DEFAULT_STORAGE_CONTROL,
-    isStorageControl
+    context.defaultControl,
+    (value): value is StorageControl => isStorageControl(value) && value.worldId === context.worldId
   )
 
   return {
@@ -159,19 +221,22 @@ async function readGoogleDriveStorageData(folder: GoogleDriveFolderConfig): Prom
   }
 }
 
-async function runExclusiveStorageMutation<Result>(executeMutation: () => Promise<Result>): Promise<Result> {
+async function runExclusiveStorageMutation<Result>(
+  context: DriveStorageContext,
+  executeMutation: () => Promise<Result>
+): Promise<Result> {
   const operationId = randomUUID()
-  await acquireExclusiveMutationLock(operationId)
+  await acquireExclusiveMutationLock(context, operationId)
 
   try {
     return await executeMutation()
   } finally {
-    await releaseExclusiveMutationLock(operationId)
+    await releaseExclusiveMutationLock(context, operationId)
   }
 }
 
-async function assertNoStorageMutationInProgress(): Promise<void> {
-  const control = await readStorageControl()
+async function assertNoStorageMutationInProgress(context: DriveStorageContext): Promise<void> {
+  const control = await readStorageControl(context)
 
   if (storageMutationIsActive(control)) {
     throw new GoogleDriveError(
@@ -181,30 +246,28 @@ async function assertNoStorageMutationInProgress(): Promise<void> {
   }
 
   if (control.storageMutation) {
-    await releaseExclusiveMutationLock(control.storageMutation.operationId)
+    await releaseExclusiveMutationLock(context, control.storageMutation.operationId)
   }
 }
 
-async function readLatestSave(): Promise<LatestSave> {
-  return (await readStorageControl()).latestSave
+async function readLatestSave(context: DriveStorageContext): Promise<LatestSave> {
+  return (await readStorageControl(context)).latestSave
 }
 
-async function writeLatestSave(latestSave: LatestSave): Promise<void> {
-  await updateStorageControl((control) => ({ ...control, latestSave }))
+async function writeLatestSave(context: DriveStorageContext, latestSave: LatestSave): Promise<void> {
+  await updateStorageControl(context, (control) => ({ ...control, latestSave }))
 }
 
-async function readServerLock(): Promise<ServerLock> {
-  return (await readStorageControl()).serverLock
+async function readServerLock(context: DriveStorageContext): Promise<ServerLock> {
+  return (await readStorageControl(context)).serverLock
 }
 
-async function readServerSyncData(): Promise<ServerSyncStorageData> {
-  const folder = await getConfiguredDriveFolder()
-
-  return readGoogleDriveStorageData(folder)
+async function readServerSyncData(context: DriveStorageContext): Promise<ServerSyncStorageData> {
+  return readGoogleDriveStorageData(context)
 }
 
-async function updateServerLock(update: ServerLockUpdate): Promise<boolean> {
-  return updateStorageControl((control) => {
+async function updateServerLock(context: DriveStorageContext, update: ServerLockUpdate): Promise<boolean> {
+  return updateStorageControl(context, (control) => {
     const serverLock = update(control.serverLock)
 
     if (!serverLock) {
@@ -215,16 +278,17 @@ async function updateServerLock(update: ServerLockUpdate): Promise<boolean> {
   })
 }
 
-async function resetServerLock(): Promise<void> {
+async function resetServerLock(context: DriveStorageContext): Promise<void> {
   const oauthClient = await createAuthenticatedDriveClient()
-  const folder = await getConfiguredDriveFolder()
+  const { folder } = context
   const existingFile = await findConfiguredFile(oauthClient, folder, CONTROL_FILE_NAME)
   const control = await readJsonDriveFileWithClient(
     oauthClient,
     existingFile,
     CONTROL_FILE_NAME,
-    DEFAULT_STORAGE_CONTROL,
-    isRecoverableStorageControl
+    context.defaultControl,
+    (value): value is RecoverableStorageControl =>
+      isRecoverableStorageControl(value) && value.worldId === context.worldId
   )
   const fileId =
     existingFile?.id ??
@@ -238,11 +302,12 @@ async function resetServerLock(): Promise<void> {
   )
 }
 
-async function stageServerSavesReplacement(): Promise<ServerSavesReplacement> {
+async function stageServerSavesReplacement(context: DriveStorageContext): Promise<ServerSavesReplacement> {
   const oauthClient = await createAuthenticatedDriveClient()
-  const folder = await getConfiguredDriveFolder()
+  const { folder } = context
+  await assertConfiguredWorldFilesMatchContext(oauthClient, context)
   const [previousControl, worldFile] = await Promise.all([
-    readStorageControl(),
+    readStorageControl(context),
     findConfiguredFile(oauthClient, folder, WORLD_FILE_NAME)
   ])
   const worldFileId = worldFile?.id ?? null
@@ -273,7 +338,7 @@ async function stageServerSavesReplacement(): Promise<ServerSavesReplacement> {
       }
     }
 
-    await updateStorageControl((control) => ({
+    await updateStorageControl(context, (control) => ({
       ...control,
       latestSave: previousControl.latestSave,
       serverLock: previousControl.serverLock
@@ -284,8 +349,11 @@ async function stageServerSavesReplacement(): Promise<ServerSavesReplacement> {
   return { commit, rollback }
 }
 
-async function acquireExclusiveMutationLock(operationId: string): Promise<void> {
-  await updateStorageControl((control) => {
+async function acquireExclusiveMutationLock(
+  context: DriveStorageContext,
+  operationId: string
+): Promise<void> {
+  await updateStorageControl(context, (control) => {
     if (storageMutationIsActive(control)) {
       throw new GoogleDriveError(
         'Storage data is already being moved. Try again after it finishes.',
@@ -302,7 +370,7 @@ async function acquireExclusiveMutationLock(operationId: string): Promise<void> 
     }
   })
 
-  const control = await readStorageControl()
+  const control = await readStorageControl(context)
 
   if (control.storageMutation?.operationId !== operationId) {
     throw new GoogleDriveError(
@@ -312,8 +380,11 @@ async function acquireExclusiveMutationLock(operationId: string): Promise<void> 
   }
 }
 
-async function releaseExclusiveMutationLock(operationId: string): Promise<void> {
-  await updateStorageControl((control) =>
+async function releaseExclusiveMutationLock(
+  context: DriveStorageContext,
+  operationId: string
+): Promise<void> {
+  await updateStorageControl(context, (control) =>
     control.storageMutation?.operationId === operationId ? { ...control, storageMutation: null } : control
   )
 }
@@ -328,21 +399,22 @@ function storageMutationIsActive(control: StorageControl): boolean {
   return Number.isFinite(lockAgeMs) && lockAgeMs <= MUTATION_LOCK_STALE_MS
 }
 
-async function worldFileExists(): Promise<boolean> {
+async function worldFileExists(context: DriveStorageContext): Promise<boolean> {
   const oauthClient = await createAuthenticatedDriveClient()
-  const folder = await getConfiguredDriveFolder()
+  const { folder } = context
 
   if (folder.worldFileIds) {
-    await readDriveFileMetadata(oauthClient, folder.worldFileIds.worldFileId)
+    await assertConfiguredWorldFilesMatchContext(oauthClient, context)
     return true
   }
 
   return (await findFileInFolder(oauthClient, folder.folderId, WORLD_FILE_NAME)) !== null
 }
 
-async function uploadWorld(localZipPath: string): Promise<Error | null> {
+async function uploadWorld(context: DriveStorageContext, localZipPath: string): Promise<Error | null> {
   const oauthClient = await createAuthenticatedDriveClient()
-  const folder = await getConfiguredDriveFolder()
+  const { folder } = context
+  await assertConfiguredWorldFilesMatchContext(oauthClient, context)
   const existingFile = await findConfiguredFile(oauthClient, folder, WORLD_FILE_NAME)
   const fileId =
     existingFile?.id ?? (await createDriveFile(oauthClient, folder.folderId, WORLD_FILE_NAME, ZIP_MIME_TYPE))
@@ -357,9 +429,10 @@ async function uploadWorld(localZipPath: string): Promise<Error | null> {
   }
 }
 
-async function downloadWorld(localDestinationPath: string): Promise<void> {
+async function downloadWorld(context: DriveStorageContext, localDestinationPath: string): Promise<void> {
   const oauthClient = await createAuthenticatedDriveClient()
-  const folder = await getConfiguredDriveFolder()
+  const { folder } = context
+  await assertConfiguredWorldFilesMatchContext(oauthClient, context)
   const file = await findConfiguredFile(oauthClient, folder, WORLD_FILE_NAME)
 
   if (!file?.id) {
@@ -372,34 +445,37 @@ async function downloadWorld(localDestinationPath: string): Promise<void> {
   await downloadDriveFile(oauthClient, file.id, localDestinationPath)
 }
 
-async function resetServerSaves(): Promise<void> {
-  await writeLatestSave(DEFAULT_LATEST_SAVE)
+async function resetServerSaves(context: DriveStorageContext): Promise<void> {
+  await writeLatestSave(context, DEFAULT_LATEST_SAVE)
 }
 
-async function readStorageControl(): Promise<StorageControl> {
+async function readStorageControl(context: DriveStorageContext): Promise<StorageControl> {
   const oauthClient = await createAuthenticatedDriveClient()
-  const folder = await getConfiguredDriveFolder()
+  const { folder } = context
   const file = await findConfiguredFile(oauthClient, folder, CONTROL_FILE_NAME)
 
   return readJsonDriveFileWithClient(
     oauthClient,
     file,
     CONTROL_FILE_NAME,
-    DEFAULT_STORAGE_CONTROL,
-    isStorageControl
+    context.defaultControl,
+    (value): value is StorageControl => isStorageControl(value) && value.worldId === context.worldId
   )
 }
 
-async function updateStorageControl(update: (control: StorageControl) => StorageControl): Promise<boolean> {
+async function updateStorageControl(
+  context: DriveStorageContext,
+  update: (control: StorageControl) => StorageControl
+): Promise<boolean> {
   const oauthClient = await createAuthenticatedDriveClient()
-  const folder = await getConfiguredDriveFolder()
+  const { folder } = context
   const existingFile = await findConfiguredFile(oauthClient, folder, CONTROL_FILE_NAME)
   const control = await readJsonDriveFileWithClient(
     oauthClient,
     existingFile,
     CONTROL_FILE_NAME,
-    DEFAULT_STORAGE_CONTROL,
-    isStorageControl
+    context.defaultControl,
+    (value): value is StorageControl => isStorageControl(value) && value.worldId === context.worldId
   )
   const nextControl = update(control)
 
@@ -407,7 +483,7 @@ async function updateStorageControl(update: (control: StorageControl) => Storage
     return false
   }
 
-  if (!isStorageControl(nextControl)) {
+  if (!isStorageControl(nextControl) || nextControl.worldId !== context.worldId) {
     throw new GoogleDriveError(
       `Refusing to write invalid data shape to ${CONTROL_FILE_NAME}.`,
       GoogleDriveErrorCode.RequestFailed
@@ -426,11 +502,18 @@ async function readJsonDriveFileWithClient<T>(
   oauthClient: OAuth2Client,
   file: GoogleDriveFileResponse | null,
   fileName: string,
-  defaultValue: T,
+  defaultValue: T | undefined,
   validate: (value: unknown) => value is T
 ): Promise<T> {
   if (!file?.id) {
-    return defaultValue
+    if (defaultValue !== undefined) {
+      return defaultValue
+    }
+
+    throw new GoogleDriveError(
+      `Google Drive file ${fileName} was not found.`,
+      GoogleDriveErrorCode.FolderNotFound
+    )
   }
 
   const fileId = file.id
@@ -477,20 +560,25 @@ async function createAuthenticatedDriveClient(): Promise<OAuth2Client> {
   return createAuthenticatedGoogleOAuthClient(authSession.tokens)
 }
 
-async function getConfiguredDriveFolder(): Promise<GoogleDriveFolderConfig> {
-  const settings = await readCloudStorageSettings()
-  const folder = settings.googleDrive.folder
+function getContextDriveFolder(context: WorldContext): GoogleDriveWorldState {
+  const googleDrive = context.world.googleDrive
 
-  if (!folder) {
+  if (!googleDrive) {
     throw new GoogleDriveError('Google Drive folder is not configured.', GoogleDriveErrorCode.FolderNotFound)
   }
 
-  return folder
+  return {
+    folderId: googleDrive.folderId,
+    ownerAccountId: googleDrive.ownerAccountId,
+    worldFileIds: googleDrive.worldFileIds,
+    configuredAt: googleDrive.configuredAt,
+    validatedAt: googleDrive.validatedAt
+  }
 }
 
 async function findConfiguredFile(
   oauthClient: OAuth2Client,
-  folder: GoogleDriveFolderConfig,
+  folder: GoogleDriveWorldState,
   fileName: string
 ): Promise<GoogleDriveFileResponse | null> {
   const configuredFileId =
@@ -778,6 +866,32 @@ function assertSharedWorldFile(
   if (!file.capabilities?.canDownload || !file.capabilities.canEdit) {
     throw new GoogleDriveError(`The selected ${expectedName} requires read and write access.`)
   }
+}
+
+function assertGoogleDriveWorldId(actualWorldId: string, expectedWorldId: string): void {
+  if (actualWorldId !== expectedWorldId) {
+    throw new GoogleDriveError(
+      'The configured Google Drive files belong to a different world.',
+      GoogleDriveErrorCode.RequestFailed
+    )
+  }
+}
+
+async function assertConfiguredWorldFilesMatchContext(
+  oauthClient: OAuth2Client,
+  context: DriveStorageContext
+): Promise<void> {
+  const worldFileIds = context.folder.worldFileIds
+
+  if (!worldFileIds) {
+    return
+  }
+
+  const world = await readValidatedSharedGoogleDriveWorld(oauthClient, {
+    folderId: context.folder.folderId,
+    ...worldFileIds
+  })
+  assertGoogleDriveWorldId(world.control.worldId, context.worldId)
 }
 
 function resolveGoogleDriveFileId(file: GoogleDriveFileResponse, fileName: string): string {

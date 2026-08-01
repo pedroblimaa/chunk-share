@@ -1,4 +1,3 @@
-import { ipcMain } from 'electron'
 import {
   DRIVE_JOIN_CONSUME_PENDING_LINK_CHANNEL,
   DRIVE_JOIN_WORLD_CHANNEL
@@ -6,11 +5,12 @@ import {
 import { GoogleDriveError } from '../../cloud-storage/google-drive-error'
 import { consumePendingGoogleDriveJoinLink } from '../../cloud-storage/google-drive-join-link'
 import { joinGoogleDriveWorld } from '../../cloud-storage/google-drive-join-service'
+import { handleIpc } from '../typed-ipc'
 
 export function registerDriveJoinIpcHandlers(): void {
-  ipcMain.handle(DRIVE_JOIN_CONSUME_PENDING_LINK_CHANNEL, () => consumePendingGoogleDriveJoinLink())
+  handleIpc(DRIVE_JOIN_CONSUME_PENDING_LINK_CHANNEL, () => consumePendingGoogleDriveJoinLink())
 
-  ipcMain.handle(DRIVE_JOIN_WORLD_CHANNEL, (_, joinLink: unknown) => {
+  handleIpc(DRIVE_JOIN_WORLD_CHANNEL, (_, joinLink: unknown) => {
     if (typeof joinLink !== 'string') {
       throw new GoogleDriveError('Paste a valid ChunkShare join link.')
     }

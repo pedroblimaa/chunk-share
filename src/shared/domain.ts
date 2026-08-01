@@ -43,7 +43,6 @@ export interface ServerConfig {
   name: string
   serverType: ServerType
   minecraftVersion: MinecraftVersion
-  serverFolderPath: string | null
   port: number
 }
 
@@ -101,4 +100,5 @@ export interface ServerStorageSnapshot {
   serverLock: ServerLock
   serverSync: ServerSyncSnapshot
   localState: LocalState
+  worldFileExists: boolean
 }

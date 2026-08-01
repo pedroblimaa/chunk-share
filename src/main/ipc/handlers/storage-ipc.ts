@@ -1,4 +1,3 @@
-import { ipcMain } from 'electron'
 import {
   STORAGE_CLEAR_GOOGLE_DRIVE_FOLDER_CHANNEL,
   STORAGE_CLOUD_SETTINGS_CHANNEL,
@@ -22,11 +21,12 @@ import {
   validateGoogleDriveFolder
 } from '../../storage/core/cloud-storage-service'
 import {
-  deleteConfiguredServer,
+  deleteConfiguredWorld,
   getStorageSnapshot,
   resetServerLock,
   updateServerConfig
 } from '../../storage/core/storage-service'
+import { isWorldId } from '../../../shared/world'
 import { StorageError } from '../../storage/core/support/storage-error'
 import {
   isCloudStorageProvider as isValidProvider,
@@ -34,19 +34,20 @@ import {
   isServerConfig
 } from '../../storage/core/support/storage-validation'
 import { createCopyProgressSender } from '../support/storage-progress-sender'
+import { handleIpc } from '../typed-ipc'
 
 export function registerStorageIpcHandlers(): void {
-  ipcMain.handle(STORAGE_SNAPSHOT_CHANNEL, () => getStorageSnapshot())
+  handleIpc(STORAGE_SNAPSHOT_CHANNEL, () => getStorageSnapshot())
 
-  ipcMain.handle(STORAGE_CLOUD_SETTINGS_CHANNEL, () => getCloudStorageSettings())
+  handleIpc(STORAGE_CLOUD_SETTINGS_CHANNEL, () => getCloudStorageSettings())
 
-  ipcMain.handle(STORAGE_SETUP_GOOGLE_DRIVE_FOLDER_CHANNEL, () => setupGoogleDriveFolder())
+  handleIpc(STORAGE_SETUP_GOOGLE_DRIVE_FOLDER_CHANNEL, () => setupGoogleDriveFolder())
 
-  ipcMain.handle(STORAGE_VALIDATE_GOOGLE_DRIVE_FOLDER_CHANNEL, () => validateGoogleDriveFolder())
+  handleIpc(STORAGE_VALIDATE_GOOGLE_DRIVE_FOLDER_CHANNEL, () => validateGoogleDriveFolder())
 
-  ipcMain.handle(STORAGE_CLEAR_GOOGLE_DRIVE_FOLDER_CHANNEL, () => clearGoogleDriveFolder())
+  handleIpc(STORAGE_CLEAR_GOOGLE_DRIVE_FOLDER_CHANNEL, () => clearGoogleDriveFolder())
 
-  ipcMain.handle(STORAGE_GET_PROVIDER_SWITCH_PREVIEW_CHANNEL, (_, provider: unknown) => {
+  handleIpc(STORAGE_GET_PROVIDER_SWITCH_PREVIEW_CHANNEL, (_, provider: unknown) => {
     if (!isValidProvider(provider)) {
       throw new StorageError('Invalid cloud storage provider preview payload.')
     }
@@ -54,7 +55,7 @@ export function registerStorageIpcHandlers(): void {
     return getStorageProviderSwitchPreview(provider)
   })
 
-  ipcMain.handle(STORAGE_SET_PROVIDER_CHANNEL, (event, request: unknown) => {
+  handleIpc(STORAGE_SET_PROVIDER_CHANNEL, (event, request: unknown) => {
     if (!isValidProviderSwitchRequest(request)) {
       throw new StorageError('Invalid cloud storage provider switch payload.')
     }
@@ -62,11 +63,17 @@ export function registerStorageIpcHandlers(): void {
     return setCloudStorageProvider(request, createCopyProgressSender(event.sender))
   })
 
-  ipcMain.handle(STORAGE_DELETE_SERVER_CHANNEL, () => deleteConfiguredServer())
+  handleIpc(STORAGE_DELETE_SERVER_CHANNEL, (_, worldId: unknown) => {
+    if (!isWorldId(worldId)) {
+      throw new StorageError('Invalid world deletion payload.')
+    }
 
-  ipcMain.handle(STORAGE_RESET_SERVER_LOCK_CHANNEL, () => resetServerLock())
+    return deleteConfiguredWorld(worldId)
+  })
 
-  ipcMain.handle(STORAGE_SAVE_SERVER_CONFIG_CHANNEL, (_, serverConfig: unknown) => {
+  handleIpc(STORAGE_RESET_SERVER_LOCK_CHANNEL, () => resetServerLock())
+
+  handleIpc(STORAGE_SAVE_SERVER_CONFIG_CHANNEL, (_, serverConfig: unknown) => {
     if (!isServerConfig(serverConfig)) {
       throw new StorageError('Invalid server config payload.')
     }

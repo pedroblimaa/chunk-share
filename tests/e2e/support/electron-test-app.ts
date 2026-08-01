@@ -1,12 +1,13 @@
 import { createHash, randomUUID } from 'node:crypto'
-import { access, mkdir, rm, writeFile } from 'node:fs/promises'
+import { access, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import { join, relative, resolve } from 'node:path'
 import { _electron as electron, type ElectronApplication, type Page } from '@playwright/test'
 import type { GoogleAuthTokens } from '../../../src/main/auth/auth-model'
 import { GOOGLE_AUTH_TOKENS_FILE_NAME } from '../../../src/main/auth/auth-constants'
-import { DEFAULT_LOCAL_STATE } from '../../../src/main/storage/core/support/storage-defaults'
+import { DEFAULT_APP_STATE } from '../../../src/main/storage/core/support/storage-defaults'
 import type { Player } from '../../../src/shared/domain'
+import type { AppState } from '../../../src/shared/world'
 import {
   GOOGLE_TEST_ACCOUNTS,
   type GoogleTestAccountName
@@ -43,11 +44,14 @@ const E2E_AUTH_TOKENS: GoogleAuthTokens = {
 }
 
 export interface ElectronE2EPaths {
-  controlFile: string
   localStateFile: string
   root: string
-  serverFolder: string
   userDataFolder: string
+}
+
+export interface ElectronE2EWorldPaths {
+  controlFile: string
+  serverFolder: string
   worldFile: string
 }
 
@@ -63,6 +67,7 @@ export interface CloseChunkShareE2EAppOptions {
 }
 
 export interface ChunkShareE2EApp {
+  crashMinecraftServer: () => Promise<void>
   electronApp: ElectronApplication
   page: Page
   paths: ElectronE2EPaths
@@ -94,7 +99,7 @@ export async function launchChunkShareE2EApp(
       driveMockUrl: options.driveMock?.url ?? null,
       ...identity
     })
-    await installMainProcessMocks(electronApp, paths)
+    await installMainProcessMocks(electronApp)
 
     if (authenticated) {
       await seedAuthTokensIfMissing(electronApp, identity.tokens)
@@ -102,6 +107,7 @@ export async function launchChunkShareE2EApp(
     }
 
     return {
+      crashMinecraftServer: () => crashMinecraftServer(electronApp),
       electronApp,
       page,
       paths,
@@ -115,16 +121,41 @@ export async function launchChunkShareE2EApp(
   }
 }
 
+async function crashMinecraftServer(electronApp: ElectronApplication): Promise<void> {
+  await electronApp.evaluate(() => {
+    const testGlobal = globalThis as typeof globalThis & {
+      chunkShareE2EServerProcess?: { emit: (event: string, exitCode: number) => void }
+    }
+
+    if (!testGlobal.chunkShareE2EServerProcess) {
+      throw new Error('The E2E Minecraft process is not running.')
+    }
+
+    testGlobal.chunkShareE2EServerProcess.emit('close', 1)
+  })
+}
+
 export function createElectronE2EPaths(): ElectronE2EPaths {
   const root = resolve(PROJECT_ROOT, '.test-data', 'e2e', `${process.pid}-${randomUUID()}`)
-  const storageFolder = join(root, 'storage')
+  return {
+    localStateFile: join(root, 'localState.json'),
+    root,
+    userDataFolder: join(root, 'user-data')
+  }
+}
+
+export async function readSelectedWorldE2EPaths(paths: ElectronE2EPaths): Promise<ElectronE2EWorldPaths> {
+  const appState = JSON.parse(await readFile(paths.localStateFile, 'utf8')) as AppState
+
+  if (!appState.selectedWorldId) {
+    throw new Error('Expected an E2E world to be selected.')
+  }
+
+  const storageFolder = join(paths.root, '.storage', appState.selectedWorldId)
 
   return {
     controlFile: join(storageFolder, 'control.json'),
-    localStateFile: join(root, 'localState.json'),
-    root,
-    serverFolder: join(root, 'server'),
-    userDataFolder: join(root, 'user-data'),
+    serverFolder: join(paths.root, '.servers', appState.selectedWorldId),
     worldFile: join(storageFolder, 'world.zip')
   }
 }
@@ -143,7 +174,7 @@ async function prepareE2EStorage(
     paths.localStateFile,
     JSON.stringify(
       {
-        ...DEFAULT_LOCAL_STATE,
+        ...DEFAULT_APP_STATE,
         player: authenticated ? player : null
       },
       null,
@@ -162,11 +193,7 @@ function createE2EEnvironment(paths: ElectronE2EPaths): Record<string, string> {
 
   return {
     ...environment,
-    CHUNK_SHARE_LOCAL_STORAGE_FOLDER: join(relativeRoot, 'storage'),
-    CHUNK_SHARE_SERVER_FOLDER: join(relativeRoot, 'server'),
-    CHUNK_SHARE_SERVER_BACKUPS_FOLDER: join(relativeRoot, 'backups'),
-    CHUNK_SHARE_LOCAL_STATE_FILE: join(relativeRoot, 'localState.json'),
-    CHUNK_SHARE_CLOUD_STORAGE_SETTINGS_FILE: join(relativeRoot, 'cloudStorageSettings.json'),
+    CHUNK_SHARE_DATA_ROOT: relativeRoot,
     CHUNKSHARE_GOOGLE_CLIENT_ID: 'e2e-google-client-id',
     CHUNKSHARE_GOOGLE_CLIENT_SECRET: 'e2e-google-client-secret'
   }
@@ -180,10 +207,7 @@ async function configureE2ESafeStorage(electronApp: ElectronApplication): Promis
   })
 }
 
-async function installMainProcessMocks(
-  electronApp: ElectronApplication,
-  paths: ElectronE2EPaths
-): Promise<void> {
+async function installMainProcessMocks(electronApp: ElectronApplication): Promise<void> {
   await electronApp.evaluate(
     async (_electronModule, fixture) => {
       const childProcess = process.getBuiltinModule('node:child_process')
@@ -238,7 +262,11 @@ async function installMainProcessMocks(
               const command = chunk.toString()
 
               if (command === 'save-all flush\n') {
-                const serverFolder = options.cwd ?? fixture.serverFolder
+                if (!options.cwd) {
+                  throw new Error('Expected Minecraft to start with a world-scoped working directory.')
+                }
+
+                const serverFolder = options.cwd
                 const worldFolder = path.join(serverFolder, 'world')
                 fileSystem.mkdirSync(worldFolder, { recursive: true })
                 fileSystem.writeFileSync(path.join(worldFolder, 'level.dat'), fixture.worldData, 'utf8')
@@ -269,6 +297,10 @@ async function installMainProcessMocks(
             stdio: [stdin, stdout, stderr],
             stdout
           })
+          const testGlobal = globalThis as typeof globalThis & {
+            chunkShareE2EServerProcess?: typeof serverProcess
+          }
+          testGlobal.chunkShareE2EServerProcess = serverProcess
 
           setImmediate(() => {
             stdout.write('[Server thread/INFO]: Done (1.000s)! For help, type "help"\n')
@@ -280,7 +312,6 @@ async function installMainProcessMocks(
     },
     {
       minecraftVersion: E2E_MINECRAFT_VERSION,
-      serverFolder: paths.serverFolder,
       serverJarBase64: SERVER_JAR_CONTENT.toString('base64'),
       serverJarSha1: createHash('sha1').update(SERVER_JAR_CONTENT).digest('hex'),
       serverJarSize: SERVER_JAR_CONTENT.length,

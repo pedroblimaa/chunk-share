@@ -8,18 +8,25 @@ import {
   type ServerStorageSnapshot
 } from '../../../shared/domain'
 import { STALE_LOCK_THRESHOLD_MS } from '../../../shared/server-sync'
-import { getActiveStorageAdapter } from '../../storage/adapters/storage-adapter-service'
 import type { StorageAdapter } from '../../storage/adapters/storage-adapter.model'
-import { saveActiveSessionId } from '../../storage/persistence/local-state-store'
+import type { WorldId } from '../../../shared/world'
+import type { WorldOperationContext } from '../../storage/core/world-operation-context'
+import { saveWorldActiveSessionId } from '../../storage/persistence/local-state-store'
 import { ServerRuntimeError } from '../support/runtime-error'
 
-let activeRuntimeSessionId: string | null = null
+interface ActiveRuntimeSession {
+  worldId: WorldId
+  sessionId: string
+}
 
-export function getActiveRuntimeSessionId(): string | null {
-  return activeRuntimeSessionId
+let activeRuntimeSession: ActiveRuntimeSession | null = null
+
+export function getActiveRuntimeSessionId(worldId: WorldId | null): string | null {
+  return activeRuntimeSession?.worldId === worldId ? activeRuntimeSession.sessionId : null
 }
 
 export async function createHostingLock(
+  operationContext: WorldOperationContext,
   storageSnapshot: ServerStorageSnapshot,
   connectionAddresses: ServerConnectionAddress[]
 ): Promise<string> {
@@ -27,14 +34,14 @@ export async function createHostingLock(
   const now = new Date().toISOString()
   const saveVersion =
     storageSnapshot.latestSave?.saveVersion ?? storageSnapshot.localState.localSaveVersion ?? 0
-  const storageAdapter = await getActiveStorageAdapter()
+  const { storageAdapter, worldId } = operationContext
   const hostingPlayer = getHostingPlayer(storageSnapshot)
 
   await storageAdapter.assertNoStorageMutationInProgress()
 
   try {
     await storageAdapter.updateServerLock((serverLock) => {
-      assertHostingLockCanBeAcquired(serverLock)
+      assertHostingLockCanBeAcquired(serverLock, worldId, storageSnapshot.localState.activeSessionId)
 
       return {
         status: ServerLockStatus.Locked,
@@ -47,31 +54,43 @@ export async function createHostingLock(
         connectionAddresses
       }
     })
-    await saveActiveSessionId(sessionId)
+    await saveWorldActiveSessionId(worldId, sessionId)
   } catch (error) {
     await clearHostingLockForSession(storageAdapter, sessionId).catch(() => undefined)
 
     throw error
   }
 
-  activeRuntimeSessionId = sessionId
+  activeRuntimeSession = { worldId, sessionId }
 
   return sessionId
 }
 
-export async function markHostingLockRunning(sessionId: string): Promise<void> {
-  await updateHostingLockStatus(sessionId, ServerHostingStatus.Running, [ServerHostingStatus.Starting])
+export async function markHostingLockRunning(
+  operationContext: WorldOperationContext,
+  sessionId: string
+): Promise<void> {
+  await updateHostingLockStatus(operationContext, sessionId, ServerHostingStatus.Running, [
+    ServerHostingStatus.Starting
+  ])
 }
 
-export async function markHostingLockStopping(sessionId: string): Promise<void> {
-  await updateHostingLockStatus(sessionId, ServerHostingStatus.Stopping, [
+export async function markHostingLockStopping(
+  operationContext: WorldOperationContext,
+  sessionId: string
+): Promise<void> {
+  await updateHostingLockStatus(operationContext, sessionId, ServerHostingStatus.Stopping, [
     ServerHostingStatus.Starting,
     ServerHostingStatus.Running
   ])
 }
 
-export async function updateHostingLockSaveVersion(sessionId: string, saveVersion: number): Promise<void> {
-  const storageAdapter = await getActiveStorageAdapter()
+export async function updateHostingLockSaveVersion(
+  operationContext: WorldOperationContext,
+  sessionId: string,
+  saveVersion: number
+): Promise<void> {
+  const { storageAdapter } = operationContext
 
   await storageAdapter.updateServerLock((serverLock) => {
     if (serverLock.status !== ServerLockStatus.Locked || serverLock.sessionId !== sessionId) {
@@ -87,11 +106,12 @@ export async function updateHostingLockSaveVersion(sessionId: string, saveVersio
 }
 
 async function updateHostingLockStatus(
+  operationContext: WorldOperationContext,
   sessionId: string,
   hostingStatus: ServerHostingStatus,
   allowedCurrentStatuses: ServerHostingStatus[]
 ): Promise<void> {
-  const storageAdapter = await getActiveStorageAdapter()
+  const { storageAdapter } = operationContext
 
   await storageAdapter.updateServerLock((serverLock) => {
     if (serverLock.status !== ServerLockStatus.Locked || serverLock.sessionId !== sessionId) {
@@ -112,15 +132,21 @@ async function updateHostingLockStatus(
   })
 }
 
-function assertHostingLockCanBeAcquired(serverLock: ServerLock): void {
+function assertHostingLockCanBeAcquired(
+  serverLock: ServerLock,
+  worldId: WorldId,
+  persistedSessionId: string | null
+): void {
   if (serverLock.status === ServerLockStatus.Unlocked) {
     return
   }
 
-  const lockIsCurrentRuntimeSession = serverLock.sessionId === activeRuntimeSessionId
+  const lockIsCurrentRuntimeSession =
+    activeRuntimeSession?.worldId === worldId && serverLock.sessionId === activeRuntimeSession.sessionId
+  const lockBelongsToPersistedSession = serverLock.sessionId === persistedSessionId
   const lockIsStale = isStaleLock(serverLock.lastHeartbeat)
 
-  if (lockIsCurrentRuntimeSession || lockIsStale) {
+  if (lockIsCurrentRuntimeSession || lockBelongsToPersistedSession || lockIsStale) {
     return
   }
 
@@ -129,29 +155,36 @@ function assertHostingLockCanBeAcquired(serverLock: ServerLock): void {
   )
 }
 
-export async function clearHostingLockAfterStartFailure(): Promise<void> {
-  if (!activeRuntimeSessionId) {
-    return
-  }
+export async function clearHostingLockAfterStartFailure(
+  operationContext: WorldOperationContext,
+  sessionId: string
+): Promise<void> {
+  const { storageAdapter, worldId } = operationContext
 
-  const storageAdapter = await getActiveStorageAdapter()
-
-  await clearHostingLockForSession(storageAdapter, activeRuntimeSessionId)
-  await saveActiveSessionId(null)
-
-  activeRuntimeSessionId = null
+  await clearHostingLockForSession(storageAdapter, sessionId)
+  await saveWorldActiveSessionId(worldId, null)
+  releaseActiveRuntimeSession(worldId, sessionId)
 }
 
-export async function clearHostingLockAfterCleanStop(): Promise<void> {
-  if (!activeRuntimeSessionId) {
-    throw new ServerRuntimeError('Cannot unlock server because this runtime has no active session.')
+export async function clearHostingLockAfterCleanStop(
+  operationContext: WorldOperationContext,
+  sessionId: string
+): Promise<void> {
+  const { storageAdapter, worldId } = operationContext
+  await clearHostingLockForSession(storageAdapter, sessionId)
+
+  await saveWorldActiveSessionId(worldId, null)
+  releaseActiveRuntimeSession(worldId, sessionId)
+}
+
+export function releaseActiveRuntimeSession(worldId: WorldId, sessionId: string): void {
+  if (isActiveRuntimeSession(worldId, sessionId)) {
+    activeRuntimeSession = null
   }
+}
 
-  const storageAdapter = await getActiveStorageAdapter()
-  await clearHostingLockForSession(storageAdapter, activeRuntimeSessionId)
-
-  await saveActiveSessionId(null)
-  activeRuntimeSessionId = null
+function isActiveRuntimeSession(worldId: WorldId, sessionId: string): boolean {
+  return activeRuntimeSession?.worldId === worldId && activeRuntimeSession.sessionId === sessionId
 }
 
 function clearHostingLockForSession(storageAdapter: StorageAdapter, sessionId: string): Promise<boolean> {

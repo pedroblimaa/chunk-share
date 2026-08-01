@@ -6,15 +6,25 @@ import {
   type ServerStorageSnapshot
 } from '../../shared/domain'
 import { STALE_LOCK_THRESHOLD_MS, ServerSyncStatus, type ServerSyncSnapshot } from '../../shared/server-sync'
-import { getActiveStorageAdapter } from '../storage/adapters/storage-adapter-service'
-import { readLocalState } from '../storage/persistence/local-state-store'
+import { getStorageAdapterForProvider } from '../storage/adapters/storage-adapter-service'
+import { readAppState, readWorldLocalState } from '../storage/persistence/local-state-store'
 import { getActiveRuntimeSessionId } from '../server-runtime/lifecycle/hosting-lock-manager'
+import {
+  DEFAULT_LATEST_SAVE,
+  DEFAULT_LOCAL_STATE,
+  DEFAULT_SERVER_LOCK
+} from '../storage/core/support/storage-defaults'
+import type { WorldOperationContext } from '../storage/core/world-operation-context'
+import type { WorldId } from '../../shared/world'
+import { createWorldContext } from '../storage/core/world-context'
+import { StorageError } from '../storage/core/support/storage-error'
 
 interface ServerSyncContext {
   latestSave: LatestSave
   serverLock: ServerLock
   localState: LocalState
   worldFileExists: boolean
+  worldId: WorldId | null
 }
 
 interface ServerSyncRuleContext extends ServerSyncContext {
@@ -45,22 +55,62 @@ const SERVER_SYNC_RULES: ServerSyncRule[] = [
   localNewerRule
 ]
 
-export async function getServerSyncSnapshot(): Promise<ServerStorageSnapshot> {
-  const storageAdapter = await getActiveStorageAdapter()
-  const [storageData, localState] = await Promise.all([storageAdapter.readServerSyncData(), readLocalState()])
-  const { latestSave, serverLock, worldFileExists } = storageData
+export async function getServerSyncSnapshot(
+  operationContext?: WorldOperationContext
+): Promise<ServerStorageSnapshot> {
+  if (operationContext) {
+    const localState = await readWorldLocalState(operationContext.worldId)
+    const storageData = await operationContext.storageAdapter.readServerSyncData()
+    const { latestSave, serverLock, worldFileExists } = storageData
 
-  return {
-    latestSave,
-    serverLock,
-    serverSync: await buildServerSyncSnapshot({
+    return {
       latestSave,
       serverLock,
+      serverSync: await buildServerSyncSnapshot({
+        latestSave,
+        serverLock,
+        localState,
+        worldFileExists,
+        worldId: operationContext.worldId
+      }),
       localState,
       worldFileExists
-    }),
-    localState
+    }
   }
+
+  const appState = await readAppState()
+
+  if (!appState.selectedWorldId) {
+    const localState = { ...DEFAULT_LOCAL_STATE, player: appState.player }
+
+    return {
+      latestSave: DEFAULT_LATEST_SAVE,
+      serverLock: DEFAULT_SERVER_LOCK,
+      serverSync: await buildServerSyncSnapshot({
+        latestSave: DEFAULT_LATEST_SAVE,
+        serverLock: DEFAULT_SERVER_LOCK,
+        localState,
+        worldFileExists: false,
+        worldId: null
+      }),
+      localState,
+      worldFileExists: false
+    }
+  }
+
+  const world = appState.worlds.find(({ id }) => id === appState.selectedWorldId)
+
+  if (!world) {
+    throw new StorageError(`Selected world ${appState.selectedWorldId} was not found.`)
+  }
+
+  const worldContext = createWorldContext(world)
+  const capturedContext: WorldOperationContext = {
+    ...worldContext,
+    storageAdapter: await getStorageAdapterForProvider(appState.activeProvider, worldContext)
+  }
+
+  return getServerSyncSnapshot(capturedContext)
 }
 
 async function buildServerSyncSnapshot(context: ServerSyncContext): Promise<ServerSyncSnapshot> {
@@ -73,7 +123,7 @@ async function buildServerSyncSnapshot(context: ServerSyncContext): Promise<Serv
 async function getSyncDecision(context: ServerSyncContext): Promise<ServerSyncDecision> {
   const ruleContext: ServerSyncRuleContext = {
     ...context,
-    lockState: getLockState(context.serverLock),
+    lockState: getLockState(context.serverLock, context.worldId, context.localState.activeSessionId),
     localSaveVersion: context.localState.localSaveVersion ?? 0
   }
 
@@ -175,17 +225,22 @@ function createSyncSnapshot(input: ServerSyncContext & ServerSyncDecision): Serv
   }
 }
 
-function getLockState(serverLock: ServerLock): LockState {
+function getLockState(
+  serverLock: ServerLock,
+  worldId: WorldId | null,
+  persistedSessionId: string | null
+): LockState {
   if (serverLock.status === ServerLockStatus.Unlocked) {
     return { blocksCurrentUser: false, isStale: false }
   }
 
-  const isCurrentRuntimeLock = serverLock.sessionId === getActiveRuntimeSessionId()
+  const isCurrentRuntimeLock = serverLock.sessionId === getActiveRuntimeSessionId(worldId)
+  const isPersistedWorldLock = serverLock.sessionId === persistedSessionId
   const heartbeatAgeMs = Date.now() - new Date(serverLock.lastHeartbeat).getTime()
   const isStale = !Number.isFinite(heartbeatAgeMs) || heartbeatAgeMs > STALE_LOCK_THRESHOLD_MS
 
   return {
-    blocksCurrentUser: !isCurrentRuntimeLock && !isStale,
+    blocksCurrentUser: !isCurrentRuntimeLock && !isPersistedWorldLock && !isStale,
     isStale
   }
 }

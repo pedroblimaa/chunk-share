@@ -12,6 +12,7 @@ out
 .storage-test/
 .test-data/
 .server/
+.servers/
 .server-test/
 .backups/
 .chunkshare-storage/
@@ -21,8 +22,6 @@ out
 .chunkshare-backups/
 localState.json
 localState.test.json
-cloudStorageSettings.json
-cloudStorageSettings.test.json
 .aider*
 .server.extract*
 .server.download*

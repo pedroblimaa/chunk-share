@@ -28,7 +28,7 @@ export function createGoogleOAuthClient(redirectUri?: string): OAuth2Client {
   return new OAuth2Client({
     clientId,
     clientSecret,
-    redirectUri
+    ...(redirectUri ? { redirectUri } : {})
   })
 }
 
@@ -40,11 +40,11 @@ export async function createGoogleAuthorizationUrl(
     const { codeChallenge, codeVerifier } = await oauthClient.generateCodeVerifierAsync()
     const authorizationUrl = oauthClient.generateAuthUrl({
       access_type: 'offline',
-      code_challenge: codeChallenge,
+      ...(codeChallenge ? { code_challenge: codeChallenge } : {}),
       code_challenge_method: CodeChallengeMethod.S256,
       prompt: GOOGLE_AUTH_PROMPT,
       include_granted_scopes: input.includeGrantedScopes,
-      login_hint: input.loginHint,
+      ...(input.loginHint ? { login_hint: input.loginHint } : {}),
       scope: input.scopes,
       state: input.state
     })

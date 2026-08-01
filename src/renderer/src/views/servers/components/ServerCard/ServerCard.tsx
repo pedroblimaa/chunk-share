@@ -1,7 +1,7 @@
 import './ServerCard.css'
 
 import type { KeyboardEvent } from 'react'
-import type { ServerStatus } from '../../../../../../shared/dashboard'
+import { ServerAvailability, type ServerStatus } from '../../../../../../shared/dashboard'
 import { ServerHostingStatus, ServerLockStatus, type ServerLock } from '../../../../../../shared/domain'
 import { ServerSyncStatus, type ServerSyncSnapshot } from '../../../../../../shared/server-sync'
 import Badge from '../../../../components/shared/Badge/Badge'
@@ -18,6 +18,7 @@ export interface ServerCardSummary {
   minecraftVersion: string
   latestSaveLabel: string
   syncStatus: ServerSyncSnapshot
+  serverAvailability: ServerAvailability
   currentHost: string | null
   availability: {
     cloud: boolean
@@ -32,7 +33,7 @@ export interface ServerCardSummary {
 interface ServerCardProps {
   animationDelayMs: number
   deleteDisabled?: boolean
-  deleteTitle?: string
+  deleteTitle?: string | undefined
   server: ServerCardSummary
   onDelete: () => void
   onOpen: () => void
@@ -120,7 +121,7 @@ function ServerCard({
 }: ServerCardProps): React.JSX.Element {
   const syncView = getServerSyncView(server.syncStatus)
   const serverIsJoinable = isRemoteHostRunning(server.syncStatus)
-  const serverNeedsSetup = !server.availability.device
+  const serverNeedsSetup = server.serverAvailability === ServerAvailability.RemoteAvailable
   const openButtonLabel = serverIsJoinable ? 'Join' : serverNeedsSetup ? 'Download' : 'Manage'
   const openButtonIcon = serverIsJoinable ? 'login' : serverNeedsSetup ? 'download' : 'settings'
 

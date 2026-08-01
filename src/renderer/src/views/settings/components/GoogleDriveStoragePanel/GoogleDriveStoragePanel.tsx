@@ -24,7 +24,7 @@ function GoogleDriveStoragePanel({ onActivate }: GoogleDriveStoragePanelProps): 
       <div className={`settings-storage-panel${state.isActive ? ' is-active' : ''}`}>
         <div>
           <strong>Google Drive</strong>
-          <span>{state.folderName}</span>
+          <span>Shared folder sync</span>
         </div>
         {state.isActive ? (
           <Badge dot>Active</Badge>

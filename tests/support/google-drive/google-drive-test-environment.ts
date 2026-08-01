@@ -39,6 +39,7 @@ export interface GoogleTestDriveRevision {
 export const GOOGLE_TEST_IDS = {
   controlFile: 'test-control-file-id',
   folder: 'test-world-folder-id',
+  world: '9a65cf51-9234-4d19-8e73-7135a19895fe',
   worldFile: 'test-world-file-id'
 } as const
 
@@ -58,6 +59,7 @@ const OWNER_PERMISSION: GoogleTestPermission = {
 
 const TEST_CONTROL: StorageControl = {
   formatVersion: 1,
+  worldId: GOOGLE_TEST_IDS.world,
   latestSave: {
     minecraftVersion: '1.21.8',
     saveVersion: 1,
@@ -153,7 +155,18 @@ export class GoogleDriveTestEnvironment {
   ): Promise<void> {
     this.lastPickerFileIds = [...expectedFileIds]
 
-    if (!sameValues(expectedFileIds, [GOOGLE_TEST_IDS.controlFile, GOOGLE_TEST_IDS.worldFile])) {
+    const selectedFiles = expectedFileIds.map((fileId) => this.files.get(fileId))
+    const controlFile = selectedFiles.find((file) => file?.name === 'control.json')
+    const worldFile = selectedFiles.find((file) => file?.name === 'world.zip')
+    const selectsOneWorld =
+      expectedFileIds.length === 2 &&
+      new Set(expectedFileIds).size === 2 &&
+      controlFile?.mimeType === 'application/json' &&
+      worldFile?.mimeType === 'application/zip' &&
+      controlFile.parents.length === 1 &&
+      controlFile.parents[0] === worldFile.parents[0]
+
+    if (!selectsOneWorld) {
       throw new AuthError(
         'Select both ChunkShare files shown by Google Drive.',
         AuthErrorCode.InvalidCallback
@@ -167,7 +180,9 @@ export class GoogleDriveTestEnvironment {
       )
     }
 
-    this.appAuthorizedFileIds.set(accountName, new Set(expectedFileIds))
+    const authorizedFileIds = this.appAuthorizedFileIds.get(accountName) ?? new Set<string>()
+    expectedFileIds.forEach((fileId) => authorizedFileIds.add(fileId))
+    this.appAuthorizedFileIds.set(accountName, authorizedFileIds)
     return Promise.resolve()
   }
 
@@ -184,15 +199,19 @@ export class GoogleDriveTestEnvironment {
 
   public listWorldFiles(
     accountName: GoogleTestAccountName,
+    parentFolderId?: string,
     fileName?: string
   ): GoogleDriveFileResponse[] | null {
-    if (!this.accountCanAccessFile(accountName, GOOGLE_TEST_IDS.folder)) {
+    if (parentFolderId && !this.accountCanAccessFile(accountName, parentFolderId)) {
       return null
     }
 
     return [...this.files.values()]
       .filter(
-        (file) => file.parents.includes(GOOGLE_TEST_IDS.folder) && (!fileName || file.name === fileName)
+        (file) =>
+          (!parentFolderId || file.parents.includes(parentFolderId)) &&
+          (!fileName || file.name === fileName) &&
+          (Boolean(parentFolderId || fileName) || file.mimeType !== 'application/vnd.google-apps.folder')
       )
       .map((file) => this.getFileMetadata(accountName, file.id))
       .filter((file): file is GoogleDriveFileResponse => file !== null)
@@ -203,9 +222,9 @@ export class GoogleDriveTestEnvironment {
       return null
     }
 
-    const ownedByMe = accountName === 'owner'
-
     if (fileId === GOOGLE_TEST_IDS.folder) {
+      const ownedByMe = accountName === 'owner'
+
       return {
         capabilities: {
           canAddChildren: true,
@@ -220,9 +239,26 @@ export class GoogleDriveTestEnvironment {
       }
     }
 
+    const ownedByMe = accountName === 'owner'
+
     const file = this.files.get(fileId)
     if (!file) {
       return null
+    }
+
+    if (file.mimeType === 'application/vnd.google-apps.folder') {
+      return {
+        capabilities: {
+          canAddChildren: true,
+          canEdit: true,
+          canShare: ownedByMe
+        },
+        id: fileId,
+        mimeType: 'application/vnd.google-apps.folder',
+        name: file.name,
+        ownedByMe,
+        trashed: false
+      }
     }
 
     const canEdit = this.getAccountRole(accountName) === 'writer' || ownedByMe
@@ -442,14 +478,6 @@ function createGoogleTestAccount(
     },
     token
   }
-}
-
-function sameValues(left: string[], right: string[]): boolean {
-  return (
-    left.length === right.length &&
-    new Set(left).size === right.length &&
-    right.every((value) => left.includes(value))
-  )
 }
 
 function createDriveFile(

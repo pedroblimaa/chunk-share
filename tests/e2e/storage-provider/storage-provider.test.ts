@@ -1,11 +1,7 @@
-import { mkdir, writeFile } from 'node:fs/promises'
-import { join } from 'node:path'
+import { readFile, writeFile } from 'node:fs/promises'
 import { expect, test } from '@playwright/test'
-import {
-  CloudStorageProvider,
-  GoogleDriveSetupStatus,
-  type CloudStorageSettings
-} from '../../../src/shared/cloud-storage.model'
+import { CloudStorageProvider, GoogleDriveSetupStatus } from '../../../src/shared/cloud-storage.model'
+import type { AppState } from '../../../src/shared/world'
 import {
   GOOGLE_TEST_ACCOUNTS,
   GOOGLE_TEST_IDS
@@ -22,8 +18,6 @@ test('copies a local world to Google Drive through Settings', async () => {
   try {
     driveMock.drive.deleteFile('owner', GOOGLE_TEST_IDS.controlFile)
     driveMock.drive.deleteFile('owner', GOOGLE_TEST_IDS.worldFile)
-    await saveLocalStorageWithDriveTarget(paths.root)
-
     const app = await launchChunkShareE2EApp({
       accountName: 'owner',
       driveMock,
@@ -32,6 +26,7 @@ test('copies a local world to Google Drive through Settings', async () => {
 
     try {
       await createLocalWorld(app)
+      await saveLocalStorageWithDriveTarget(paths.localStateFile)
       await publishLocalWorld(app)
       await app.user.click(app.page.getByRole('button', { name: 'Settings', exact: true }).first())
       await app.user.click(app.page.getByRole('button', { name: /Google Drive/ }))
@@ -57,9 +52,12 @@ test('copies a local world to Google Drive through Settings', async () => {
       const downloadUpdate = app.page
         .getByRole('button', { name: 'Download Update' })
         .filter({ hasText: 'Download Update' })
+      const startServerButton = app.page.getByRole('button', { name: 'Start Server', exact: true })
+      await expect(downloadUpdate.or(startServerButton)).toBeVisible()
+
       if (await downloadUpdate.isVisible()) {
         await app.user.click(downloadUpdate)
-        await expect(app.page.getByRole('button', { name: 'Start Server', exact: true })).toBeVisible()
+        await expect(startServerButton).toBeVisible()
       }
 
       await startServer(app)
@@ -72,24 +70,37 @@ test('copies a local world to Google Drive through Settings', async () => {
   }
 })
 
-async function saveLocalStorageWithDriveTarget(root: string): Promise<void> {
+async function saveLocalStorageWithDriveTarget(localStateFile: string): Promise<void> {
   const now = '2026-07-25T12:00:00.000Z'
-  const settings: CloudStorageSettings = {
+  const appState = JSON.parse(await readFile(localStateFile, 'utf8')) as AppState
+  const selectedWorldId = appState.selectedWorldId
+
+  if (!selectedWorldId) {
+    throw new Error('Expected the E2E world to be selected.')
+  }
+
+  const nextState: AppState = {
+    ...appState,
     activeProvider: CloudStorageProvider.Local,
     googleDrive: {
       errorMessage: null,
-      folder: {
-        configuredAt: now,
-        folderId: GOOGLE_TEST_IDS.folder,
-        folderName: 'ChunkShare',
-        ownerAccountId: GOOGLE_TEST_ACCOUNTS.owner.session.player.id,
-        validatedAt: now,
-        worldFileIds: null
-      },
       status: GoogleDriveSetupStatus.Valid
-    }
+    },
+    worlds: appState.worlds.map((world) =>
+      world.id === selectedWorldId
+        ? {
+            ...world,
+            googleDrive: {
+              configuredAt: now,
+              folderId: GOOGLE_TEST_IDS.folder,
+              ownerAccountId: GOOGLE_TEST_ACCOUNTS.owner.session.player.id,
+              validatedAt: now,
+              worldFileIds: null
+            }
+          }
+        : world
+    )
   }
 
-  await mkdir(root, { recursive: true })
-  await writeFile(join(root, 'cloudStorageSettings.json'), JSON.stringify(settings, null, 2))
+  await writeFile(localStateFile, JSON.stringify(nextState, null, 2))
 }

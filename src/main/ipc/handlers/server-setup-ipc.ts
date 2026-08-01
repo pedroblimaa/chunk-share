@@ -1,4 +1,3 @@
-import { ipcMain } from 'electron'
 import {
   type DownloadSharedServerInput,
   type ServerSetupProgressEvent,
@@ -10,15 +9,16 @@ import {
   SERVER_SETUP_PROGRESS_CHANNEL,
   SERVER_SETUP_SETUP_VANILLA_SERVER_CHANNEL
 } from '../../../shared/ipc-channels'
-import { downloadSharedServer, setupVanillaServer } from '../../server-setup/server-setup-service'
+import { downloadSharedServer, setupNewVanillaServer } from '../../server-setup/server-setup-service'
 import { listVanillaReleaseVersions } from '../../server-setup/vanilla-version-resolver'
 import { StorageError } from '../../storage/core/support/storage-error'
 import { getStorageSnapshot } from '../../storage/core/storage-service'
+import { handleIpc, sendIpcEvent } from '../typed-ipc'
 
 export function registerServerSetupIpcHandlers(): void {
-  ipcMain.handle(SERVER_SETUP_LIST_VANILLA_VERSIONS_CHANNEL, () => listVanillaReleaseVersions())
+  handleIpc(SERVER_SETUP_LIST_VANILLA_VERSIONS_CHANNEL, () => listVanillaReleaseVersions())
 
-  ipcMain.handle(SERVER_SETUP_DOWNLOAD_SHARED_SERVER_CHANNEL, async (_, payload: unknown) => {
+  handleIpc(SERVER_SETUP_DOWNLOAD_SHARED_SERVER_CHANNEL, async (_, payload: unknown) => {
     if (!isDownloadSharedServerInput(payload)) {
       throw new StorageError('Invalid shared server download payload.')
     }
@@ -28,17 +28,17 @@ export function registerServerSetupIpcHandlers(): void {
     return getStorageSnapshot()
   })
 
-  ipcMain.handle(SERVER_SETUP_SETUP_VANILLA_SERVER_CHANNEL, async (event, payload: unknown) => {
+  handleIpc(SERVER_SETUP_SETUP_VANILLA_SERVER_CHANNEL, async (event, payload: unknown) => {
     if (!isSetupVanillaServerInput(payload)) {
       throw new StorageError('Invalid server setup payload.')
     }
 
     const sendProgress = (progressEvent: ServerSetupProgressEvent): void => {
-      event.sender.send(SERVER_SETUP_PROGRESS_CHANNEL, progressEvent)
+      sendIpcEvent(event.sender, SERVER_SETUP_PROGRESS_CHANNEL, progressEvent)
     }
 
     try {
-      await setupVanillaServer(payload, sendProgress)
+      await setupNewVanillaServer(payload, sendProgress)
     } catch (error) {
       const storageSnapshot = await getStorageSnapshot()
 

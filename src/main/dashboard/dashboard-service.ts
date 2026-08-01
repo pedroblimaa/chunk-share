@@ -1,4 +1,9 @@
-import { ServerAvailability, type SignedInUser, type ServerDisplayState } from '../../shared/dashboard'
+import {
+  ServerAvailability,
+  type ServerCatalogEntry,
+  type ServerDisplayState,
+  type SignedInUser
+} from '../../shared/dashboard'
 import {
   ServerHostingStatus,
   ServerLockStatus,
@@ -7,10 +12,235 @@ import {
   type ServerStatus,
   type ServerStorageSnapshot
 } from '../../shared/domain'
-import { isServerActiveStatus, type ServerConnectionAddress } from '../../shared/server-runtime'
-import { ServerSyncStatus } from '../../shared/server-sync'
+import {
+  isServerActiveStatus,
+  type ServerConnectionAddress,
+  type ServerRuntimeSnapshot
+} from '../../shared/server-runtime'
+import { ServerSyncStatus, type ServerSyncSnapshot } from '../../shared/server-sync'
+import type { LocalWorldState, WorldId } from '../../shared/world'
 import { getServerRuntimeSnapshot } from '../server-runtime/server-runtime-service'
-import { getServerSyncSnapshot } from '../server-sync/server-sync-service'
+import { DEFAULT_SERVER_CONFIG, DEFAULT_SERVER_LOCK } from '../storage/core/support/storage-defaults'
+import { readAppState } from '../storage/persistence/local-state-store'
+import { inspectWorldCatalog, isWorldCatalogEntryVisible } from '../world-catalog/world-catalog-service'
+
+type SelectedWorldDisplayData = Omit<
+  ServerDisplayState,
+  'signedInUser' | 'selectedWorldId' | 'runningWorldId' | 'worlds'
+>
+
+interface WorldDisplayData extends SelectedWorldDisplayData {
+  worldId: WorldId
+}
+
+export async function getServerDisplayState(): Promise<ServerDisplayState> {
+  const appState = await readAppState()
+  const runtimeSnapshot = getServerRuntimeSnapshot()
+  const signedInUser = getSignedInUserFromPlayer(appState.player)
+  const catalog = (await inspectWorldCatalog(appState)).filter(isWorldCatalogEntryVisible)
+  const worlds = catalog.map((inspection): WorldDisplayData => {
+    if (inspection.error) {
+      if (inspection.world.id === appState.selectedWorldId) {
+        throw inspection.error
+      }
+
+      return createUnavailableWorldDisplayData(inspection.world, inspection.isInstalled)
+    }
+
+    if (!inspection.storageSnapshot) {
+      return createInstalledOnlyWorldDisplayData(inspection.world)
+    }
+
+    return buildWorldDisplayData(
+      inspection.world.id,
+      inspection.storageSnapshot,
+      inspection.isInstalled,
+      signedInUser,
+      appState.selectedWorldId,
+      runtimeSnapshot
+    )
+  })
+  const selectedWorld = worlds.find(({ worldId }) => worldId === appState.selectedWorldId)
+  const selectedDisplay = selectedWorld ?? createEmptyWorldDisplayData()
+
+  return {
+    signedInUser,
+    selectedWorldId: selectedWorld?.worldId ?? null,
+    runningWorldId: runtimeSnapshot.runningWorldId,
+    worlds: worlds.map(toServerCatalogEntry),
+    serverAvailability: selectedDisplay.serverAvailability,
+    serverName: selectedDisplay.serverName,
+    serverStatus: selectedDisplay.serverStatus,
+    serverType: selectedDisplay.serverType,
+    minecraftVersion: selectedDisplay.minecraftVersion,
+    currentHost: selectedDisplay.currentHost,
+    syncStatus: selectedDisplay.syncStatus,
+    connectionAddress: selectedDisplay.connectionAddress,
+    connectionAddresses: selectedDisplay.connectionAddresses,
+    players: selectedDisplay.players,
+    resources: selectedDisplay.resources,
+    consoleLogs: selectedDisplay.consoleLogs,
+    allowedPlayers: selectedDisplay.allowedPlayers
+  }
+}
+
+function buildWorldDisplayData(
+  worldId: WorldId,
+  storageSnapshot: ServerStorageSnapshot,
+  isInstalled: boolean,
+  signedInUser: SignedInUser | null,
+  selectedWorldId: WorldId | null,
+  runtimeSnapshot: ServerRuntimeSnapshot
+): WorldDisplayData {
+  const { localState, serverSync } = storageSnapshot
+  const serverAvailability = getServerAvailability(storageSnapshot, isInstalled)
+  const remoteSave =
+    serverAvailability === ServerAvailability.RemoteAvailable ? storageSnapshot.latestSave : null
+  const runtimeAppliesToWorld = getRuntimeAppliesToWorld(
+    worldId,
+    selectedWorldId,
+    runtimeSnapshot.runtimeWorldId,
+    runtimeSnapshot.status
+  )
+  const runtimeStatus = runtimeAppliesToWorld ? runtimeSnapshot.status : 'stopped'
+  const serverStatus = getDisplayServerStatus(storageSnapshot, runtimeStatus, serverAvailability)
+  const serverIsRunning = runtimeAppliesToWorld && isServerActiveStatus(runtimeSnapshot.status)
+  const connectionAddresses = getSnapshotConnectionAddresses(
+    storageSnapshot,
+    runtimeSnapshot.connectionAddresses,
+    serverIsRunning
+  )
+
+  return {
+    worldId,
+    serverAvailability,
+    serverName: remoteSave?.serverName ?? localState.serverConfig.name,
+    serverStatus,
+    serverType: formatServerType(remoteSave?.serverType ?? localState.serverConfig.serverType),
+    minecraftVersion: remoteSave?.minecraftVersion ?? localState.serverConfig.minecraftVersion,
+    currentHost: getCurrentHost(storageSnapshot, signedInUser, serverIsRunning),
+    syncStatus: serverSync,
+    connectionAddress: getPrimaryConnectionAddress(connectionAddresses),
+    connectionAddresses,
+    players: {
+      online: serverIsRunning ? runtimeSnapshot.players.online : 0,
+      max: runtimeSnapshot.players.max
+    },
+    resources: runtimeAppliesToWorld ? runtimeSnapshot.resources : createEmptyResources(),
+    consoleLogs: runtimeAppliesToWorld ? runtimeSnapshot.logs : [],
+    allowedPlayers: signedInUser
+      ? [
+          {
+            id: signedInUser.id,
+            name: signedInUser.name,
+            status: serverIsRunning && runtimeSnapshot.players.online > 0 ? 'online' : 'offline'
+          }
+        ]
+      : []
+  }
+}
+
+function getRuntimeAppliesToWorld(
+  worldId: WorldId,
+  selectedWorldId: WorldId | null,
+  runtimeWorldId: WorldId | null,
+  runtimeStatus: ServerStatus
+): boolean {
+  if (runtimeWorldId) {
+    return runtimeWorldId === worldId
+  }
+
+  return runtimeStatus === 'stopped' && selectedWorldId === worldId
+}
+
+function toServerCatalogEntry(world: WorldDisplayData): ServerCatalogEntry {
+  return {
+    worldId: world.worldId,
+    serverAvailability: world.serverAvailability,
+    serverName: world.serverName,
+    serverStatus: world.serverStatus,
+    serverType: world.serverType,
+    minecraftVersion: world.minecraftVersion,
+    currentHost: world.currentHost,
+    syncStatus: world.syncStatus,
+    players: world.players
+  }
+}
+
+function createEmptyWorldDisplayData(): SelectedWorldDisplayData {
+  return {
+    serverAvailability: ServerAvailability.None,
+    serverName: DEFAULT_SERVER_CONFIG.name,
+    serverStatus: 'not-configured',
+    serverType: formatServerType(DEFAULT_SERVER_CONFIG.serverType),
+    minecraftVersion: DEFAULT_SERVER_CONFIG.minecraftVersion,
+    currentHost: null,
+    syncStatus: createEmptySyncStatus(),
+    connectionAddress: null,
+    connectionAddresses: [],
+    players: { online: 0, max: 20 },
+    resources: createEmptyResources(),
+    consoleLogs: [],
+    allowedPlayers: []
+  }
+}
+
+function createInstalledOnlyWorldDisplayData(world: LocalWorldState): WorldDisplayData {
+  return createWorldStateFallback(world, ServerAvailability.LocalReady, 'stopped')
+}
+
+function createUnavailableWorldDisplayData(world: LocalWorldState, isInstalled: boolean): WorldDisplayData {
+  return createWorldStateFallback(
+    world,
+    isInstalled ? ServerAvailability.LocalReady : ServerAvailability.RemoteAvailable,
+    'error'
+  )
+}
+
+function createWorldStateFallback(
+  world: LocalWorldState,
+  serverAvailability: ServerAvailability,
+  serverStatus: ServerStatus
+): WorldDisplayData {
+  return {
+    worldId: world.id,
+    serverAvailability,
+    serverName: world.serverConfig.name,
+    serverStatus,
+    serverType: formatServerType(world.serverConfig.serverType),
+    minecraftVersion: world.serverConfig.minecraftVersion,
+    currentHost: null,
+    syncStatus: createEmptySyncStatus(world.localSaveVersion),
+    connectionAddress: null,
+    connectionAddresses: [],
+    players: { online: 0, max: 20 },
+    resources: createEmptyResources(),
+    consoleLogs: [],
+    allowedPlayers: []
+  }
+}
+
+function createEmptySyncStatus(localSaveVersion: number | null = null): ServerSyncSnapshot {
+  return {
+    status: ServerSyncStatus.NoCloudSave,
+    latestSave: null,
+    serverLock: DEFAULT_SERVER_LOCK,
+    localSaveVersion,
+    cloudSaveVersion: null,
+    lockedBy: null,
+    isStaleLock: false,
+    isStartAllowed: true
+  }
+}
+
+function createEmptyResources(): ServerDisplayState['resources'] {
+  return {
+    cpuPercent: 0,
+    memoryUsedMb: 0,
+    memoryTotalMb: 4096,
+    isMocked: true
+  }
+}
 
 function formatServerType(serverType: ServerConfig['serverType']): string {
   return `${serverType.charAt(0).toUpperCase()}${serverType.slice(1)}`
@@ -72,64 +302,22 @@ function getDisplayServerStatus(
     return 'not-configured'
   }
 
-  if (isServerActiveStatus(runtimeStatus)) {
+  if (isServerActiveStatus(runtimeStatus) || runtimeStatus === 'crashed' || runtimeStatus === 'error') {
     return runtimeStatus
   }
 
   return getRemoteHostingStatus(storageSnapshot) ?? runtimeStatus
 }
 
-function getServerAvailability(storageSnapshot: ServerStorageSnapshot): ServerAvailability {
-  if (storageSnapshot.localState.serverSetup.status === 'ready') {
+function getServerAvailability(
+  storageSnapshot: ServerStorageSnapshot,
+  isInstalled: boolean
+): ServerAvailability {
+  if (isInstalled) {
     return ServerAvailability.LocalReady
   }
 
   return storageSnapshot.latestSave ? ServerAvailability.RemoteAvailable : ServerAvailability.None
-}
-
-function buildServerDisplayState(storageSnapshot: ServerStorageSnapshot): ServerDisplayState {
-  const runtimeSnapshot = getServerRuntimeSnapshot()
-  const { localState, serverSync } = storageSnapshot
-  const signedInUser = getSignedInUserFromPlayer(localState.player)
-  const serverAvailability = getServerAvailability(storageSnapshot)
-  const remoteSave =
-    serverAvailability === ServerAvailability.RemoteAvailable ? storageSnapshot.latestSave : null
-  const serverStatus = getDisplayServerStatus(storageSnapshot, runtimeSnapshot.status, serverAvailability)
-  const serverIsRunning = isServerActiveStatus(runtimeSnapshot.status)
-  const connectionAddresses = getSnapshotConnectionAddresses(
-    storageSnapshot,
-    runtimeSnapshot.connectionAddresses,
-    serverIsRunning
-  )
-
-  return {
-    signedInUser,
-    serverAvailability,
-    serverName: remoteSave?.serverName ?? localState.serverConfig.name,
-    serverStatus,
-    serverType: formatServerType(remoteSave?.serverType ?? localState.serverConfig.serverType),
-    minecraftVersion: remoteSave?.minecraftVersion ?? localState.serverConfig.minecraftVersion,
-    currentHost: getCurrentHost(storageSnapshot, signedInUser, serverIsRunning),
-    syncStatus: serverSync,
-    connectionAddress: getPrimaryConnectionAddress(connectionAddresses),
-    connectionAddresses,
-    players: runtimeSnapshot.players,
-    resources: runtimeSnapshot.resources,
-    consoleLogs: runtimeSnapshot.logs,
-    allowedPlayers: signedInUser
-      ? [
-          {
-            id: signedInUser.id,
-            name: signedInUser.name,
-            status: runtimeSnapshot.players.online > 0 ? 'online' : 'offline'
-          }
-        ]
-      : []
-  }
-}
-
-export async function getServerDisplayState(): Promise<ServerDisplayState> {
-  return buildServerDisplayState(await getServerSyncSnapshot())
 }
 
 function getSignedInUserFromPlayer(player: Player | null): SignedInUser | null {

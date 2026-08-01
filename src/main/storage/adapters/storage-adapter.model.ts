@@ -1,4 +1,5 @@
 import type { LatestSave, ServerLock } from '../../../shared/domain'
+import type { WorldId } from '../../../shared/world'
 
 export interface StorageMutationLock {
   operationId: string
@@ -7,6 +8,7 @@ export interface StorageMutationLock {
 
 export interface StorageControl {
   formatVersion: 1
+  worldId: WorldId
   latestSave: LatestSave
   serverLock: ServerLock
   storageMutation: StorageMutationLock | null

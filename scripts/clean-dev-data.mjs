@@ -17,10 +17,9 @@ const generatedPaths = [
   '.chunkshare-storage-test',
   '.server',
   '.server-test',
+  '.servers',
   '.storage',
   '.storage-test',
-  'cloudStorageSettings.json',
-  'cloudStorageSettings.test.json',
   'localState.json',
   'localState.test.json'
 ]

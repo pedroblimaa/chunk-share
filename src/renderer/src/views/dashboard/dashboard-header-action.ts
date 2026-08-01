@@ -12,6 +12,9 @@ export function getDashboardPrimaryActionView({
   const syncBlocksStart = getSyncBlocksStart(dashboardSnapshot)
   const serverNeedsLocalDownload = getServerNeedsLocalDownload(dashboardSnapshot)
   const serverNeedsSaveDownload = getServerNeedsSaveDownload(dashboardSnapshot)
+  const anotherWorldIsRunning = Boolean(
+    dashboardSnapshot.runningWorldId && dashboardSnapshot.runningWorldId !== dashboardSnapshot.selectedWorldId
+  )
   const syncView = getServerSyncView(dashboardSnapshot.syncStatus)
 
   if (serverIsJoinable) {
@@ -23,6 +26,19 @@ export function getDashboardPrimaryActionView({
       tone: 'default',
       tooltip: 'Show connection details',
       ariaLabel: 'Show connection details'
+    }
+  }
+
+  if (
+    dashboardSnapshot.serverStatus === 'starting' ||
+    dashboardSnapshot.serverStatus === 'stopping' ||
+    dashboardSnapshot.serverStatus === 'updating'
+  ) {
+    return {
+      kind: 'none',
+      isDisabled: true,
+      tone: dashboardSnapshot.serverStatus === 'updating' ? 'sync' : 'default',
+      tooltip: dashboardSnapshot.serverStatus === 'updating' ? 'Loading the latest world state.' : undefined
     }
   }
 
@@ -40,21 +56,10 @@ export function getDashboardPrimaryActionView({
     }
   }
 
-  if (dashboardSnapshot.serverStatus === 'updating') {
-    return {
-      kind: 'none',
-      isDisabled: true,
-      tone: 'sync',
-      tooltip: 'Downloading the latest shared save.',
-      ariaLabel: 'Updating shared save'
-    }
-  }
-
   const toggleIsDisabled =
     dashboardSnapshot.serverStatus === 'not-configured' ||
-    dashboardSnapshot.serverStatus === 'starting' ||
-    dashboardSnapshot.serverStatus === 'stopping' ||
     dashboardSnapshot.serverStatus === 'crashed' ||
+    anotherWorldIsRunning ||
     (syncBlocksStart && !serverNeedsSaveDownload)
 
   if (dashboardSnapshot.serverStatus !== 'stopped') {
@@ -91,7 +96,11 @@ export function getDashboardPrimaryActionView({
         kind: 'toggle-server',
         isDisabled: toggleIsDisabled,
         tone: 'default',
-        tooltip: syncBlocksStart ? syncView.message : undefined
+        tooltip: anotherWorldIsRunning
+          ? 'Stop the running server before starting this world.'
+          : syncBlocksStart
+            ? syncView.message
+            : undefined
       }
   }
 }

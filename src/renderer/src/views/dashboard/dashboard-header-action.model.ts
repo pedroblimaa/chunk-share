@@ -12,11 +12,11 @@ export type DashboardPrimaryActionTone = 'default' | 'sync'
 export interface DashboardPrimaryActionView {
   kind: DashboardPrimaryActionKind
   isDisabled: boolean
-  label?: string
-  icon?: string
+  label?: string | undefined
+  icon?: string | undefined
   tone: DashboardPrimaryActionTone
-  tooltip?: string
-  ariaLabel?: string
+  tooltip?: string | undefined
+  ariaLabel?: string | undefined
 }
 
 export interface DashboardPrimaryActionInput {

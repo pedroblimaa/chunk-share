@@ -7,8 +7,9 @@ import {
   type CloudStorageProviderSwitchRequest,
   type CloudStorageProviderSwitchPreview,
   type CloudStorageSettings,
-  type GoogleDriveFolderConfig,
-  type GoogleDriveStorageState
+  type GoogleDriveSetupState,
+  type GoogleDriveStorageState,
+  type GoogleDriveWorldState
 } from '../../../../shared/cloud-storage.model'
 import type {
   JavaConfig,
@@ -21,6 +22,7 @@ import type {
   ServerSetupState,
   ServerType
 } from '../../../../shared/domain'
+import { isWorldId, type AppState, type LocalWorldState } from '../../../../shared/world'
 import type {
   RecoverableStorageControl,
   StorageControl,
@@ -67,7 +69,7 @@ function isServerType(value: unknown): value is ServerType {
   return isString(value) && SERVER_TYPES.includes(value as ServerType)
 }
 
-function isPlayer(value: unknown): value is Player {
+export function isPlayer(value: unknown): value is Player {
   if (!isRecord(value)) {
     return false
   }
@@ -131,45 +133,50 @@ function isGoogleDriveSetupStatus(value: unknown): value is GoogleDriveSetupStat
   )
 }
 
-function isGoogleDriveFolderConfig(value: unknown): value is GoogleDriveFolderConfig {
-  if (!isRecord(value)) {
-    return false
-  }
+function isGoogleDriveWorldFileIds(value: unknown): boolean {
+  return isRecord(value) && isString(value.controlFileId) && isString(value.worldFileId)
+}
 
+export function isGoogleDriveWorldState(value: unknown): value is GoogleDriveWorldState {
   return (
+    isRecord(value) &&
     isString(value.folderId) &&
-    isString(value.folderName) &&
-    isNullableString(value.ownerAccountId) &&
     (value.worldFileIds === null || isGoogleDriveWorldFileIds(value.worldFileIds)) &&
+    isNullableString(value.ownerAccountId) &&
     isString(value.configuredAt) &&
     isNullableString(value.validatedAt)
   )
 }
 
-function isGoogleDriveWorldFileIds(value: unknown): boolean {
-  return isRecord(value) && isString(value.controlFileId) && isString(value.worldFileId)
+export function isGoogleDriveStorageState(value: unknown): value is GoogleDriveStorageState {
+  if (!isRecord(value) || !('folder' in value) || !isGoogleDriveSetupState(value)) {
+    return false
+  }
+
+  if (value.status === GoogleDriveSetupStatus.NotConfigured) {
+    return value.folder === null
+  }
+
+  return value.folder === null || isGoogleDriveWorldState(value.folder)
 }
 
-function isGoogleDriveStorageState(value: unknown): value is GoogleDriveStorageState {
+export function isGoogleDriveSetupState(value: unknown): value is GoogleDriveSetupState {
   if (!isRecord(value) || !isGoogleDriveSetupStatus(value.status)) {
     return false
   }
 
   if (value.status === GoogleDriveSetupStatus.NotConfigured) {
-    return value.folder === null && value.errorMessage === null
+    return value.errorMessage === null
   }
 
-  return (
-    (value.folder === null || isGoogleDriveFolderConfig(value.folder)) &&
-    isNullableErrorMessage(value.errorMessage)
-  )
+  return isNullableErrorMessage(value.errorMessage)
 }
 
 export function hasValidGoogleDriveFolder(
   value: GoogleDriveStorageState
 ): value is GoogleDriveStorageState & {
   status: GoogleDriveSetupStatus.Valid
-  folder: GoogleDriveFolderConfig
+  folder: GoogleDriveWorldState
 } {
   return value.status === GoogleDriveSetupStatus.Valid && value.folder !== null
 }
@@ -183,7 +190,6 @@ export function isServerConfig(value: unknown): value is ServerConfig {
     isString(value.name) &&
     isServerType(value.serverType) &&
     isString(value.minecraftVersion) &&
-    isNullableString(value.serverFolderPath) &&
     isPositiveInteger(value.port)
   )
 }
@@ -251,6 +257,7 @@ export function isRecoverableStorageControl(value: unknown): value is Recoverabl
   return (
     isRecord(value) &&
     value.formatVersion === 1 &&
+    isWorldId(value.worldId) &&
     isLatestSave(value.latestSave) &&
     (value.storageMutation === null || isStorageMutationLock(value.storageMutation))
   )
@@ -285,6 +292,42 @@ function hasLocalStateBaseFields(value: StorageRecord): boolean {
 
 export function isLocalState(value: unknown): value is LocalState {
   return isRecord(value) && hasLocalStateBaseFields(value) && isServerSetupState(value.serverSetup)
+}
+
+export function isLocalWorldState(value: unknown): value is LocalWorldState {
+  return (
+    isRecord(value) &&
+    isWorldId(value.id) &&
+    isString(value.createdAt) &&
+    isServerConfig(value.serverConfig) &&
+    isJavaConfig(value.javaConfig) &&
+    isServerSetupState(value.serverSetup) &&
+    isNullablePositiveInteger(value.localSaveVersion) &&
+    isNullableString(value.activeSessionId) &&
+    typeof value.dirty === 'boolean' &&
+    (value.googleDrive === null || isGoogleDriveWorldState(value.googleDrive))
+  )
+}
+
+export function isAppState(value: unknown): value is AppState {
+  if (
+    !isRecord(value) ||
+    (value.player !== null && !isPlayer(value.player)) ||
+    (value.selectedWorldId !== null && !isWorldId(value.selectedWorldId)) ||
+    !isCloudStorageProvider(value.activeProvider) ||
+    !isGoogleDriveSetupState(value.googleDrive) ||
+    !Array.isArray(value.worlds) ||
+    !value.worlds.every(isLocalWorldState)
+  ) {
+    return false
+  }
+
+  const worldIds = value.worlds.map((world) => world.id)
+
+  return (
+    new Set(worldIds).size === worldIds.length &&
+    (value.selectedWorldId === null || worldIds.includes(value.selectedWorldId))
+  )
 }
 
 export function isCloudStorageSettings(value: unknown): value is CloudStorageSettings {

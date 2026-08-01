@@ -20,9 +20,9 @@ export interface ServerHeaderConnection {
 export interface ServerHeaderPrimaryAction {
   isAnimating: boolean
   disabled?: boolean
-  tooltip?: string
-  label?: string
-  icon?: string
+  tooltip?: string | undefined
+  label?: string | undefined
+  icon?: string | undefined
   tone?: 'default' | 'sync'
   onClick: () => void
 }
@@ -35,7 +35,7 @@ export interface ServerHeaderDownloadEula {
 
 export interface ServerHeaderSharingAction {
   disabled: boolean
-  tooltip?: string
+  tooltip?: string | undefined
   onClick: () => void
 }
 
