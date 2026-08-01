@@ -49,6 +49,8 @@ Keep renderer work UI-only. Filesystem, Java validation, Minecraft server proces
 - `pnpm test:e2e`: build the app and run the complete E2E suite.
 - `pnpm typecheck`: run both Node and web TypeScript checks.
 - `pnpm build`: typecheck and build the app.
+- `pnpm verify`: check formatting, lint, run unit/integration tests, typecheck, and build.
+- `pnpm verify:full`: run `pnpm verify` and the complete Electron E2E suite.
 - `pnpm build:win`, `pnpm build:mac`, `pnpm build:linux`: create platform packages with electron-builder.
 
 ## Coding Style & Naming Conventions

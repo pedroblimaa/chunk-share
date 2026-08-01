@@ -33,7 +33,7 @@ export interface ServerCardSummary {
 interface ServerCardProps {
   animationDelayMs: number
   deleteDisabled?: boolean
-  deleteTitle?: string
+  deleteTitle?: string | undefined
   server: ServerCardSummary
   onDelete: () => void
   onOpen: () => void

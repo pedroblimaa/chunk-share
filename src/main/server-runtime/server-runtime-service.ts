@@ -723,7 +723,7 @@ class ServerRuntime {
   private emitRuntimeEvent(logLine?: ServerRuntimeLogLine): void {
     const event: ServerRuntimeEvent = {
       snapshot: this.getSnapshot(),
-      logLine
+      ...(logLine ? { logLine } : {})
     }
 
     this.listeners.forEach((listener) => listener(event))

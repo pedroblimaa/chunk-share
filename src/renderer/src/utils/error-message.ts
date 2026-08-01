@@ -7,5 +7,5 @@ export function normalizeErrorMessage(message: string): string {
     /^Error invoking remote method '[^']+':\s*(?:[A-Za-z]+Error:\s*)?(.+)$/s
   )
 
-  return remoteErrorMatch ? remoteErrorMatch[1] : message
+  return remoteErrorMatch?.[1] ?? message
 }

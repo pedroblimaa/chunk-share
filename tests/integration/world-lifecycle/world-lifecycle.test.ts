@@ -164,8 +164,12 @@ describe('world lifecycle', () => {
     await expect(stat(worldPaths.storageWorldFile)).rejects.toMatchObject({ code: 'ENOENT' })
     const backupFolderNames = await readdir(worldPaths.backupsFolder)
     expect(backupFolderNames).toHaveLength(1)
+    const backupFolderName = backupFolderNames[0]
+    if (!backupFolderName) {
+      throw new Error('Expected the deleted world backup folder to exist.')
+    }
     await expect(
-      readFile(join(worldPaths.backupsFolder, backupFolderNames[0], 'world', 'level.dat'), 'utf8')
+      readFile(join(worldPaths.backupsFolder, backupFolderName, 'world', 'level.dat'), 'utf8')
     ).resolves.toBe(TEST_WORLD_DATA)
   })
 

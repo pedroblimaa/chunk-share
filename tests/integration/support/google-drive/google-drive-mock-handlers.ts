@@ -46,7 +46,7 @@ export function createGoogleDriveMockHandlers(): HttpHandler[] {
       const file = googleDriveTestEnvironment.createFile(accountName, {
         mimeType: body.mimeType,
         name: body.name,
-        parents: body.parents
+        ...(body.parents ? { parents: body.parents } : {})
       })
 
       return file ? HttpResponse.json(file) : permissionDenied()

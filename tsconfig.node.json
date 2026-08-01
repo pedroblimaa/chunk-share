@@ -13,7 +13,10 @@
   ],
   "compilerOptions": {
     "composite": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitAny": true,
     "noEmit": true,
+    "noUncheckedIndexedAccess": true,
     "types": ["electron-vite/node"]
   }
 }

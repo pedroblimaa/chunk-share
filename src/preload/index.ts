@@ -1,18 +1,10 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge } from 'electron'
 import type {
   CloudStorageProvider,
-  CloudStorageProviderSwitchPreview,
   CloudStorageProviderSwitchRequest,
-  CloudStorageSettings,
   StorageProviderCopyProgress
 } from '../shared/cloud-storage.model'
-import type { ServerDisplayState } from '../shared/dashboard'
-import type { ServerConfig, ServerStorageSnapshot } from '../shared/domain'
-import type {
-  GoogleDriveInviteResult,
-  GoogleDriveRevokeResult,
-  GoogleDriveSharingAvailability
-} from '../shared/drive-sharing.model'
+import type { ServerConfig } from '../shared/domain'
 import {
   AUTH_GET_SESSION_CHANNEL,
   AUTH_SIGN_IN_WITH_GOOGLE_CHANNEL,
@@ -46,109 +38,68 @@ import {
   STORAGE_SNAPSHOT_CHANNEL,
   STORAGE_VALIDATE_GOOGLE_DRIVE_FOLDER_CHANNEL
 } from '../shared/ipc-channels'
-import type { ServerRuntimeEvent, ServerRuntimeSnapshot } from '../shared/server-runtime'
+import type { ServerRuntimeEvent } from '../shared/server-runtime'
 import type {
   ServerSetupProgressEvent,
   DownloadSharedServerInput,
-  SetupVanillaServerInput,
-  VanillaMinecraftVersion
+  SetupVanillaServerInput
 } from '../shared/server-setup'
+import { invokeIpc, subscribeToIpcEvent } from './typed-ipc'
 
 const chunkShareApi = {
   auth: {
-    getSession: (): Promise<ServerDisplayState> => ipcRenderer.invoke(AUTH_GET_SESSION_CHANNEL),
-    signInWithGoogle: (): Promise<ServerDisplayState> => ipcRenderer.invoke(AUTH_SIGN_IN_WITH_GOOGLE_CHANNEL),
-    signOut: (): Promise<ServerDisplayState> => ipcRenderer.invoke(AUTH_SIGN_OUT_CHANNEL)
+    getSession: () => invokeIpc(AUTH_GET_SESSION_CHANNEL),
+    signInWithGoogle: () => invokeIpc(AUTH_SIGN_IN_WITH_GOOGLE_CHANNEL),
+    signOut: () => invokeIpc(AUTH_SIGN_OUT_CHANNEL)
   },
   dashboard: {
-    getSnapshot: (): Promise<ServerDisplayState> => ipcRenderer.invoke(DASHBOARD_SNAPSHOT_CHANNEL),
-    selectWorld: (worldId: string): Promise<ServerDisplayState> =>
-      ipcRenderer.invoke(DASHBOARD_SELECT_WORLD_CHANNEL, worldId)
+    getSnapshot: () => invokeIpc(DASHBOARD_SNAPSHOT_CHANNEL),
+    selectWorld: (worldId: string) => invokeIpc(DASHBOARD_SELECT_WORLD_CHANNEL, worldId)
   },
   driveJoin: {
-    consumePendingLink: (): Promise<string | null> =>
-      ipcRenderer.invoke(DRIVE_JOIN_CONSUME_PENDING_LINK_CHANNEL),
-    joinWorld: (joinLink: string): Promise<ServerDisplayState> =>
-      ipcRenderer.invoke(DRIVE_JOIN_WORLD_CHANNEL, joinLink),
-    onLinkAvailable: (listener: () => void): (() => void) => {
-      const joinLinkListener = (): void => listener()
-
-      ipcRenderer.on(DRIVE_JOIN_LINK_AVAILABLE_CHANNEL, joinLinkListener)
-
-      return () => ipcRenderer.removeListener(DRIVE_JOIN_LINK_AVAILABLE_CHANNEL, joinLinkListener)
-    }
+    consumePendingLink: () => invokeIpc(DRIVE_JOIN_CONSUME_PENDING_LINK_CHANNEL),
+    joinWorld: (joinLink: string) => invokeIpc(DRIVE_JOIN_WORLD_CHANNEL, joinLink),
+    onLinkAvailable: (listener: () => void): (() => void) =>
+      subscribeToIpcEvent(DRIVE_JOIN_LINK_AVAILABLE_CHANNEL, listener)
   },
   driveSharing: {
-    getAvailability: (): Promise<GoogleDriveSharingAvailability> =>
-      ipcRenderer.invoke(DRIVE_SHARING_GET_AVAILABILITY_CHANNEL),
-    inviteMember: (email: string): Promise<GoogleDriveInviteResult> =>
-      ipcRenderer.invoke(DRIVE_SHARING_INVITE_MEMBER_CHANNEL, email),
-    revokeMember: (permissionId: string): Promise<GoogleDriveRevokeResult> =>
-      ipcRenderer.invoke(DRIVE_SHARING_REVOKE_MEMBER_CHANNEL, permissionId)
+    getAvailability: () => invokeIpc(DRIVE_SHARING_GET_AVAILABILITY_CHANNEL),
+    inviteMember: (email: string) => invokeIpc(DRIVE_SHARING_INVITE_MEMBER_CHANNEL, email),
+    revokeMember: (permissionId: string) => invokeIpc(DRIVE_SHARING_REVOKE_MEMBER_CHANNEL, permissionId)
   },
   serverRuntime: {
-    getSnapshot: (): Promise<ServerRuntimeSnapshot> => ipcRenderer.invoke(SERVER_RUNTIME_SNAPSHOT_CHANNEL),
-    downloadSharedSave: (): Promise<ServerRuntimeSnapshot> =>
-      ipcRenderer.invoke(SERVER_RUNTIME_DOWNLOAD_SHARED_SAVE_CHANNEL),
-    start: (): Promise<ServerRuntimeSnapshot> => ipcRenderer.invoke(SERVER_RUNTIME_START_CHANNEL),
-    stop: (): Promise<ServerRuntimeSnapshot> => ipcRenderer.invoke(SERVER_RUNTIME_STOP_CHANNEL),
-    onEvent: (listener: (event: ServerRuntimeEvent) => void): (() => void) => {
-      const runtimeListener = (_: Electron.IpcRendererEvent, event: ServerRuntimeEvent): void => {
-        listener(event)
-      }
-
-      ipcRenderer.on(SERVER_RUNTIME_EVENTS_CHANNEL, runtimeListener)
-
-      return () => ipcRenderer.removeListener(SERVER_RUNTIME_EVENTS_CHANNEL, runtimeListener)
-    }
+    getSnapshot: () => invokeIpc(SERVER_RUNTIME_SNAPSHOT_CHANNEL),
+    downloadSharedSave: () => invokeIpc(SERVER_RUNTIME_DOWNLOAD_SHARED_SAVE_CHANNEL),
+    start: () => invokeIpc(SERVER_RUNTIME_START_CHANNEL),
+    stop: () => invokeIpc(SERVER_RUNTIME_STOP_CHANNEL),
+    onEvent: (listener: (event: ServerRuntimeEvent) => void): (() => void) =>
+      subscribeToIpcEvent(SERVER_RUNTIME_EVENTS_CHANNEL, listener)
   },
   storage: {
-    getSnapshot: (): Promise<ServerStorageSnapshot> => ipcRenderer.invoke(STORAGE_SNAPSHOT_CHANNEL),
-    getCloudStorageSettings: (): Promise<CloudStorageSettings> =>
-      ipcRenderer.invoke(STORAGE_CLOUD_SETTINGS_CHANNEL),
-    setupGoogleDriveFolder: (): Promise<CloudStorageSettings> =>
-      ipcRenderer.invoke(STORAGE_SETUP_GOOGLE_DRIVE_FOLDER_CHANNEL),
-    validateGoogleDriveFolder: (): Promise<CloudStorageSettings> =>
-      ipcRenderer.invoke(STORAGE_VALIDATE_GOOGLE_DRIVE_FOLDER_CHANNEL),
-    clearGoogleDriveFolder: (): Promise<CloudStorageSettings> =>
-      ipcRenderer.invoke(STORAGE_CLEAR_GOOGLE_DRIVE_FOLDER_CHANNEL),
-    getCloudStorageProviderSwitchPreview: (
-      provider: CloudStorageProvider
-    ): Promise<CloudStorageProviderSwitchPreview> =>
-      ipcRenderer.invoke(STORAGE_GET_PROVIDER_SWITCH_PREVIEW_CHANNEL, provider),
-    setCloudStorageProvider: (request: CloudStorageProviderSwitchRequest): Promise<CloudStorageSettings> =>
-      ipcRenderer.invoke(STORAGE_SET_PROVIDER_CHANNEL, request),
-    onProviderCopyProgress: (listener: (progress: StorageProviderCopyProgress) => void): (() => void) => {
-      const handler = (_: Electron.IpcRendererEvent, progress: StorageProviderCopyProgress): void =>
-        listener(progress)
-
-      ipcRenderer.on(STORAGE_PROVIDER_COPY_PROGRESS_CHANNEL, handler)
-
-      return () => ipcRenderer.removeListener(STORAGE_PROVIDER_COPY_PROGRESS_CHANNEL, handler)
-    },
-    deleteServer: (worldId: string): Promise<ServerStorageSnapshot> =>
-      ipcRenderer.invoke(STORAGE_DELETE_SERVER_CHANNEL, worldId),
-    resetServerLock: (): Promise<ServerStorageSnapshot> =>
-      ipcRenderer.invoke(STORAGE_RESET_SERVER_LOCK_CHANNEL),
-    saveServerConfig: (serverConfig: ServerConfig): Promise<ServerStorageSnapshot> =>
-      ipcRenderer.invoke(STORAGE_SAVE_SERVER_CONFIG_CHANNEL, serverConfig)
+    getSnapshot: () => invokeIpc(STORAGE_SNAPSHOT_CHANNEL),
+    getCloudStorageSettings: () => invokeIpc(STORAGE_CLOUD_SETTINGS_CHANNEL),
+    setupGoogleDriveFolder: () => invokeIpc(STORAGE_SETUP_GOOGLE_DRIVE_FOLDER_CHANNEL),
+    validateGoogleDriveFolder: () => invokeIpc(STORAGE_VALIDATE_GOOGLE_DRIVE_FOLDER_CHANNEL),
+    clearGoogleDriveFolder: () => invokeIpc(STORAGE_CLEAR_GOOGLE_DRIVE_FOLDER_CHANNEL),
+    getCloudStorageProviderSwitchPreview: (provider: CloudStorageProvider) =>
+      invokeIpc(STORAGE_GET_PROVIDER_SWITCH_PREVIEW_CHANNEL, provider),
+    setCloudStorageProvider: (request: CloudStorageProviderSwitchRequest) =>
+      invokeIpc(STORAGE_SET_PROVIDER_CHANNEL, request),
+    onProviderCopyProgress: (listener: (progress: StorageProviderCopyProgress) => void): (() => void) =>
+      subscribeToIpcEvent(STORAGE_PROVIDER_COPY_PROGRESS_CHANNEL, listener),
+    deleteServer: (worldId: string) => invokeIpc(STORAGE_DELETE_SERVER_CHANNEL, worldId),
+    resetServerLock: () => invokeIpc(STORAGE_RESET_SERVER_LOCK_CHANNEL),
+    saveServerConfig: (serverConfig: ServerConfig) =>
+      invokeIpc(STORAGE_SAVE_SERVER_CONFIG_CHANNEL, serverConfig)
   },
   serverSetup: {
-    listVanillaVersions: (): Promise<VanillaMinecraftVersion[]> =>
-      ipcRenderer.invoke(SERVER_SETUP_LIST_VANILLA_VERSIONS_CHANNEL),
-    downloadSharedServer: (input: DownloadSharedServerInput): Promise<ServerStorageSnapshot> =>
-      ipcRenderer.invoke(SERVER_SETUP_DOWNLOAD_SHARED_SERVER_CHANNEL, input),
-    setupVanillaServer: (input: SetupVanillaServerInput): Promise<ServerStorageSnapshot> =>
-      ipcRenderer.invoke(SERVER_SETUP_SETUP_VANILLA_SERVER_CHANNEL, input),
-    onProgress: (listener: (event: ServerSetupProgressEvent) => void): (() => void) => {
-      const progressListener = (_: Electron.IpcRendererEvent, event: ServerSetupProgressEvent): void => {
-        listener(event)
-      }
-
-      ipcRenderer.on(SERVER_SETUP_PROGRESS_CHANNEL, progressListener)
-
-      return () => ipcRenderer.removeListener(SERVER_SETUP_PROGRESS_CHANNEL, progressListener)
-    }
+    listVanillaVersions: () => invokeIpc(SERVER_SETUP_LIST_VANILLA_VERSIONS_CHANNEL),
+    downloadSharedServer: (input: DownloadSharedServerInput) =>
+      invokeIpc(SERVER_SETUP_DOWNLOAD_SHARED_SERVER_CHANNEL, input),
+    setupVanillaServer: (input: SetupVanillaServerInput) =>
+      invokeIpc(SERVER_SETUP_SETUP_VANILLA_SERVER_CHANNEL, input),
+    onProgress: (listener: (event: ServerSetupProgressEvent) => void): (() => void) =>
+      subscribeToIpcEvent(SERVER_SETUP_PROGRESS_CHANNEL, listener)
   }
 }
 

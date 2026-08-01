@@ -8,6 +8,7 @@ import {
   setPendingGoogleDriveJoinLink
 } from './cloud-storage/google-drive-join-link'
 import { registerIpcHandlers } from './ipc/register-ipc-handlers'
+import { sendIpcEvent } from './ipc/typed-ipc'
 
 const CHUNKSHARE_PROTOCOL = 'chunkshare'
 
@@ -87,7 +88,7 @@ function openJoinLink(joinLink: string | null): void {
     return
   }
 
-  mainWindow.webContents.send(DRIVE_JOIN_LINK_AVAILABLE_CHANNEL)
+  sendIpcEvent(mainWindow.webContents, DRIVE_JOIN_LINK_AVAILABLE_CHANNEL)
 
   if (mainWindow.isMinimized()) {
     mainWindow.restore()

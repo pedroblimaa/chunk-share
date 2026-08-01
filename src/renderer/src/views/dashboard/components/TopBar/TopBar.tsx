@@ -22,9 +22,9 @@ interface TopBarProps {
   user: SignedInUser | null
   breadcrumbs: BreadcrumbItem[]
   createInstanceDisabled?: boolean
-  createInstanceTitle?: string
+  createInstanceTitle?: string | undefined
   refreshAction?: TopBarRefreshAction
-  onCreateInstance?: () => void
+  onCreateInstance?: (() => void) | undefined
   onOpenSettings?: () => void
   onSignOut?: () => void
 }

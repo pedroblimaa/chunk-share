@@ -173,9 +173,14 @@ async function prepareUserState(
   selectedWorldId: string,
   driveWorlds: DriveWorldFixture[]
 ): Promise<void> {
-  const worlds = [WORLD_A, WORLD_B].map((world, index) =>
-    createUserWorld(world, driveWorlds[index], accountName, world.id === selectedWorldId)
-  )
+  const worlds = [WORLD_A, WORLD_B].map((world, index) => {
+    const driveWorld = driveWorlds[index]
+    if (!driveWorld) {
+      throw new Error(`Missing Drive fixture for ${world.id}.`)
+    }
+
+    return createUserWorld(world, driveWorld, accountName, world.id === selectedWorldId)
+  })
   const appState: AppState = {
     ...DEFAULT_APP_STATE,
     activeProvider: CloudStorageProvider.GoogleDrive,

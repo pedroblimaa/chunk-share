@@ -5,7 +5,7 @@ export type ButtonVariant = 'danger' | 'ghost' | 'icon' | 'primary' | 'secondary
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   fullWidth?: boolean
-  icon?: string
+  icon?: string | undefined
   size?: ButtonSize
-  variant?: ButtonVariant
+  variant?: ButtonVariant | undefined
 }

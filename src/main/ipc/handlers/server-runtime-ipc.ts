@@ -1,4 +1,4 @@
-import { BrowserWindow, ipcMain } from 'electron'
+import { BrowserWindow } from 'electron'
 import type { ServerRuntimeEvent } from '../../../shared/server-runtime'
 import {
   SERVER_RUNTIME_EVENTS_CHANNEL,
@@ -14,16 +14,17 @@ import {
   stopMinecraftServer,
   subscribeToServerRuntime
 } from '../../server-runtime/server-runtime-service'
+import { handleIpc, sendIpcEvent } from '../typed-ipc'
 
 export function registerServerRuntimeIpcHandlers(): void {
-  ipcMain.handle(SERVER_RUNTIME_SNAPSHOT_CHANNEL, () => getServerRuntimeSnapshot())
-  ipcMain.handle(SERVER_RUNTIME_DOWNLOAD_SHARED_SAVE_CHANNEL, () => downloadLatestSharedSave())
-  ipcMain.handle(SERVER_RUNTIME_START_CHANNEL, () => startMinecraftServer())
-  ipcMain.handle(SERVER_RUNTIME_STOP_CHANNEL, () => stopMinecraftServer())
+  handleIpc(SERVER_RUNTIME_SNAPSHOT_CHANNEL, () => getServerRuntimeSnapshot())
+  handleIpc(SERVER_RUNTIME_DOWNLOAD_SHARED_SAVE_CHANNEL, () => downloadLatestSharedSave())
+  handleIpc(SERVER_RUNTIME_START_CHANNEL, () => startMinecraftServer())
+  handleIpc(SERVER_RUNTIME_STOP_CHANNEL, () => stopMinecraftServer())
 
   subscribeToServerRuntime((runtimeEvent: ServerRuntimeEvent) => {
     BrowserWindow.getAllWindows().forEach((browserWindow) => {
-      browserWindow.webContents.send(SERVER_RUNTIME_EVENTS_CHANNEL, runtimeEvent)
+      sendIpcEvent(browserWindow.webContents, SERVER_RUNTIME_EVENTS_CHANNEL, runtimeEvent)
     })
   })
 }

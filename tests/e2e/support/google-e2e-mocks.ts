@@ -83,7 +83,7 @@ function installGoogleNetworkMock(
         const proxyUrl = `${fixture.driveMockUrl}${requestUrl.pathname}${requestUrl.search}`
 
         return nativeFetch(proxyUrl, {
-          body,
+          ...(body ? { body } : {}),
           headers: request.headers,
           method: request.method
         })
@@ -139,7 +139,7 @@ function installGoogleOAuthClientMock(
       headers.set('Authorization', `Bearer ${fixture.accessToken}`)
 
       const response = await fetch(requestUrl, {
-        body,
+        ...(body ? { body } : {}),
         headers,
         method: options.method ?? 'GET'
       })

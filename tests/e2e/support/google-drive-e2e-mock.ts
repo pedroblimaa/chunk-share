@@ -170,7 +170,7 @@ export class GoogleDriveE2EMock {
           ? this.drive.createFile(accountName, {
               mimeType: body.mimeType,
               name: body.name,
-              parents: body.parents
+              ...(body.parents ? { parents: body.parents } : {})
             })
           : null
       file ? respondWithJson(response, 200, file) : respondNotFound(response)
@@ -182,7 +182,7 @@ export class GoogleDriveE2EMock {
       await this.handlePermissionRequest(
         accountName,
         method,
-        decodeURIComponent(permissionMatch[1]),
+        decodeMatchGroup(permissionMatch),
         permissionMatch[2] ? decodeURIComponent(permissionMatch[2]) : null,
         requestUrl,
         request,
@@ -196,7 +196,7 @@ export class GoogleDriveE2EMock {
       this.handleRevisionRequest(
         accountName,
         method,
-        decodeURIComponent(revisionMatch[1]),
+        decodeMatchGroup(revisionMatch),
         revisionMatch[2] ? decodeURIComponent(revisionMatch[2]) : null,
         requestUrl,
         response
@@ -206,7 +206,7 @@ export class GoogleDriveE2EMock {
 
     const uploadMatch = path.match(/^\/upload\/drive\/v3\/files\/([^/]+)$/)
     if (uploadMatch && method === 'PATCH') {
-      const fileId = decodeURIComponent(uploadMatch[1])
+      const fileId = decodeMatchGroup(uploadMatch)
       const body = await readBody(request)
       const content = request.headers['content-type']?.startsWith('application/json')
         ? body.toString('utf8')
@@ -226,7 +226,7 @@ export class GoogleDriveE2EMock {
       await this.handleFileRequest(
         accountName,
         method,
-        decodeURIComponent(fileMatch[1]),
+        decodeMatchGroup(fileMatch),
         requestUrl,
         request,
         response
@@ -380,6 +380,15 @@ function getRequestedFileName(query: string | null): string | undefined {
 
 function getRequestedParentFolderId(query: string | null): string | undefined {
   return query?.match(/'([^']+)' in parents/)?.[1]
+}
+
+function decodeMatchGroup(match: RegExpMatchArray): string {
+  const value = match[1]
+  if (!value) {
+    throw new Error('Expected the Drive mock URL to contain a file ID.')
+  }
+
+  return decodeURIComponent(value)
 }
 
 async function readJsonBody<T>(request: IncomingMessage): Promise<T> {

@@ -137,7 +137,11 @@ describe('Google Drive sharing and joining', () => {
 
   it('prevents a revoked member from joining again with the same link', async () => {
     const invitation = await inviteGoogleDriveMember(GOOGLE_TEST_ACCOUNTS.friend.session.player.email)
-    const permissionId = invitation.sharingState.members[0].permissionId
+    const invitedMember = invitation.sharingState.members[0]
+    if (!invitedMember) {
+      throw new Error('Expected the invited member to be returned.')
+    }
+    const permissionId = invitedMember.permissionId
 
     await saveFreshLocalAccount('friend')
     await joinGoogleDriveWorld(invitation.joinLink)
