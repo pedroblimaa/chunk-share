@@ -6,6 +6,7 @@ import {
   E2E_MINECRAFT_VERSION,
   E2E_SERVER_NAME,
   E2E_WORLD_DATA,
+  expectServerRunning,
   launchChunkShareE2EApp,
   readSelectedWorldE2EPaths
 } from '../support/electron-test-app'
@@ -32,11 +33,13 @@ test('creates, starts, stops, and publishes a local world', async () => {
     await expect(page.getByRole('heading', { name: E2E_SERVER_NAME })).toBeVisible()
 
     await user.click(page.getByRole('button', { name: 'Start Server', exact: true }))
-    await expect(page.getByText('RUNNING', { exact: true })).toBeVisible()
+    await expectServerRunning(app)
 
     await user.click(page.getByRole('button', { name: 'Stop Server', exact: true }))
     await expect(page.getByText('STOPPED', { exact: true })).toBeVisible()
-    await expect(page.getByLabel('Server console output')).toContainText('Server save v1 published.')
+    await expect(page.getByLabel('Server console output')).toContainText(
+      /Server save v1 published in \d+(?:\.\d+)? (?:ms|s)\./
+    )
 
     const worldPaths = await readSelectedWorldE2EPaths(app.paths)
     await expectPublishedWorld(app.paths.root, worldPaths.worldFile)

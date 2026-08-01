@@ -17,12 +17,29 @@ export interface PublishServerSaveResult {
   cleanupError: Error | null
 }
 
+export type PublishServerSavePhase =
+  | 'checking-shared-save'
+  | 'compressing'
+  | 'preparing-storage'
+  | 'uploading'
+  | 'updating-metadata'
+  | 'cleaning-up'
+
+export interface PublishServerSaveProgress {
+  phase: PublishServerSavePhase
+}
+
+export type PublishServerSaveProgressListener = (progress: PublishServerSaveProgress) => void
+
 export async function publishServerSave(
-  operationContext?: WorldOperationContext
+  operationContext?: WorldOperationContext,
+  onProgress?: PublishServerSaveProgressListener
 ): Promise<PublishServerSaveResult> {
   const resolvedContext = operationContext ?? (await getSelectedWorldOperationContext())
   const { storageAdapter, worldId, paths } = resolvedContext
-  const latestSave = await storageAdapter.readLatestSave()
+  const latestSave = await runPublishPhase('checking-shared-save', onProgress, () =>
+    storageAdapter.readLatestSave()
+  )
   const nextSaveVersion = (latestSave?.saveVersion ?? 0) + 1
   const localState = await readWorldLocalState(worldId)
   const serverFolderPath = paths.serverFolder
@@ -31,8 +48,15 @@ export async function publishServerSave(
   await assertServerFolderExists(serverFolderPath)
 
   try {
-    await zipFolder(serverFolderPath, zipFilePath)
-    const result = await publishWorldUpdate(storageAdapter, zipFilePath, nextSaveVersion, localState, worldId)
+    await runPublishPhase('compressing', onProgress, () => zipFolder(serverFolderPath, zipFilePath))
+    const result = await publishWorldUpdate(
+      storageAdapter,
+      zipFilePath,
+      nextSaveVersion,
+      localState,
+      worldId,
+      onProgress
+    )
 
     return result
   } finally {
@@ -45,7 +69,8 @@ async function publishWorldUpdate(
   zipFilePath: string,
   nextSaveVersion: number,
   localState: LocalState,
-  worldId: WorldId
+  worldId: WorldId,
+  onProgress?: PublishServerSaveProgressListener
 ): Promise<PublishServerSaveResult> {
   const nextLatestSave = {
     saveVersion: nextSaveVersion,
@@ -55,25 +80,40 @@ async function publishWorldUpdate(
     minecraftVersion: localState.serverConfig.minecraftVersion,
     serverType: localState.serverConfig.serverType
   }
-  const replacement = await storageAdapter.stageServerSavesReplacement()
+  const replacement = await runPublishPhase('preparing-storage', onProgress, () =>
+    storageAdapter.stageServerSavesReplacement()
+  )
   let cleanupError: Error | null
 
   try {
-    cleanupError = await storageAdapter.uploadWorld(zipFilePath)
-    await storageAdapter.writeLatestSave(nextLatestSave)
-    await saveWorldLocalSaveVersion(worldId, nextLatestSave.saveVersion)
+    cleanupError = await runPublishPhase('uploading', onProgress, () =>
+      storageAdapter.uploadWorld(zipFilePath)
+    )
+    await runPublishPhase('updating-metadata', onProgress, async () => {
+      await storageAdapter.writeLatestSave(nextLatestSave)
+      await saveWorldLocalSaveVersion(worldId, nextLatestSave.saveVersion)
+    })
   } catch (error) {
     await replacement.rollback()
     throw error
   }
 
   try {
-    await replacement.commit()
+    await runPublishPhase('cleaning-up', onProgress, () => replacement.commit())
   } catch (error) {
     cleanupError ??= toError(error, 'Unable to clean up the previous server save.')
   }
 
   return { latestSave: nextLatestSave, cleanupError }
+}
+
+async function runPublishPhase<Result>(
+  phase: PublishServerSavePhase,
+  onProgress: PublishServerSaveProgressListener | undefined,
+  operation: () => Promise<Result>
+): Promise<Result> {
+  onProgress?.({ phase })
+  return operation()
 }
 
 async function assertServerFolderExists(serverFolderPath: string): Promise<void> {

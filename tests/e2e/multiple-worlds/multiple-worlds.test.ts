@@ -5,6 +5,7 @@ import { ServerLockStatus } from '../../../src/shared/domain'
 import type { AppState } from '../../../src/shared/world'
 import {
   E2E_MINECRAFT_VERSION,
+  expectServerRunning,
   launchChunkShareE2EApp,
   type ChunkShareE2EApp,
   type ElectronE2EPaths
@@ -27,7 +28,7 @@ test('creates, selects, runs, and independently deletes multiple worlds', async 
 
     await openServer(app, WORLD_A_NAME)
     await app.user.click(app.page.getByRole('button', { name: 'Start Server', exact: true }))
-    await expect(app.page.getByText('RUNNING', { exact: true })).toBeVisible()
+    await expectServerRunning(app)
     await navigateToServers(app)
 
     await expect(app.page.getByRole('button', { name: 'Create Instance', exact: true })).toBeDisabled()
@@ -64,7 +65,7 @@ test('reenables world creation in Settings after the running server crashes', as
   try {
     await createWorld(app, WORLD_A_NAME, 25570)
     await app.user.click(app.page.getByRole('button', { name: 'Start Server', exact: true }))
-    await expect(app.page.getByText('RUNNING', { exact: true })).toBeVisible()
+    await expectServerRunning(app)
     await app.user.click(app.page.getByRole('button', { name: 'Settings', exact: true }).first())
 
     const createInstanceButton = app.page.getByRole('button', { name: 'Create Instance', exact: true })
@@ -106,7 +107,7 @@ test('keeps a crashed world locked while another world runs after relaunch', asy
     await createWorld(app, WORLD_A_NAME, 25570)
     const worldAId = findWorldId(await readE2EAppState(app.paths), WORLD_A_NAME)
     await app.user.click(app.page.getByRole('button', { name: 'Start Server', exact: true }))
-    await expect(app.page.getByText('RUNNING', { exact: true })).toBeVisible()
+    await expectServerRunning(app)
     await app.crashMinecraftServer()
     await app.user.click(app.page.getByRole('button', { name: 'Settings', exact: true }).first())
     await expect(app.page.getByRole('button', { name: 'Create Instance', exact: true })).toBeEnabled()
@@ -114,7 +115,7 @@ test('keeps a crashed world locked while another world runs after relaunch', asy
     await createWorld(app, WORLD_B_NAME, 25571)
     const worldBId = findWorldId(await readE2EAppState(app.paths), WORLD_B_NAME)
     await app.user.click(app.page.getByRole('button', { name: 'Start Server', exact: true }))
-    await expect(app.page.getByText('RUNNING', { exact: true })).toBeVisible()
+    await expectServerRunning(app)
     await app.user.click(app.page.getByRole('button', { name: 'Stop Server', exact: true }))
     await expect(app.page.getByText('STOPPED', { exact: true })).toBeVisible()
 

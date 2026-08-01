@@ -18,6 +18,7 @@ import {
 import {
   E2E_WORLD_DATA,
   createElectronE2EPaths,
+  expectServerRunning,
   launchChunkShareE2EApp,
   readSelectedWorldE2EPaths,
   type ChunkShareE2EApp,
@@ -295,7 +296,7 @@ test('keeps the shared state safe when publishing fails and allows a retry', asy
 
     await expect(ownerApp.page.getByRole('alert')).toContainText('Unable to publish server save')
     await expect(ownerApp.page.getByLabel('Server console output')).not.toContainText(
-      'Server save v2 published.'
+      'Server save v2 published in'
     )
     await expectDriveControl(driveMock, {
       latestSave: { saveVersion: 1 },
@@ -422,14 +423,14 @@ async function downloadSharedServer(app: ChunkShareE2EApp): Promise<void> {
 
 async function startServer(app: ChunkShareE2EApp): Promise<void> {
   await app.user.click(app.page.getByRole('button', { name: 'Start Server', exact: true }))
-  await expect(app.page.getByText('RUNNING', { exact: true })).toBeVisible()
+  await expectServerRunning(app)
 }
 
 async function stopServer(app: ChunkShareE2EApp, publishedVersion: number): Promise<void> {
   await app.user.click(app.page.getByRole('button', { name: 'Stop Server', exact: true }))
   await expect(app.page.getByText('STOPPED', { exact: true })).toBeVisible()
   await expect(app.page.getByLabel('Server console output')).toContainText(
-    `Server save v${publishedVersion} published.`
+    new RegExp(`Server save v${publishedVersion} published in \\d+(?:\\.\\d+)? (?:ms|s)\\.`)
   )
 }
 

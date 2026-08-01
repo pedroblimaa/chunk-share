@@ -15,6 +15,7 @@ import {
 } from '../../support/google-drive/google-drive-test-environment'
 import {
   createElectronE2EPaths,
+  expectServerRunning,
   launchChunkShareE2EApp,
   type ChunkShareE2EApp,
   type ElectronE2EPaths
@@ -103,7 +104,7 @@ test('allows two users to host different shared worlds at the same time', async 
       })
 
     await stopServer(ownerApp, 2)
-    await expect(friendApp.page.getByText('RUNNING', { exact: true })).toBeVisible()
+    await expectServerRunning(friendApp)
     expect(readDriveControl(driveMock, worldB.controlFileId)).toMatchObject({
       latestSave: { saveVersion: 1 },
       serverLock: {
@@ -245,7 +246,7 @@ async function startServer(app: ChunkShareE2EApp): Promise<void> {
   const startButton = app.page.getByRole('button', { name: 'Start Server', exact: true })
   await expect(startButton).toBeEnabled()
   await app.user.click(startButton)
-  await expect(app.page.getByText('RUNNING', { exact: true })).toBeVisible()
+  await expectServerRunning(app)
 }
 
 async function openWorld(app: ChunkShareE2EApp, worldName: string): Promise<void> {
@@ -260,7 +261,7 @@ async function stopServer(app: ChunkShareE2EApp, publishedVersion: number): Prom
   await app.user.click(app.page.getByRole('button', { name: 'Stop Server', exact: true }))
   await expect(app.page.getByText('STOPPED', { exact: true })).toBeVisible()
   await expect(app.page.getByLabel('Server console output')).toContainText(
-    `Server save v${publishedVersion} published.`
+    new RegExp(`Server save v${publishedVersion} published in \\d+(?:\\.\\d+)? (?:ms|s)\\.`)
   )
 }
 

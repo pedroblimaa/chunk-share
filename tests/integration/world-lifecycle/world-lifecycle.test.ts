@@ -149,6 +149,22 @@ describe('world lifecycle', () => {
       activeSessionId: null,
       localSaveVersion: 1
     })
+
+    const publishLogs = getServerRuntimeSnapshot().logs.map(({ message }) => message)
+    expect(publishLogs).toEqual(
+      expect.arrayContaining([
+        'Checking the latest shared save...',
+        'Compressing the server save...',
+        'Preparing shared storage...',
+        'Uploading the server save...',
+        'Updating save metadata...',
+        'Finalizing the shared save...'
+      ])
+    )
+    expect(publishLogs).toEqual(
+      expect.arrayContaining([expect.stringMatching(/^Server save v1 published in .+\.$/)])
+    )
+    expect(publishLogs.some((message) => message.includes('completed in'))).toBe(false)
   })
 
   it('deletes a local world and keeps its server-folder backup', async () => {
