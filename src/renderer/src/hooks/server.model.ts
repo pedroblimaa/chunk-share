@@ -1,4 +1,5 @@
 import type { ServerDisplayState } from '../../../shared/dashboard'
+import type { WorldId } from '../../../shared/world'
 
 export type AppView = 'servers' | 'server-detail' | 'server-setup' | 'settings'
 
@@ -12,7 +13,7 @@ export interface UseServerActionsInput {
 
 export interface ServerActions {
   completeServerSetup: () => Promise<void>
-  deleteServer: () => Promise<void>
-  openServerDashboard: () => Promise<void>
+  deleteServer: (worldId: WorldId) => Promise<void>
+  openServerDashboard: (worldId: WorldId) => Promise<void>
   refreshServerDisplayState: () => Promise<void>
 }

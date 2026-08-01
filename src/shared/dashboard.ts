@@ -1,6 +1,7 @@
 import type { ServerStatus } from './domain'
 import type { ServerConnectionAddress } from './server-runtime'
 import type { ServerSyncSnapshot } from './server-sync'
+import type { WorldId } from './world'
 
 export type { ServerStatus } from './domain'
 
@@ -44,8 +45,23 @@ export interface ConsoleLogLine {
   tone: 'default' | 'success' | 'warning' | 'error'
 }
 
+export interface ServerCatalogEntry {
+  worldId: WorldId
+  serverAvailability: ServerAvailability
+  serverName: string
+  serverStatus: ServerStatus
+  serverType: string
+  minecraftVersion: string
+  currentHost: string | null
+  syncStatus: ServerSyncSnapshot
+  players: PlayerSummary
+}
+
 export interface ServerDisplayState {
   signedInUser: SignedInUser | null
+  selectedWorldId: WorldId | null
+  runningWorldId: WorldId | null
+  worlds: ServerCatalogEntry[]
   serverAvailability: ServerAvailability
   serverName: string
   serverStatus: ServerStatus

@@ -52,9 +52,12 @@ test('copies a local world to Google Drive through Settings', async () => {
       const downloadUpdate = app.page
         .getByRole('button', { name: 'Download Update' })
         .filter({ hasText: 'Download Update' })
+      const startServerButton = app.page.getByRole('button', { name: 'Start Server', exact: true })
+      await expect(downloadUpdate.or(startServerButton)).toBeVisible()
+
       if (await downloadUpdate.isVisible()) {
         await app.user.click(downloadUpdate)
-        await expect(app.page.getByRole('button', { name: 'Start Server', exact: true })).toBeVisible()
+        await expect(startServerButton).toBeVisible()
       }
 
       await startServer(app)

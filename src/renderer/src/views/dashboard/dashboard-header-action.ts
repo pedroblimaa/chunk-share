@@ -12,6 +12,9 @@ export function getDashboardPrimaryActionView({
   const syncBlocksStart = getSyncBlocksStart(dashboardSnapshot)
   const serverNeedsLocalDownload = getServerNeedsLocalDownload(dashboardSnapshot)
   const serverNeedsSaveDownload = getServerNeedsSaveDownload(dashboardSnapshot)
+  const anotherWorldIsRunning = Boolean(
+    dashboardSnapshot.runningWorldId && dashboardSnapshot.runningWorldId !== dashboardSnapshot.selectedWorldId
+  )
   const syncView = getServerSyncView(dashboardSnapshot.syncStatus)
 
   if (serverIsJoinable) {
@@ -55,6 +58,7 @@ export function getDashboardPrimaryActionView({
     dashboardSnapshot.serverStatus === 'starting' ||
     dashboardSnapshot.serverStatus === 'stopping' ||
     dashboardSnapshot.serverStatus === 'crashed' ||
+    anotherWorldIsRunning ||
     (syncBlocksStart && !serverNeedsSaveDownload)
 
   if (dashboardSnapshot.serverStatus !== 'stopped') {
@@ -91,7 +95,11 @@ export function getDashboardPrimaryActionView({
         kind: 'toggle-server',
         isDisabled: toggleIsDisabled,
         tone: 'default',
-        tooltip: syncBlocksStart ? syncView.message : undefined
+        tooltip: anotherWorldIsRunning
+          ? 'Stop the running server before starting this world.'
+          : syncBlocksStart
+            ? syncView.message
+            : undefined
       }
   }
 }

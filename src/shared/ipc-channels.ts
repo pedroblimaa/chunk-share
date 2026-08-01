@@ -3,6 +3,7 @@ export const AUTH_SIGN_IN_WITH_GOOGLE_CHANNEL = 'auth:sign-in-with-google'
 export const AUTH_SIGN_OUT_CHANNEL = 'auth:sign-out'
 
 export const DASHBOARD_SNAPSHOT_CHANNEL = 'dashboard:get-snapshot'
+export const DASHBOARD_SELECT_WORLD_CHANNEL = 'dashboard:select-world'
 
 export const DRIVE_SHARING_GET_AVAILABILITY_CHANNEL = 'driveSharing:get-availability'
 export const DRIVE_SHARING_INVITE_MEMBER_CHANNEL = 'driveSharing:invite-member'

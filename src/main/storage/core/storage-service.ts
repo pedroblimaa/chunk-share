@@ -1,5 +1,6 @@
 import { CloudStorageProvider, GoogleDriveSetupStatus } from '../../../shared/cloud-storage.model'
 import { ServerLockStatus, type ServerConfig, type ServerStorageSnapshot } from '../../../shared/domain'
+import type { WorldId } from '../../../shared/world'
 import { getServerRuntimeSnapshot } from '../../server-runtime/server-runtime-service'
 import { getServerSyncSnapshot } from '../../server-sync/server-sync-service'
 import { deleteGoogleDriveWorldFilesIfOwned } from '../adapters/google-drive-storage-adapter'
@@ -34,16 +35,32 @@ export function deleteConfiguredServer(): Promise<ServerStorageSnapshot> {
   return runExclusiveStorageOperation(
     ExclusiveStorageOperation.ServerDelete,
     new StorageError('Cannot remove this server while another storage operation is in progress.'),
-    runConfiguredServerDeletion
+    async () => {
+      const appState = await readAppState()
+
+      if (!appState.selectedWorldId) {
+        throw new StorageError('No world is selected.')
+      }
+
+      return runConfiguredServerDeletion(appState.selectedWorldId)
+    }
   )
 }
 
-async function runConfiguredServerDeletion(): Promise<ServerStorageSnapshot> {
+export function deleteConfiguredWorld(worldId: WorldId): Promise<ServerStorageSnapshot> {
+  return runExclusiveStorageOperation(
+    ExclusiveStorageOperation.ServerDelete,
+    new StorageError('Cannot remove this server while another storage operation is in progress.'),
+    () => runConfiguredServerDeletion(worldId)
+  )
+}
+
+async function runConfiguredServerDeletion(worldId: WorldId): Promise<ServerStorageSnapshot> {
   const appState = await readAppState()
-  const world = appState.worlds.find(({ id }) => id === appState.selectedWorldId)
+  const world = appState.worlds.find(({ id }) => id === worldId)
 
   if (!world) {
-    throw new StorageError('No world is selected.')
+    throw new StorageError(`World ${worldId} was not found.`)
   }
 
   const context = createWorldContext(world)

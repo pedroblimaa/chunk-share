@@ -18,6 +18,7 @@ import {
   AUTH_SIGN_IN_WITH_GOOGLE_CHANNEL,
   AUTH_SIGN_OUT_CHANNEL,
   DASHBOARD_SNAPSHOT_CHANNEL,
+  DASHBOARD_SELECT_WORLD_CHANNEL,
   DRIVE_JOIN_CONSUME_PENDING_LINK_CHANNEL,
   DRIVE_JOIN_LINK_AVAILABLE_CHANNEL,
   DRIVE_JOIN_WORLD_CHANNEL,
@@ -60,7 +61,9 @@ const chunkShareApi = {
     signOut: (): Promise<ServerDisplayState> => ipcRenderer.invoke(AUTH_SIGN_OUT_CHANNEL)
   },
   dashboard: {
-    getSnapshot: (): Promise<ServerDisplayState> => ipcRenderer.invoke(DASHBOARD_SNAPSHOT_CHANNEL)
+    getSnapshot: (): Promise<ServerDisplayState> => ipcRenderer.invoke(DASHBOARD_SNAPSHOT_CHANNEL),
+    selectWorld: (worldId: string): Promise<ServerDisplayState> =>
+      ipcRenderer.invoke(DASHBOARD_SELECT_WORLD_CHANNEL, worldId)
   },
   driveJoin: {
     consumePendingLink: (): Promise<string | null> =>
@@ -123,7 +126,8 @@ const chunkShareApi = {
 
       return () => ipcRenderer.removeListener(STORAGE_PROVIDER_COPY_PROGRESS_CHANNEL, handler)
     },
-    deleteServer: (): Promise<ServerStorageSnapshot> => ipcRenderer.invoke(STORAGE_DELETE_SERVER_CHANNEL),
+    deleteServer: (worldId: string): Promise<ServerStorageSnapshot> =>
+      ipcRenderer.invoke(STORAGE_DELETE_SERVER_CHANNEL, worldId),
     resetServerLock: (): Promise<ServerStorageSnapshot> =>
       ipcRenderer.invoke(STORAGE_RESET_SERVER_LOCK_CHANNEL),
     saveServerConfig: (serverConfig: ServerConfig): Promise<ServerStorageSnapshot> =>

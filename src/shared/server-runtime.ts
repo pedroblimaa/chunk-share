@@ -39,6 +39,7 @@ export interface ServerRuntimeResources {
 export interface ServerRuntimeSnapshot {
   status: ServerRuntimeStatus
   runningWorldId: WorldId | null
+  runtimeWorldId: WorldId | null
   errorMessage: string | null
   connectionAddresses: ServerConnectionAddress[]
   players: ServerRuntimePlayers

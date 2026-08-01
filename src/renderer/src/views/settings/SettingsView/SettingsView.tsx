@@ -1,5 +1,6 @@
 import './SettingsView.css'
 
+import { useEffect, useState } from 'react'
 import AppSidebar from '../../../components/shared/AppSidebar/AppSidebar'
 import Badge from '../../../components/shared/Badge/Badge'
 import Button from '../../../components/shared/Button/Button'
@@ -10,7 +11,7 @@ import StorageModeSettingsCard from '../components/StorageModeSettingsCard/Stora
 import StorageProviderSettingsProvider from '../StorageProviderSettingsProvider/StorageProviderSettingsProvider'
 import type { SettingsViewProps } from './SettingsView.model'
 
-const SINGLE_SERVER_DISABLED_REASON = 'Only one server is supported in the MVP.'
+const RUNNING_SERVER_DISABLED_REASON = 'Stop the running server before creating another one.'
 
 function SettingsView({
   serverDisplayState,
@@ -20,16 +21,25 @@ function SettingsView({
   onSignOut,
   onStorageProviderChange
 }: SettingsViewProps): React.JSX.Element {
-  const serverIsConfigured = serverDisplayState.serverStatus !== 'not-configured'
+  const [runningWorldId, setRunningWorldId] = useState(serverDisplayState.runningWorldId)
+  const serverIsRunning = runningWorldId !== null
   const signedInUser = serverDisplayState.signedInUser
+
+  useEffect(
+    () =>
+      window.chunkShare.serverRuntime.onEvent(({ snapshot }) => {
+        setRunningWorldId(snapshot.runningWorldId)
+      }),
+    []
+  )
 
   return (
     <div className="dashboard-screen">
       <AppSidebar
         activeItem="settings"
-        addServerDisabled={serverIsConfigured}
-        addServerTitle={serverIsConfigured ? SINGLE_SERVER_DISABLED_REASON : undefined}
-        onAddServer={serverIsConfigured ? undefined : onCreateServer}
+        addServerDisabled={serverIsRunning}
+        addServerTitle={serverIsRunning ? RUNNING_SERVER_DISABLED_REASON : undefined}
+        onAddServer={serverIsRunning ? undefined : onCreateServer}
         onOpenServers={onNavigateToServers}
         onOpenSettings={onOpenSettings}
       />
@@ -38,9 +48,9 @@ function SettingsView({
         <TopBar
           user={serverDisplayState.signedInUser}
           breadcrumbs={[{ label: 'Settings' }]}
-          createInstanceDisabled={serverIsConfigured}
-          createInstanceTitle={serverIsConfigured ? SINGLE_SERVER_DISABLED_REASON : undefined}
-          onCreateInstance={serverIsConfigured ? undefined : onCreateServer}
+          createInstanceDisabled={serverIsRunning}
+          createInstanceTitle={serverIsRunning ? RUNNING_SERVER_DISABLED_REASON : undefined}
+          onCreateInstance={serverIsRunning ? undefined : onCreateServer}
           onOpenSettings={onOpenSettings}
           onSignOut={onSignOut}
         />

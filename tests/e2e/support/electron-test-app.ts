@@ -67,6 +67,7 @@ export interface CloseChunkShareE2EAppOptions {
 }
 
 export interface ChunkShareE2EApp {
+  crashMinecraftServer: () => Promise<void>
   electronApp: ElectronApplication
   page: Page
   paths: ElectronE2EPaths
@@ -106,6 +107,7 @@ export async function launchChunkShareE2EApp(
     }
 
     return {
+      crashMinecraftServer: () => crashMinecraftServer(electronApp),
       electronApp,
       page,
       paths,
@@ -117,6 +119,20 @@ export async function launchChunkShareE2EApp(
     await rm(paths.root, { force: true, recursive: true })
     throw error
   }
+}
+
+async function crashMinecraftServer(electronApp: ElectronApplication): Promise<void> {
+  await electronApp.evaluate(() => {
+    const testGlobal = globalThis as typeof globalThis & {
+      chunkShareE2EServerProcess?: { emit: (event: string, exitCode: number) => void }
+    }
+
+    if (!testGlobal.chunkShareE2EServerProcess) {
+      throw new Error('The E2E Minecraft process is not running.')
+    }
+
+    testGlobal.chunkShareE2EServerProcess.emit('close', 1)
+  })
 }
 
 export function createElectronE2EPaths(): ElectronE2EPaths {
@@ -281,6 +297,10 @@ async function installMainProcessMocks(electronApp: ElectronApplication): Promis
             stdio: [stdin, stdout, stderr],
             stdout
           })
+          const testGlobal = globalThis as typeof globalThis & {
+            chunkShareE2EServerProcess?: typeof serverProcess
+          }
+          testGlobal.chunkShareE2EServerProcess = serverProcess
 
           setImmediate(() => {
             stdout.write('[Server thread/INFO]: Done (1.000s)! For help, type "help"\n')

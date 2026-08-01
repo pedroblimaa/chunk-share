@@ -13,6 +13,16 @@ export function applyRuntimeSnapshotToServerDisplayState(
   serverDisplayState: ServerDisplayState,
   runtimeSnapshot: ServerRuntimeSnapshot
 ): ServerDisplayState {
+  if (
+    runtimeSnapshot.runtimeWorldId &&
+    runtimeSnapshot.runtimeWorldId !== serverDisplayState.selectedWorldId
+  ) {
+    return {
+      ...serverDisplayState,
+      runningWorldId: runtimeSnapshot.runningWorldId
+    }
+  }
+
   const serverIsActive = isServerActiveStatus(runtimeSnapshot.status)
   const connectionAddresses = serverIsActive
     ? runtimeSnapshot.connectionAddresses
@@ -20,6 +30,7 @@ export function applyRuntimeSnapshotToServerDisplayState(
 
   return {
     ...serverDisplayState,
+    runningWorldId: runtimeSnapshot.runningWorldId,
     serverStatus:
       serverDisplayState.serverStatus === 'not-configured' && runtimeSnapshot.status === 'stopped'
         ? serverDisplayState.serverStatus

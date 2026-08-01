@@ -3,7 +3,7 @@ import './ServersView.css'
 import { useEffect, useState } from 'react'
 import { ServerAvailability, type ServerDisplayState } from '../../../../../shared/dashboard'
 import { isServerActiveStatus, type ServerRuntimeSnapshot } from '../../../../../shared/server-runtime'
-import { ServerSyncStatus } from '../../../../../shared/server-sync'
+import type { WorldId } from '../../../../../shared/world'
 import AppSidebar from '../../../components/shared/AppSidebar/AppSidebar'
 import Button from '../../../components/shared/Button/Button'
 import ConfirmationDialog from '../../../components/shared/ConfirmationDialog/ConfirmationDialog'
@@ -15,66 +15,49 @@ import ServerCard, { type ServerCardSummary } from '../components/ServerCard/Ser
 
 interface ServersViewProps {
   onCreateServer: () => void
-  onDeleteServer: () => Promise<void>
+  onDeleteServer: (worldId: WorldId) => Promise<void>
   onJoinSharedWorld: () => void
   serverDisplayState: ServerDisplayState
-  onOpenServer: () => void
+  onOpenServer: (worldId: WorldId) => void
   onOpenSettings: () => void
   onSignOut: () => void
   onRefreshServerDisplayState: () => Promise<void>
 }
 
-const SINGLE_SERVER_DISABLED_REASON = 'Only one server is supported in the MVP.'
+const RUNNING_SERVER_DISABLED_REASON = 'Stop the running server before creating another one.'
 type CopyStatus = 'idle' | 'copied' | 'failed'
 
-function getCardServerStatus(
+function createConfiguredServers(
   serverDisplayState: ServerDisplayState,
   runtimeSnapshot: ServerRuntimeSnapshot | null
-): ServerCardSummary['status'] {
-  if (runtimeSnapshot && isServerActiveStatus(runtimeSnapshot.status)) {
-    return runtimeSnapshot.status
-  }
-
-  return serverDisplayState.serverStatus === 'not-configured' ? 'stopped' : serverDisplayState.serverStatus
-}
-
-function createConfiguredServer(
-  serverDisplayState: ServerDisplayState,
-  runtimeSnapshot: ServerRuntimeSnapshot | null,
-  signedInUserName: string | null
 ): ServerCardSummary[] {
-  if (serverDisplayState.serverAvailability === ServerAvailability.None) {
-    return []
-  }
+  return serverDisplayState.worlds.map((world) => {
+    const serverIsActive = Boolean(
+      runtimeSnapshot &&
+      runtimeSnapshot.runningWorldId === world.worldId &&
+      isServerActiveStatus(runtimeSnapshot.status)
+    )
 
-  const serverIsActive = runtimeSnapshot ? isServerActiveStatus(runtimeSnapshot.status) : false
-  const syncLockedHost =
-    serverDisplayState.syncStatus.status === ServerSyncStatus.LockedByOther
-      ? serverDisplayState.syncStatus.lockedBy?.displayName
-      : null
-
-  return [
-    {
-      id: 'configured-server',
-      name: serverDisplayState.serverName,
-      status: getCardServerStatus(serverDisplayState, runtimeSnapshot),
-      type: serverDisplayState.serverType,
-      minecraftVersion: serverDisplayState.minecraftVersion,
-      latestSaveLabel: formatLatestSaveLabel(serverDisplayState.syncStatus.latestSave),
-      syncStatus: serverDisplayState.syncStatus,
-      currentHost: serverIsActive
-        ? (signedInUserName ?? 'You')
-        : (syncLockedHost ?? serverDisplayState.currentHost),
+    return {
+      id: world.worldId,
+      name: world.serverName,
+      status: serverIsActive ? (runtimeSnapshot?.status ?? world.serverStatus) : world.serverStatus,
+      type: world.serverType,
+      minecraftVersion: world.minecraftVersion,
+      latestSaveLabel: formatLatestSaveLabel(world.syncStatus.latestSave),
+      syncStatus: world.syncStatus,
+      serverAvailability: world.serverAvailability,
+      currentHost: serverIsActive ? (serverDisplayState.signedInUser?.name ?? 'You') : world.currentHost,
       availability: {
-        cloud: serverDisplayState.syncStatus.cloudSaveVersion !== null,
-        device: serverDisplayState.serverAvailability === ServerAvailability.LocalReady
+        cloud: world.syncStatus.cloudSaveVersion !== null,
+        device: world.serverAvailability === ServerAvailability.LocalReady
       },
       players: {
         online: serverIsActive ? (runtimeSnapshot?.players.online ?? 0) : 0,
-        max: runtimeSnapshot?.players.max ?? serverDisplayState.players.max
+        max: serverIsActive ? (runtimeSnapshot?.players.max ?? world.players.max) : world.players.max
       }
     }
-  ]
+  })
 }
 
 function ServersView({
@@ -88,11 +71,7 @@ function ServersView({
   onRefreshServerDisplayState
 }: ServersViewProps): React.JSX.Element {
   const [runtimeSnapshot, setRuntimeSnapshot] = useState<ServerRuntimeSnapshot | null>(null)
-  const servers = createConfiguredServer(
-    serverDisplayState,
-    runtimeSnapshot,
-    serverDisplayState.signedInUser?.name ?? null
-  )
+  const servers = createConfiguredServers(serverDisplayState, runtimeSnapshot)
   const hasServers = servers.length > 0
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [copyStatus, setCopyStatus] = useState<CopyStatus>('idle')
@@ -120,8 +99,12 @@ function ServersView({
   useEffect(() => {
     return window.chunkShare.serverRuntime.onEvent((runtimeEvent) => {
       setRuntimeSnapshot(runtimeEvent.snapshot)
+
+      if (!isServerActiveStatus(runtimeEvent.snapshot.status)) {
+        void onRefreshServerDisplayState().catch(() => undefined)
+      }
     })
-  }, [])
+  }, [onRefreshServerDisplayState])
 
   useEffect(() => {
     void onRefreshServerDisplayState().catch(() => undefined)
@@ -157,7 +140,11 @@ function ServersView({
     setErrorMessage(null)
 
     try {
-      await onDeleteServer()
+      if (!serverPendingDelete) {
+        return
+      }
+
+      await onDeleteServer(serverPendingDelete.id)
     } catch (error: unknown) {
       setErrorMessage(getErrorMessage(error, 'Unable to remove server.'))
     } finally {
@@ -182,17 +169,21 @@ function ServersView({
   const copyButtonLabel =
     copyStatus === 'copied' ? 'Copied' : copyStatus === 'failed' ? 'Copy Failed' : 'Copy Error'
   const copyButtonStateClass = copyStatus === 'idle' ? '' : ` is-${copyStatus}`
-  const serverIsActive = runtimeSnapshot ? isServerActiveStatus(runtimeSnapshot.status) : false
-  const deleteDisabled = isDeletingServer || serverIsActive
-  const deleteDisabledReason = serverIsActive ? 'Stop the hosted server before removing it.' : undefined
+  const runningWorldId = runtimeSnapshot
+    ? isServerActiveStatus(runtimeSnapshot.status)
+      ? runtimeSnapshot.runningWorldId
+      : null
+    : serverDisplayState.runningWorldId
+  const serverIsActive = runningWorldId !== null
+  const createDisabled = serverIsActive
 
   return (
     <div className="dashboard-screen servers-screen">
       <AppSidebar
         activeItem="servers"
-        addServerDisabled={hasServers}
-        addServerTitle={hasServers ? SINGLE_SERVER_DISABLED_REASON : undefined}
-        onAddServer={hasServers ? undefined : onCreateServer}
+        addServerDisabled={createDisabled}
+        addServerTitle={createDisabled ? RUNNING_SERVER_DISABLED_REASON : undefined}
+        onAddServer={createDisabled ? undefined : onCreateServer}
         onOpenServers={onRefreshServerDisplayState}
         onOpenSettings={onOpenSettings}
       />
@@ -201,10 +192,10 @@ function ServersView({
         <TopBar
           user={serverDisplayState.signedInUser}
           breadcrumbs={[{ label: 'Servers' }]}
-          createInstanceDisabled={hasServers}
-          createInstanceTitle={hasServers ? SINGLE_SERVER_DISABLED_REASON : undefined}
+          createInstanceDisabled={createDisabled}
+          createInstanceTitle={createDisabled ? RUNNING_SERVER_DISABLED_REASON : undefined}
           refreshAction={{ isRefreshing, label: 'Refresh servers', onClick: refreshServers }}
-          onCreateInstance={hasServers ? undefined : onCreateServer}
+          onCreateInstance={createDisabled ? undefined : onCreateServer}
           onOpenSettings={onOpenSettings}
           onSignOut={onSignOut}
         />
@@ -238,12 +229,16 @@ function ServersView({
               {servers.map((server, index) => (
                 <ServerCard
                   animationDelayMs={index * 80}
-                  deleteDisabled={deleteDisabled}
-                  deleteTitle={deleteDisabledReason}
+                  deleteDisabled={isDeletingServer || (serverIsActive && runningWorldId === server.id)}
+                  deleteTitle={
+                    serverIsActive && runningWorldId === server.id
+                      ? 'Stop this server before removing it.'
+                      : undefined
+                  }
                   key={server.id}
                   server={server}
                   onDelete={() => setServerPendingDelete(server)}
-                  onOpen={onOpenServer}
+                  onOpen={() => onOpenServer(server.id)}
                 />
               ))}
             </section>

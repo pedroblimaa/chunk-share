@@ -95,6 +95,7 @@ function App(): React.JSX.Element {
           <DashboardView
             serverDisplayState={serverDisplayState}
             onServerDisplayStateChange={setServerDisplayState}
+            onCreateServer={() => setAppView('server-setup')}
             onNavigateToServers={() => setAppView('servers')}
             onOpenSettings={openSettings}
             onSignOut={signOut}
@@ -106,7 +107,11 @@ function App(): React.JSX.Element {
           <ServerSetupView
             snapshot={serverDisplayState}
             onCancel={() => setAppView('servers')}
-            onOpenDashboard={openServerDashboard}
+            onOpenDashboard={() => {
+              if (serverDisplayState.selectedWorldId) {
+                void openServerDashboard(serverDisplayState.selectedWorldId)
+              }
+            }}
             onOpenSettings={openSettings}
             onSignOut={signOut}
             onSetupComplete={completeServerSetup}

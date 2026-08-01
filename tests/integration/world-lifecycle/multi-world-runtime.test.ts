@@ -1,3 +1,4 @@
+import { readFile, writeFile } from 'fs/promises'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ServerHostingStatus, ServerLockStatus } from '../../../src/shared/domain'
 import {
@@ -7,9 +8,14 @@ import {
   subscribeToServerRuntime
 } from '../../../src/main/server-runtime/server-runtime-service'
 import { setupVanillaServer } from '../../../src/main/server-setup/server-setup-service'
+import { getServerDisplayState } from '../../../src/main/dashboard/dashboard-service'
 import { createLocalStorageAdapter } from '../../../src/main/storage/adapters/local-storage-adapter'
-import { deleteConfiguredServer } from '../../../src/main/storage/core/storage-service'
-import { getSelectedWorldContext } from '../../../src/main/storage/core/world-context'
+import {
+  deleteConfiguredServer,
+  deleteConfiguredWorld,
+  resetServerLock
+} from '../../../src/main/storage/core/storage-service'
+import { getSelectedWorldContext, getWorldContext } from '../../../src/main/storage/core/world-context'
 import { readWorld, selectWorld } from '../../../src/main/storage/persistence/local-state-store'
 import { TEST_WORLD_NAME, TEST_WORLD_PORT, createLocalTestWorld } from '../support/world-test-data'
 import {
@@ -63,6 +69,7 @@ describe('multi-world runtime', () => {
       () => {
         expect(getServerRuntimeSnapshot()).toMatchObject({
           runningWorldId: null,
+          runtimeWorldId: worldAId,
           status: 'crashed'
         })
       },
@@ -77,6 +84,7 @@ describe('multi-world runtime', () => {
 
     await expect(startMinecraftServer()).resolves.toMatchObject({
       runningWorldId: worldBId,
+      runtimeWorldId: worldBId,
       status: 'starting'
     })
     expect(getMinecraftSpawnInvocation().options.cwd).toBe(worldBContext.paths.serverFolder)
@@ -123,15 +131,75 @@ describe('multi-world runtime', () => {
     await createLocalTestWorld(worldBId)
     await selectWorld(worldAId)
     await startAndWaitForRunning()
-    await selectWorld(worldBId)
 
-    await expect(deleteConfiguredServer()).resolves.toMatchObject({
+    await expect(deleteConfiguredWorld(worldBId)).resolves.toMatchObject({
       localState: { activeSessionId: expect.any(String) }
     })
     await expect(readWorld(worldBId)).rejects.toThrow(`World ${worldBId} was not found.`)
     expect(getServerRuntimeSnapshot()).toMatchObject({ runningWorldId: worldAId, status: 'running' })
 
     await stopAndWaitForStopped()
+  })
+
+  it('keeps catalog and selected-world runtime states independent', async () => {
+    const worldAId = '00000000-0000-4000-8000-000000000020'
+    const worldBId = '00000000-0000-4000-8000-000000000021'
+    await createLocalTestWorld(worldAId)
+    await createLocalTestWorld(worldBId)
+    await selectWorld(worldAId)
+    await startAndWaitForRunning()
+    await selectWorld(worldBId)
+
+    const displayState = await getServerDisplayState()
+
+    expect(displayState).toMatchObject({
+      selectedWorldId: worldBId,
+      runningWorldId: worldAId,
+      serverStatus: 'stopped'
+    })
+    expect(displayState.worlds).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ worldId: worldAId, serverStatus: 'running' }),
+        expect.objectContaining({ worldId: worldBId, serverStatus: 'stopped' })
+      ])
+    )
+
+    await stopAndWaitForStopped()
+  })
+
+  it('keeps the catalog usable and repairs the targeted non-selected world', async () => {
+    const worldAId = '00000000-0000-4000-8000-000000000022'
+    const worldBId = '00000000-0000-4000-8000-000000000023'
+    await createLocalTestWorld(worldAId)
+    await createLocalTestWorld(worldBId)
+    const worldAContext = await getWorldContext(worldAId)
+    const control = JSON.parse(await readFile(worldAContext.paths.storageControlFile, 'utf8')) as Record<
+      string,
+      unknown
+    >
+    await writeFile(
+      worldAContext.paths.storageControlFile,
+      JSON.stringify({
+        ...control,
+        serverLock: { status: ServerLockStatus.Locked }
+      })
+    )
+
+    await expect(getServerDisplayState()).resolves.toMatchObject({
+      selectedWorldId: worldBId,
+      worlds: expect.arrayContaining([
+        expect.objectContaining({ worldId: worldAId, serverStatus: 'error' }),
+        expect.objectContaining({ worldId: worldBId, serverStatus: 'stopped' })
+      ])
+    })
+
+    await selectWorld(worldAId)
+    await expect(getServerDisplayState()).rejects.toThrow('Invalid data shape')
+    await resetServerLock()
+    await expect(getServerDisplayState()).resolves.toMatchObject({
+      selectedWorldId: worldAId,
+      serverStatus: 'stopped'
+    })
   })
 
   it('emits a released running-world claim when start is blocked', async () => {

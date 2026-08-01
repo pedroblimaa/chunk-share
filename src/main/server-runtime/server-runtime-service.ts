@@ -55,6 +55,7 @@ const MOCK_RESOURCES: ServerRuntimeResources = {
 class ServerRuntime {
   private serverProcess: ChildProcessWithoutNullStreams | null = null
   private runningWorld: WorldOperationContext | null = null
+  private runtimeWorldId: WorldOperationContext['worldId'] | null = null
   private stopTimeout: NodeJS.Timeout | null = null
   private sessionId: string | null = null
   private lockActivation: Promise<void> | null = null
@@ -73,6 +74,7 @@ class ServerRuntime {
     return {
       status: this.status,
       runningWorldId: this.runningWorld?.worldId ?? null,
+      runtimeWorldId: this.runtimeWorldId,
       errorMessage: this.errorMessage,
       connectionAddresses: this.connectionAddresses,
       players: this.players,
@@ -111,6 +113,7 @@ class ServerRuntime {
   private async startServerSession(): Promise<ServerRuntimeSnapshot> {
     const operationContext = await getSelectedWorldOperationContext()
     this.runningWorld = operationContext
+    this.runtimeWorldId = operationContext.worldId
     this.beginServerStart()
 
     try {
@@ -259,6 +262,7 @@ class ServerRuntime {
 
   private async runLatestSharedSaveDownload(): Promise<ServerRuntimeSnapshot> {
     const operationContext = await getSelectedWorldOperationContext()
+    this.runtimeWorldId = operationContext.worldId
     this.status = 'updating'
     this.errorMessage = null
     this.emitRuntimeEvent()

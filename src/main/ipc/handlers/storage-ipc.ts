@@ -22,11 +22,12 @@ import {
   validateGoogleDriveFolder
 } from '../../storage/core/cloud-storage-service'
 import {
-  deleteConfiguredServer,
+  deleteConfiguredWorld,
   getStorageSnapshot,
   resetServerLock,
   updateServerConfig
 } from '../../storage/core/storage-service'
+import { isWorldId } from '../../../shared/world'
 import { StorageError } from '../../storage/core/support/storage-error'
 import {
   isCloudStorageProvider as isValidProvider,
@@ -62,7 +63,13 @@ export function registerStorageIpcHandlers(): void {
     return setCloudStorageProvider(request, createCopyProgressSender(event.sender))
   })
 
-  ipcMain.handle(STORAGE_DELETE_SERVER_CHANNEL, () => deleteConfiguredServer())
+  ipcMain.handle(STORAGE_DELETE_SERVER_CHANNEL, (_, worldId: unknown) => {
+    if (!isWorldId(worldId)) {
+      throw new StorageError('Invalid world deletion payload.')
+    }
+
+    return deleteConfiguredWorld(worldId)
+  })
 
   ipcMain.handle(STORAGE_RESET_SERVER_LOCK_CHANNEL, () => resetServerLock())
 

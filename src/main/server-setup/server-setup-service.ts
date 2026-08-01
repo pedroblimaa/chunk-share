@@ -24,6 +24,7 @@ import { ExclusiveStorageOperation } from '../storage/core/operations/operation.
 import { backupServerFolder } from '../storage/server-save/server-folder-backup'
 import { restoreLatestServerSave } from '../storage/server-save/server-save-restorer'
 import {
+  createNewWorldOperationContext,
   getOrCreateSelectedWorldOperationContext,
   getSelectedWorldOperationContext,
   type WorldOperationContext
@@ -40,21 +41,37 @@ export async function setupVanillaServer(
   input: SetupVanillaServerInput,
   onProgress?: ServerSetupProgressListener
 ): Promise<LocalState> {
+  return runVanillaServerSetupOperation(input, onProgress, getOrCreateSelectedWorldOperationContext)
+}
+
+export async function setupNewVanillaServer(
+  input: SetupVanillaServerInput,
+  onProgress?: ServerSetupProgressListener
+): Promise<LocalState> {
+  return runVanillaServerSetupOperation(input, onProgress, createNewWorldOperationContext)
+}
+
+function runVanillaServerSetupOperation(
+  input: SetupVanillaServerInput,
+  onProgress: ServerSetupProgressListener | undefined,
+  getOperationContext: () => Promise<WorldOperationContext>
+): Promise<LocalState> {
   validateSetupInput(input)
 
   return runExclusiveStorageOperation(
     ExclusiveStorageOperation.ServerSetup,
     new ServerSetupError('Cannot set up a server while another storage operation is in progress.'),
-    async () => runVanillaServerSetup(input, onProgress)
+    async () => runVanillaServerSetup(input, onProgress, getOperationContext)
   )
 }
 
 async function runVanillaServerSetup(
   input: SetupVanillaServerInput,
-  onProgress?: ServerSetupProgressListener
+  onProgress: ServerSetupProgressListener | undefined,
+  getOperationContext: () => Promise<WorldOperationContext>
 ): Promise<LocalState> {
   assertNoWorldIsRunning()
-  const operationContext = await getOrCreateSelectedWorldOperationContext()
+  const operationContext = await getOperationContext()
 
   await markSetupDownloading(operationContext.worldId)
 

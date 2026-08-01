@@ -2,6 +2,7 @@ import { useCallback, useEffect } from 'react'
 import { getErrorMessage } from '../utils/error-message'
 import { loadServerDisplayState } from '../utils/server-display-state'
 import type { ServerActions, UseServerActionsInput } from './server.model'
+import type { WorldId } from '../../../shared/world'
 
 export function useServerActions({
   canAutoRefresh,
@@ -29,20 +30,36 @@ export function useServerActions({
     })
   }, [canAutoRefresh, handleStorageError, refreshServerDisplayState, setErrorMessage])
 
-  const openServerDashboard = useCallback(async (): Promise<void> => {
-    setErrorMessage(null)
-    setAppView('server-detail')
-  }, [setAppView, setErrorMessage])
+  const openServerDashboard = useCallback(
+    async (worldId: WorldId): Promise<void> => {
+      setErrorMessage(null)
 
-  const deleteServer = useCallback(async (): Promise<void> => {
-    if (typeof window.chunkShare.storage.deleteServer !== 'function') {
-      throw new Error('Delete server is not available yet. Restart the Electron app and try again.')
-    }
+      try {
+        setServerDisplayState(await window.chunkShare.dashboard.selectWorld(worldId))
+        setAppView('server-detail')
+      } catch (error) {
+        if (handleStorageError(error)) {
+          return
+        }
 
-    await window.chunkShare.storage.deleteServer()
-    await refreshServerDisplayState()
-    setAppView('servers')
-  }, [refreshServerDisplayState, setAppView])
+        setErrorMessage(getErrorMessage(error, 'Unable to open this server.'))
+      }
+    },
+    [handleStorageError, setAppView, setErrorMessage, setServerDisplayState]
+  )
+
+  const deleteServer = useCallback(
+    async (worldId: WorldId): Promise<void> => {
+      if (typeof window.chunkShare.storage.deleteServer !== 'function') {
+        throw new Error('Delete server is not available yet. Restart the Electron app and try again.')
+      }
+
+      await window.chunkShare.storage.deleteServer(worldId)
+      await refreshServerDisplayState()
+      setAppView('servers')
+    },
+    [refreshServerDisplayState, setAppView]
+  )
 
   const completeServerSetup = useCallback(async (): Promise<void> => {
     await refreshServerDisplayState()
