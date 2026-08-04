@@ -119,7 +119,8 @@ function ServerHeader({
               onClick={connection.onToggleConnectionDetails}
             >
               <MaterialIcon name="lan" />
-              <span>Connection</span>
+              <span>{connection.connectionAddress ?? 'Connection unavailable'}</span>
+              <MaterialIcon name="content_copy" />
             </button>
           </Popover>
         </div>

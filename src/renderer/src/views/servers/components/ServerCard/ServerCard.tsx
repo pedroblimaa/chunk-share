@@ -1,10 +1,9 @@
 import './ServerCard.css'
 
 import type { KeyboardEvent } from 'react'
-import { ServerAvailability, type ServerStatus } from '../../../../../../shared/dashboard'
+import type { ServerAvailability, ServerStatus } from '../../../../../../shared/dashboard'
 import { ServerHostingStatus, ServerLockStatus, type ServerLock } from '../../../../../../shared/domain'
 import { ServerSyncStatus, type ServerSyncSnapshot } from '../../../../../../shared/server-sync'
-import Badge from '../../../../components/shared/Badge/Badge'
 import Button from '../../../../components/shared/Button/Button'
 import MaterialIcon from '../../../../components/shared/MaterialIcon/MaterialIcon'
 import Tooltip from '../../../../components/shared/Tooltip/Tooltip'
@@ -83,10 +82,6 @@ function isRemoteLocked(syncStatus: ServerSyncSnapshot): syncStatus is LockedSer
   )
 }
 
-function isRemoteHostRunning(syncStatus: ServerSyncSnapshot): boolean {
-  return isRemoteLocked(syncStatus) && syncStatus.serverLock.hostingStatus === ServerHostingStatus.Running
-}
-
 function isRemoteHostTransitioning(syncStatus: ServerSyncSnapshot): boolean {
   return isRemoteLocked(syncStatus) && syncStatus.serverLock.hostingStatus !== ServerHostingStatus.Running
 }
@@ -120,10 +115,7 @@ function ServerCard({
   onOpen
 }: ServerCardProps): React.JSX.Element {
   const syncView = getServerSyncView(server.syncStatus)
-  const serverIsJoinable = isRemoteHostRunning(server.syncStatus)
-  const serverNeedsSetup = server.serverAvailability === ServerAvailability.RemoteAvailable
-  const openButtonLabel = serverIsJoinable ? 'Join' : serverNeedsSetup ? 'Download' : 'Manage'
-  const openButtonIcon = serverIsJoinable ? 'login' : serverNeedsSetup ? 'download' : 'settings'
+  const hasVisibleHost = server.status !== 'stopped' || server.currentHost !== null
 
   function openFromKeyboard(event: KeyboardEvent): void {
     if (!isOpenKey(event)) {
@@ -146,63 +138,66 @@ function ServerCard({
         onClick={onOpen}
         onKeyDown={openFromKeyboard}
       >
-        <div className="server-card-top">
-          <span className={getStatusPillClassName(server)}>
-            <span aria-hidden="true" />
-            {getStatusLabel(server)}
-          </span>
-          <span className="server-version-pill">
-            <MaterialIcon name="sell" />
-            Vanilla {server.minecraftVersion}
-          </span>
-          <span className={`server-sync-pill server-sync-pill-${syncView.tone}`}>
-            <MaterialIcon name="sync" />
-            {syncView.label}
-          </span>
-        </div>
-
-        <div className="server-card-body">
-          <div>
-            <h3>{server.name}</h3>
-            <p>{server.type}</p>
-          </div>
-          <div className="server-player-count" aria-label="Players">
-            <strong>{server.players.online}</strong>
-            <span>/ {server.players.max}</span>
+        <div className="server-card-visual">
+          <div className="server-card-top">
+            <span className={getStatusPillClassName(server)}>
+              <span aria-hidden="true" />
+              {getStatusLabel(server)}
+            </span>
+            <span className={`server-card-sync-status server-card-sync-status-${syncView.tone}`}>
+              <MaterialIcon name="sync" />
+              {syncView.label}
+            </span>
           </div>
         </div>
 
-        <div className="server-card-availability" aria-label="World availability">
-          <Badge icon="hard_drive" size="small" tone={server.availability.device ? 'success' : 'disabled'}>
-            {server.availability.device ? 'This device' : 'Not on this device'}
-          </Badge>
-          <Badge icon="cloud" size="small" tone={server.availability.cloud ? 'info' : 'disabled'}>
-            {server.availability.cloud ? 'Cloud' : 'Not in cloud'}
-          </Badge>
-        </div>
+        <div className="server-card-content">
+          <div className="server-card-body">
+            <div>
+              <h3>{server.name}</h3>
+              <p>
+                {server.type} {server.minecraftVersion}
+              </p>
+            </div>
+            <div
+              className="server-player-count"
+              aria-label={`${server.players.online} of ${server.players.max} players`}
+            >
+              <MaterialIcon name="group" />
+              <strong>{server.players.online}</strong>
+              <span>/ {server.players.max}</span>
+            </div>
+          </div>
 
-        <dl className="server-card-stats">
-          <div>
-            <dt>Latest Save</dt>
-            <dd>{server.latestSaveLabel}</dd>
+          <dl className={`server-card-stats${hasVisibleHost ? '' : ' server-card-stats-single'}`}>
+            <div>
+              <dt>Latest Save</dt>
+              <dd>{server.latestSaveLabel}</dd>
+            </div>
+            {hasVisibleHost && (
+              <div>
+                <dt>Host</dt>
+                <dd>{server.currentHost ?? 'None'}</dd>
+              </div>
+            )}
+          </dl>
+
+          <div className="server-card-availability" aria-label="World availability">
+            <span
+              className={`server-availability-device${server.availability.device ? ' is-available' : ''}`}
+            >
+              <MaterialIcon name="hard_drive" />
+              {server.availability.device ? 'This device' : 'Not on this device'}
+            </span>
+            <span className={`server-availability-cloud${server.availability.cloud ? ' is-available' : ''}`}>
+              <MaterialIcon name="cloud" />
+              {server.availability.cloud ? 'Cloud' : 'Not in cloud'}
+            </span>
           </div>
-          <div>
-            <dt>Host</dt>
-            <dd>{server.currentHost ?? 'None'}</dd>
-          </div>
-        </dl>
+        </div>
       </div>
 
       <div className="server-card-footer">
-        <Button
-          className="server-manage-action"
-          icon={openButtonIcon}
-          size="default"
-          variant="secondary"
-          onClick={onOpen}
-        >
-          {openButtonLabel}
-        </Button>
         <Tooltip content={deleteDisabled ? deleteTitle : undefined} placement="left">
           <Button
             aria-label={`Delete ${server.name}`}

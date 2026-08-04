@@ -31,7 +31,7 @@ test('creates, selects, runs, and independently deletes multiple worlds', async 
     await expectServerRunning(app)
     await navigateToServers(app)
 
-    await expect(app.page.getByRole('button', { name: 'Create Instance', exact: true })).toBeDisabled()
+    await expect(app.page.getByRole('button', { name: 'Create Server', exact: true })).toBeDisabled()
     await expect(
       getServerCard(app.page, WORLD_A_NAME).getByRole('button', { name: `Delete ${WORLD_A_NAME}` })
     ).toBeDisabled()
@@ -68,10 +68,10 @@ test('reenables world creation in Settings after the running server crashes', as
     await expectServerRunning(app)
     await app.user.click(app.page.getByRole('button', { name: 'Settings', exact: true }).first())
 
-    const createInstanceButton = app.page.getByRole('button', { name: 'Create Instance', exact: true })
-    await expect(createInstanceButton).toBeDisabled()
+    const createServerButton = app.page.getByRole('button', { name: 'Create Server', exact: true })
+    await expect(createServerButton).toBeDisabled()
     await app.crashMinecraftServer()
-    await expect(createInstanceButton).toBeEnabled()
+    await expect(createServerButton).toBeEnabled()
   } finally {
     await app.close()
   }
@@ -110,7 +110,7 @@ test('keeps a crashed world locked while another world runs after relaunch', asy
     await expectServerRunning(app)
     await app.crashMinecraftServer()
     await app.user.click(app.page.getByRole('button', { name: 'Settings', exact: true }).first())
-    await expect(app.page.getByRole('button', { name: 'Create Instance', exact: true })).toBeEnabled()
+    await expect(app.page.getByRole('button', { name: 'Create Server', exact: true })).toBeEnabled()
 
     await createWorld(app, WORLD_B_NAME, 25571)
     const worldBId = findWorldId(await readE2EAppState(app.paths), WORLD_B_NAME)
@@ -143,8 +143,8 @@ test('keeps a crashed world locked while another world runs after relaunch', asy
 })
 
 async function createWorld(app: ChunkShareE2EApp, name: string, port: number): Promise<void> {
-  await app.user.click(app.page.getByRole('button', { name: 'Create Instance', exact: true }).first())
-  await expect(app.page.getByRole('heading', { name: 'Create New Instance' })).toBeVisible()
+  await app.user.click(app.page.getByRole('button', { name: 'Create Server', exact: true }).first())
+  await expect(app.page.getByRole('heading', { name: 'Create New Server' })).toBeVisible()
   await app.user.fill(app.page.getByLabel('Server Name'), name)
   await app.user.fill(app.page.getByLabel('Server Port'), String(port))
   await app.user.check(app.page.getByLabel('I agree to the Minecraft EULA'))
@@ -157,7 +157,7 @@ async function createWorld(app: ChunkShareE2EApp, name: string, port: number): P
 
 async function navigateToServers(app: ChunkShareE2EApp): Promise<void> {
   await app.user.click(app.page.getByRole('button', { name: 'Servers', exact: true }).first())
-  await expect(app.page.getByRole('button', { name: 'Create Instance', exact: true })).toBeVisible()
+  await expect(app.page.getByRole('button', { name: 'Create Server', exact: true })).toBeVisible()
 }
 
 async function openServer(app: ChunkShareE2EApp, name: string): Promise<void> {

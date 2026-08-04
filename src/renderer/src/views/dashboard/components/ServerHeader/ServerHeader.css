@@ -1,16 +1,19 @@
 .server-header {
   align-items: end;
+  border-bottom: 1px solid rgba(64, 74, 58, 0.3);
   display: flex;
   gap: 24px;
   justify-content: space-between;
+  padding-bottom: 24px;
 }
 
 .server-header h2 {
   color: var(--color-text-primary);
-  font-size: var(--font-size-dashboard-title);
-  font-weight: var(--font-weight-bold);
-  line-height: var(--line-height-dashboard-title);
-  margin-bottom: 10px;
+  font-size: 36px;
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: -0.01em;
+  line-height: 44px;
+  margin-bottom: 12px;
 }
 
 .server-meta-row {
@@ -32,10 +35,11 @@
 .status-pill {
   border-radius: 999px;
   color: var(--color-text-secondary);
-  font-size: var(--font-size-small);
-  font-weight: var(--font-weight-medium);
+  font-size: 11px;
+  font-weight: var(--font-weight-bold);
   gap: 8px;
-  padding: 0 14px;
+  letter-spacing: 0.08em;
+  padding: 0 10px;
   transition:
     border-color 180ms ease,
     color 180ms ease;
@@ -78,12 +82,17 @@
 }
 
 .connection-menu-button {
-  border-radius: 4px;
-  color: var(--color-accent);
+  border-radius: 999px;
+  color: var(--color-text-primary);
   cursor: pointer;
+  font-family: var(--font-family-mono);
   font-size: var(--font-size-small);
   gap: 8px;
   padding: 0 12px;
+}
+
+.connection-menu-button .material-symbols-outlined {
+  font-size: var(--font-size-small);
 }
 
 .connection-menu-button:hover,
@@ -196,19 +205,19 @@
 .server-toggle-button,
 .overflow-button {
   align-items: center;
-  border-radius: 4px;
+  border-radius: 8px;
   color: var(--color-text-inverse);
   display: inline-flex;
-  font-size: var(--font-size-action);
-  font-weight: var(--font-weight-bold);
-  gap: 10px;
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-semibold);
+  gap: 8px;
   justify-content: center;
-  min-height: 56px;
+  min-height: 44px;
   padding: 0 24px;
 }
 
 .server-toggle-button {
-  min-width: 190px;
+  min-width: 156px;
   overflow: hidden;
   position: relative;
   transition:
@@ -232,12 +241,15 @@
 }
 
 .server-toggle-button.is-stopped {
-  background: var(--color-accent-button);
+  background: #80dc5b;
+  box-shadow: 0 4px 14px rgba(128, 220, 91, 0.25);
+  color: #0d3900;
 }
 
 .server-toggle-button.is-stopped:hover {
-  box-shadow: 0 0 18px var(--color-accent-glow);
-  transform: translateY(-1px);
+  background: #9bfa74;
+  box-shadow: 0 6px 20px rgba(128, 220, 91, 0.4);
+  transform: translateY(-2px);
 }
 
 .server-toggle-button.is-tone-sync {
@@ -291,7 +303,7 @@
   background: var(--color-surface);
   border: 1px solid var(--color-border-subtle);
   color: var(--color-text-primary);
-  min-width: 64px;
+  min-width: 44px;
   padding: 0;
 }
 
@@ -360,11 +372,11 @@
 
   .server-toggle-button {
     flex: 1 1 180px;
-    min-height: 52px;
+    min-height: 44px;
   }
 
   .server-actions .overflow-button {
-    min-height: 52px;
+    min-height: 44px;
   }
 
   .connection-popover {

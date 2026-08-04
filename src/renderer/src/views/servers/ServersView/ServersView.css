@@ -5,8 +5,8 @@
 
 .servers-grid {
   display: grid;
-  gap: 18px;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 380px));
+  gap: 22px;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 340px));
 }
 
 .servers-error-message {

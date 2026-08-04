@@ -14,12 +14,15 @@ import type { SettingsViewProps } from './SettingsView.model'
 const RUNNING_SERVER_DISABLED_REASON = 'Stop the running server before creating another one.'
 
 function SettingsView({
+  isSidebarOpen,
   serverDisplayState,
   onCreateServer,
+  onCloseSidebar,
   onNavigateToServers,
   onOpenSettings,
   onSignOut,
-  onStorageProviderChange
+  onStorageProviderChange,
+  onToggleSidebar
 }: SettingsViewProps): React.JSX.Element {
   const [runningWorldId, setRunningWorldId] = useState(serverDisplayState.runningWorldId)
   const serverIsRunning = runningWorldId !== null
@@ -37,22 +40,22 @@ function SettingsView({
     <div className="dashboard-screen">
       <AppSidebar
         activeItem="settings"
-        addServerDisabled={serverIsRunning}
-        addServerTitle={serverIsRunning ? RUNNING_SERVER_DISABLED_REASON : undefined}
-        onAddServer={serverIsRunning ? undefined : onCreateServer}
+        isOpen={isSidebarOpen}
+        onClose={onCloseSidebar}
         onOpenServers={onNavigateToServers}
         onOpenSettings={onOpenSettings}
       />
 
       <div className="dashboard-main">
         <TopBar
+          isSidebarOpen={isSidebarOpen}
           user={serverDisplayState.signedInUser}
           breadcrumbs={[{ label: 'Settings' }]}
-          createInstanceDisabled={serverIsRunning}
-          createInstanceTitle={serverIsRunning ? RUNNING_SERVER_DISABLED_REASON : undefined}
-          onCreateInstance={serverIsRunning ? undefined : onCreateServer}
-          onOpenSettings={onOpenSettings}
+          createServerDisabled={serverIsRunning}
+          createServerTitle={serverIsRunning ? RUNNING_SERVER_DISABLED_REASON : undefined}
+          onCreateServer={serverIsRunning ? undefined : onCreateServer}
           onSignOut={onSignOut}
+          onToggleSidebar={onToggleSidebar}
         />
 
         <main className="dashboard-content settings-content">

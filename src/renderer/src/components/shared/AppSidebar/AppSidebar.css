@@ -5,6 +5,11 @@
   flex: 0 0 260px;
   flex-direction: column;
   height: 100vh;
+  outline: 0;
+}
+
+.dashboard-sidebar-backdrop {
+  display: none;
 }
 
 .dashboard-brand {
@@ -49,8 +54,7 @@
   padding: 0 14px;
 }
 
-.dashboard-nav > .tooltip,
-.dashboard-sidebar-footer > .tooltip {
+.dashboard-nav > .tooltip {
   display: flex;
   width: 100%;
 }
@@ -101,12 +105,43 @@
   flex: 0 0 auto;
 }
 
-.dashboard-sidebar-footer {
-  padding: 16px;
-}
-
-@media (max-width: 1040px) {
+@media (max-width: 1400px) {
   .dashboard-sidebar {
-    display: none;
+    box-shadow: 8px 0 28px rgb(0 0 0 / 36%);
+    left: 0;
+    position: fixed;
+    top: 0;
+    transform: translateX(-100%);
+    transition:
+      transform 180ms ease,
+      visibility 180ms ease;
+    visibility: hidden;
+    z-index: 30;
+  }
+
+  .dashboard-sidebar.is-open {
+    transform: translateX(0);
+    visibility: visible;
+  }
+
+  .dashboard-sidebar-backdrop {
+    background: rgb(0 0 0 / 54%);
+    border: 0;
+    display: block;
+    inset: 0;
+    opacity: 0;
+    pointer-events: none;
+    position: fixed;
+    transition:
+      opacity 180ms ease,
+      visibility 180ms ease;
+    visibility: hidden;
+    z-index: 29;
+  }
+
+  .dashboard-sidebar-backdrop.is-open {
+    opacity: 1;
+    pointer-events: auto;
+    visibility: visible;
   }
 }

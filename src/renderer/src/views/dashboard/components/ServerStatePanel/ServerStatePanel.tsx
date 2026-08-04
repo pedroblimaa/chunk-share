@@ -1,7 +1,6 @@
 import './ServerStatePanel.css'
 
 import type { ServerDisplayState } from '../../../../../../shared/dashboard'
-import Badge from '../../../../components/shared/Badge/Badge'
 import MaterialIcon from '../../../../components/shared/MaterialIcon/MaterialIcon'
 import Tooltip from '../../../../components/shared/Tooltip/Tooltip'
 import { getServerSyncView } from '../../../../utils/server-sync-ui'
@@ -23,6 +22,20 @@ function formatState(status: ServerDisplayState['serverStatus']): string {
   return status.charAt(0).toUpperCase() + status.slice(1)
 }
 
+function getStateIcon(status: ServerDisplayState['serverStatus']): string {
+  const iconByStatus: Partial<Record<ServerDisplayState['serverStatus'], string>> = {
+    crashed: 'error',
+    error: 'error',
+    running: 'dns',
+    starting: 'sync',
+    stopped: 'cloud_off',
+    stopping: 'sync',
+    updating: 'sync'
+  }
+
+  return iconByStatus[status] ?? 'power_settings_new'
+}
+
 function ServerStatePanel({
   lastActiveLabel,
   snapshot,
@@ -32,16 +45,12 @@ function ServerStatePanel({
   onToggleServer
 }: ServerStatePanelProps): React.JSX.Element {
   const syncView = getServerSyncView(snapshot.syncStatus)
-  const memoryPercent =
-    snapshot.resources.memoryTotalMb === 0
-      ? 0
-      : (snapshot.resources.memoryUsedMb / snapshot.resources.memoryTotalMb) * 100
 
   return (
     <section className={`server-state-panel server-state-panel-${snapshot.serverStatus}`} aria-live="polite">
       <div className="server-state-pattern" />
+      <MaterialIcon className="server-state-watermark" name={getStateIcon(snapshot.serverStatus)} />
       <div className="server-state-content">
-        <p className="panel-kicker">Current State</p>
         <div className="server-state-summary">
           <Tooltip content={toggleButtonTooltip}>
             <button
@@ -59,37 +68,14 @@ function ServerStatePanel({
           </Tooltip>
           <div>
             <h3>{formatState(snapshot.serverStatus)}</h3>
-            <p>Last active: {lastActiveLabel}</p>
+            <p className="server-last-active">
+              <MaterialIcon name="schedule" />
+              Last active: {lastActiveLabel}
+            </p>
             <p className={`server-sync-status server-sync-status-${syncView.tone}`}>
               <MaterialIcon name="sync" />
               <span>{syncView.label}</span>
             </p>
-          </div>
-        </div>
-
-        <div className="resource-grid">
-          <div className="resource-meter">
-            <p>
-              CPU Usage
-              {snapshot.resources.isMocked && <Badge size="small">Mocked</Badge>}
-            </p>
-            <strong>{snapshot.resources.cpuPercent.toFixed(1)}%</strong>
-            <span className="meter-track">
-              <span style={{ width: `${snapshot.resources.cpuPercent}%` }} />
-            </span>
-          </div>
-
-          <div className="resource-meter">
-            <p>
-              Memory
-              {snapshot.resources.isMocked && <Badge size="small">Mocked</Badge>}
-            </p>
-            <strong>
-              {snapshot.resources.memoryUsedMb} / {snapshot.resources.memoryTotalMb} MB
-            </strong>
-            <span className="meter-track">
-              <span style={{ width: `${memoryPercent}%` }} />
-            </span>
           </div>
         </div>
       </div>

@@ -18,8 +18,8 @@ test('creates, starts, stops, and publishes a local world', async () => {
     const { page, user } = app
     await expect(page.getByText('No servers yet')).toBeVisible()
 
-    await user.click(page.getByRole('button', { name: 'Create Instance', exact: true }).first())
-    await expect(page.getByRole('heading', { name: 'Create New Instance' })).toBeVisible()
+    await user.click(page.getByRole('button', { name: 'Create Server', exact: true }).first())
+    await expect(page.getByRole('heading', { name: 'Create New Server' })).toBeVisible()
 
     const minecraftVersion = page.getByLabel('Minecraft Version')
     await expect(minecraftVersion).toHaveValue(E2E_MINECRAFT_VERSION)

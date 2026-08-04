@@ -16,6 +16,7 @@ function App(): React.JSX.Element {
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [appView, setAppView] = useState<AppView>('servers')
   const [driveJoinLink, setDriveJoinLink] = useState<string | null>(null)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   useEffect(() => {
     const openPendingJoinLink = (): void => {
@@ -35,11 +36,21 @@ function App(): React.JSX.Element {
   }, [])
 
   const showServersView = useCallback((): void => {
+    setSidebarOpen(false)
     setAppView('servers')
   }, [])
 
   const openSettings = useCallback((): void => {
+    setSidebarOpen(false)
     setAppView('settings')
+  }, [])
+
+  const closeSidebar = useCallback((): void => {
+    setSidebarOpen(false)
+  }, [])
+
+  const toggleSidebar = useCallback((): void => {
+    setSidebarOpen((isOpen) => !isOpen)
   }, [])
 
   const completeDriveJoin = (nextServerDisplayState: ServerDisplayState): void => {
@@ -94,20 +105,25 @@ function App(): React.JSX.Element {
       case 'server-detail':
         return (
           <DashboardView
+            isSidebarOpen={sidebarOpen}
             serverDisplayState={serverDisplayState}
             onServerDisplayStateChange={setServerDisplayState}
             onCreateServer={() => setAppView('server-setup')}
+            onCloseSidebar={closeSidebar}
             onNavigateToServers={() => setAppView('servers')}
             onOpenSettings={openSettings}
             onSignOut={signOut}
+            onToggleSidebar={toggleSidebar}
           />
         )
 
       case 'server-setup':
         return (
           <ServerSetupView
+            isSidebarOpen={sidebarOpen}
             snapshot={serverDisplayState}
             onCancel={() => setAppView('servers')}
+            onCloseSidebar={closeSidebar}
             onOpenDashboard={() => {
               if (serverDisplayState.selectedWorldId) {
                 void openServerDashboard(serverDisplayState.selectedWorldId)
@@ -116,32 +132,39 @@ function App(): React.JSX.Element {
             onOpenSettings={openSettings}
             onSignOut={signOut}
             onSetupComplete={completeServerSetup}
+            onToggleSidebar={toggleSidebar}
           />
         )
 
       case 'settings':
         return (
           <SettingsView
+            isSidebarOpen={sidebarOpen}
             serverDisplayState={serverDisplayState}
             onCreateServer={() => setAppView('server-setup')}
+            onCloseSidebar={closeSidebar}
             onNavigateToServers={() => setAppView('servers')}
             onOpenSettings={openSettings}
             onSignOut={signOut}
             onStorageProviderChange={refreshServerDisplayState}
+            onToggleSidebar={toggleSidebar}
           />
         )
 
       case 'servers':
         return (
           <ServersView
+            isSidebarOpen={sidebarOpen}
             serverDisplayState={serverDisplayState}
             onCreateServer={() => setAppView('server-setup')}
+            onCloseSidebar={closeSidebar}
             onDeleteServer={deleteServer}
             onJoinSharedWorld={() => setDriveJoinLink('')}
             onOpenServer={openServerDashboard}
             onOpenSettings={openSettings}
             onSignOut={signOut}
             onRefreshServerDisplayState={refreshServerDisplayState}
+            onToggleSidebar={toggleSidebar}
           />
         )
     }
