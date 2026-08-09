@@ -34,7 +34,10 @@ test('creates, selects, runs, and independently deletes multiple worlds', async 
 
     await expect(app.page.getByRole('button', { name: 'Create Server', exact: true })).toBeDisabled()
     await expect(
-      getServerCard(app.page, WORLD_A_NAME).getByRole('button', { name: `Delete ${WORLD_A_NAME}` })
+      getServerCard(app.page, WORLD_A_NAME).getByRole('button', {
+        name: `Delete ${WORLD_A_NAME}`,
+        includeHidden: true
+      })
     ).toBeDisabled()
     await expect(
       getServerCard(app.page, WORLD_B_NAME).getByRole('button', { name: `Delete ${WORLD_B_NAME}` })

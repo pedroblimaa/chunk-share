@@ -17,7 +17,12 @@ test('blocks removal while hosting and keeps a stopped world removed after relau
     await startServer(app)
     await openServers(app)
 
-    await expect(app.page.getByRole('button', { name: `Delete ${E2E_SERVER_NAME}` })).toBeDisabled()
+    await expect(
+      app.page.getByRole('button', {
+        name: `Delete ${E2E_SERVER_NAME}`,
+        includeHidden: true
+      })
+    ).toBeDisabled()
 
     await openServerDashboard(app)
     await stopServer(app, 2)

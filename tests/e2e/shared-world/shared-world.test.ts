@@ -197,7 +197,7 @@ test('hands hosting from the owner to a friend', async () => {
     await expect(friendApp.page.getByText('Owner Player', { exact: true })).toBeVisible()
     await expect(friendApp.page.getByRole('button', { name: 'Start Server', exact: true })).toHaveCount(0)
     await friendApp.user.click(friendApp.page.getByRole('button', { name: 'Join Server' }))
-    await expect(friendApp.page.getByText(/^CloudflareWARP: .*:25565, Wi-Fi:/)).toBeVisible()
+    await expect(friendApp.page.getByRole('dialog', { name: 'Connection addresses' })).toContainText(/:25565/)
 
     await stopServer(ownerApp, 2)
     await refreshServer(friendApp)
