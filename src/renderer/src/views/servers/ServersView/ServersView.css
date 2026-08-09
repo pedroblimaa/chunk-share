@@ -1,21 +1,21 @@
 .servers-content {
   animation: servers-route-enter 220ms ease-out;
-  gap: 28px;
+  gap: var(--space-page-sections);
 }
 
 .servers-grid {
   display: grid;
-  gap: 18px;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 380px));
+  gap: var(--space-primary-grid);
+  grid-template-columns: repeat(auto-fit, minmax(320px, 340px));
 }
 
 .servers-error-message {
   align-items: center;
   animation: servers-empty-enter 180ms ease-out both;
   background: var(--color-surface-panel);
-  border: 1px solid rgba(255, 111, 111, 0.34);
-  border-radius: 6px;
-  color: #ffb4b4;
+  border: 1px solid var(--color-danger-border);
+  border-radius: var(--radius-notice);
+  color: var(--color-danger-text);
   display: flex;
   gap: 10px;
   padding: 12px 14px;
@@ -32,32 +32,36 @@
 
 .servers-error-copy-button {
   align-items: center;
-  background: rgba(255, 111, 111, 0.08);
-  border: 1px solid rgba(255, 111, 111, 0.28);
-  border-radius: 6px;
-  color: #ffb4b4;
+  background: color-mix(in srgb, var(--color-danger-icon) 8%, transparent);
+  border: 1px solid var(--color-danger-border);
+  border-radius: var(--radius-notice);
+  color: var(--color-danger-text);
   cursor: pointer;
   display: inline-flex;
   flex: 0 0 auto;
-  height: 32px;
+  height: var(--size-control-compact);
   justify-content: center;
   transition:
     background-color 140ms ease,
     border-color 140ms ease,
     transform 140ms ease;
-  width: 32px;
+  width: var(--size-control-compact);
+}
+
+.servers-error-copy-button .material-symbols-outlined {
+  font-size: var(--font-size-icon-sm);
 }
 
 .servers-error-copy-button:hover,
 .servers-error-copy-button:focus-visible,
 .servers-error-copy-button.is-copied {
-  background: rgba(255, 111, 111, 0.16);
-  border-color: rgba(255, 111, 111, 0.52);
+  background: color-mix(in srgb, var(--color-danger-icon) 16%, transparent);
+  border-color: var(--color-danger-border-strong);
   outline: 0;
 }
 
 .servers-error-copy-button:active {
-  transform: scale(0.92);
+  transform: scale(0.98);
 }
 
 .servers-error-copy-button.is-copied {
@@ -72,7 +76,7 @@
   align-items: center;
   animation: servers-empty-enter 260ms ease-out both;
   border: 1px dashed var(--color-border-emphasis);
-  border-radius: 8px;
+  border-radius: var(--radius-overlay);
   color: var(--color-text-secondary);
   display: flex;
   flex-direction: column;
@@ -85,10 +89,10 @@
 .servers-empty-state > .material-symbols-outlined {
   align-items: center;
   background: var(--color-surface);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   color: var(--color-accent);
   display: flex;
-  font-size: 34px;
+  font-size: var(--font-size-icon-empty-state);
   height: 72px;
   justify-content: center;
   margin-bottom: 18px;

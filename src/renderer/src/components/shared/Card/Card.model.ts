@@ -1,7 +1,7 @@
 import type { FormHTMLAttributes, HTMLAttributes, ReactNode } from 'react'
 
 export type CardElement = 'article' | 'div' | 'form' | 'section'
-export type CardPadding = 'default' | 'compact' | 'large'
+export type CardPadding = 'none' | 'default' | 'compact' | 'large'
 export type CardTone = 'default' | 'panel' | 'active' | 'danger' | 'dashed'
 export const CARD_PRIVATE_PROP_NAMES = [
   'as',

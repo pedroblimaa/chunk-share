@@ -1,12 +1,12 @@
 .settings-content {
   animation: settings-route-enter 220ms ease-out;
-  gap: 28px;
+  gap: var(--space-page-sections);
 }
 
 .settings-grid {
   align-items: start;
   display: grid;
-  gap: 18px;
+  gap: var(--space-primary-grid);
   grid-template-areas: 'account storage';
   grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.8fr);
 }
@@ -51,7 +51,7 @@
   align-items: center;
   background: var(--color-surface);
   border: 1px solid var(--color-border-subtle);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   color: var(--color-accent);
   display: flex;
   flex: 0 0 auto;
@@ -117,7 +117,7 @@
   align-items: center;
   background: var(--color-background-console);
   border: 1px solid var(--color-border-subtle);
-  border-radius: 6px;
+  border-radius: var(--radius-notice);
   display: flex;
   gap: 14px;
   justify-content: space-between;

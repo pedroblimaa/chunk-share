@@ -16,7 +16,7 @@ import {
   applyRuntimeSnapshotToServerDisplayState,
   loadServerDisplayState
 } from '../../../utils/server-display-state'
-import { formatLatestSaveLabel, getServerSaveSyncBadge } from '../../../utils/server-sync-ui'
+import { formatLatestSaveLabel } from '../../../utils/server-sync-ui'
 import { getDashboardPrimaryActionView } from '../dashboard-header-action'
 import type { DashboardPrimaryActionKind } from '../dashboard-header-action.model'
 import ConsoleOutput from '../components/ConsoleOutput/ConsoleOutput'
@@ -27,12 +27,15 @@ import ServerStatePanel from '../components/ServerStatePanel/ServerStatePanel'
 import TopBar from '../components/TopBar/TopBar'
 
 interface DashboardViewProps {
+  isSidebarOpen: boolean
   serverDisplayState: ServerDisplayState
   onServerDisplayStateChange: (serverDisplayState: ServerDisplayState) => void
   onCreateServer: () => void
+  onCloseSidebar: () => void
   onNavigateToServers: () => void
   onOpenSettings: () => void
   onSignOut: () => void
+  onToggleSidebar: () => void
 }
 
 type CopyStatus = 'idle' | 'copied' | 'failed'
@@ -50,12 +53,15 @@ const COPY_STATUS_ICONS: Record<CopyStatus, string> = {
 }
 
 function DashboardView({
+  isSidebarOpen,
   serverDisplayState,
   onServerDisplayStateChange,
   onCreateServer,
+  onCloseSidebar,
   onNavigateToServers,
   onOpenSettings,
-  onSignOut
+  onSignOut,
+  onToggleSidebar
 }: DashboardViewProps): React.JSX.Element {
   const serverDisplayStateRef = useRef(serverDisplayState)
   const displayStateRequestIdRef = useRef(0)
@@ -337,7 +343,6 @@ function DashboardView({
   const addressCopyButtonLabel = COPY_STATUS_LABELS[addressCopyStatus]
   const addressCopyButtonStateClass = addressCopyStatus === 'idle' ? '' : ` is-${addressCopyStatus}`
   const latestSaveLabel = formatLatestSaveLabel(dashboardSnapshot.syncStatus.latestSave)
-  const latestSaveSyncBadge = getServerSaveSyncBadge(dashboardSnapshot.syncStatus)
   const lastActiveLabel = isServerActiveStatus(dashboardSnapshot.serverStatus)
     ? 'Active now'
     : latestSaveLabel
@@ -352,30 +357,31 @@ function DashboardView({
     >
       <AppSidebar
         activeItem="servers"
-        addServerDisabled={createServerIsDisabled}
-        addServerTitle={createServerDisabledReason}
-        onAddServer={createServerIsDisabled ? undefined : onCreateServer}
+        isOpen={isSidebarOpen}
+        onClose={onCloseSidebar}
         onOpenServers={onNavigateToServers}
         onOpenSettings={onOpenSettings}
       />
 
       <div className="dashboard-main">
         <TopBar
+          isSidebarOpen={isSidebarOpen}
           user={dashboardSnapshot.signedInUser}
           breadcrumbs={[
             { label: 'Servers', onClick: onNavigateToServers },
             { label: dashboardSnapshot.serverName }
           ]}
-          createInstanceDisabled={createServerIsDisabled}
-          createInstanceTitle={createServerDisabledReason}
+          createServerDisabled={createServerIsDisabled}
+          createServerTitle={createServerDisabledReason}
           refreshAction={{
             isRefreshing: isDashboardRefreshing,
             label: 'Refresh server',
             onClick: refreshDashboard
           }}
-          onCreateInstance={createServerIsDisabled ? undefined : onCreateServer}
+          onCreateServer={createServerIsDisabled ? undefined : onCreateServer}
           onOpenSettings={onOpenSettings}
           onSignOut={onSignOut}
+          onToggleSidebar={onToggleSidebar}
         />
 
         <main className="dashboard-content">
@@ -442,25 +448,28 @@ function DashboardView({
             />
 
             <div className="dashboard-side-stats">
-              <DashboardStatCard
-                badge={latestSaveSyncBadge.label}
-                badgeTone={latestSaveSyncBadge.tone}
-                icon="save"
-                label="Latest Save"
-                value={latestSaveLabel}
-              />
-              <DashboardStatCard
-                icon="info"
-                label="World Version"
-                value={dashboardSnapshot.minecraftVersion}
-              />
+              <div className="dashboard-primary-stats">
+                <DashboardStatCard icon="save" label="Latest Save" value={latestSaveLabel} />
+                <DashboardStatCard
+                  icon="info"
+                  label="World Version"
+                  value={dashboardSnapshot.minecraftVersion}
+                  detail={`(${dashboardSnapshot.serverType})`}
+                />
+              </div>
               <div className="compact-stat-grid">
                 <Card className="compact-stat-card" padding="compact">
-                  <p>Current Host</p>
+                  <p>
+                    <MaterialIcon name="dns" />
+                    Host
+                  </p>
                   <strong>{dashboardSnapshot.currentHost ?? 'None'}</strong>
                 </Card>
                 <Card className="compact-stat-card" padding="compact">
-                  <p>Players</p>
+                  <p>
+                    <MaterialIcon name="group" />
+                    Players
+                  </p>
                   <strong>
                     {dashboardSnapshot.players.online} <span>/ {dashboardSnapshot.players.max}</span>
                   </strong>

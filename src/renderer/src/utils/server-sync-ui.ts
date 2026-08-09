@@ -101,7 +101,7 @@ function formatRelativeTime(date: Date): string {
     const value = Math.trunc(elapsedMs / unitMs)
 
     if (Math.abs(value) >= 1) {
-      return new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' }).format(value, unit)
+      return new Intl.RelativeTimeFormat('en', { numeric: 'auto' }).format(value, unit)
     }
   }
 

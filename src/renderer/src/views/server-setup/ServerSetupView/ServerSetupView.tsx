@@ -15,23 +15,27 @@ import SetupForm from '../components/SetupForm/SetupForm'
 import type { DeploymentStatus } from '../server-setup-model'
 
 interface ServerSetupViewProps {
+  isSidebarOpen: boolean
   snapshot: ServerDisplayState
   onCancel: () => void
+  onCloseSidebar: () => void
   onOpenDashboard: () => void
   onOpenSettings: () => void
   onSignOut: () => void
   onSetupComplete: () => Promise<void>
+  onToggleSidebar: () => void
 }
 
-const SETUP_DISABLED_REASON = "You're already creating an instance."
-
 function ServerSetupView({
+  isSidebarOpen,
   snapshot,
   onCancel,
+  onCloseSidebar,
   onOpenDashboard,
   onOpenSettings,
   onSignOut,
-  onSetupComplete
+  onSetupComplete,
+  onToggleSidebar
 }: ServerSetupViewProps): React.JSX.Element {
   const [deploymentStatus, setDeploymentStatus] = useState<DeploymentStatus>('idle')
   const [activeStep, setActiveStep] = useState<ServerSetupProgressStep | null>(null)
@@ -134,25 +138,25 @@ function ServerSetupView({
     <div className="dashboard-screen setup-screen">
       <AppSidebar
         activeItem="servers"
-        addServerDisabled
-        addServerTitle={SETUP_DISABLED_REASON}
+        isOpen={isSidebarOpen}
+        onClose={onCloseSidebar}
         onOpenServers={onCancel}
         onOpenSettings={onOpenSettings}
       />
 
       <div className="dashboard-main">
         <TopBar
+          isSidebarOpen={isSidebarOpen}
           user={snapshot.signedInUser}
-          breadcrumbs={[{ label: 'Servers', onClick: onCancel }, { label: 'Create Instance' }]}
-          createInstanceDisabled
-          createInstanceTitle={SETUP_DISABLED_REASON}
+          breadcrumbs={[{ label: 'Servers', onClick: onCancel }, { label: 'Create Server' }]}
           onOpenSettings={onOpenSettings}
           onSignOut={onSignOut}
+          onToggleSidebar={onToggleSidebar}
         />
 
         <main className="dashboard-content setup-content">
           <header className="setup-header">
-            <h2>Create New Instance</h2>
+            <h2>Create New Server</h2>
             <p>Configure a local Vanilla server for shared world handoff.</p>
           </header>
 

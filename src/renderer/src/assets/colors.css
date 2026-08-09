@@ -7,16 +7,25 @@
   --color-surface-raised: #201f1f;
   --color-surface-header: #252525;
   --color-surface-hover: #2a2a2a;
+  --color-surface-hover-soft: rgba(42, 42, 42, 0.5);
   --color-surface-hover-strong: #393939;
   --color-surface-active: rgba(255, 255, 255, 0.05);
   --color-surface-muted: #353534;
-  --color-surface-panel: rgba(30, 30, 30, 0.78);
+  --color-surface-panel: rgba(30, 30, 30, 0.72);
+  --color-surface-stat: #1c1b1b;
+  --color-surface-card: rgba(30, 30, 30, 0.7);
+  --color-surface-overlay: rgba(28, 28, 28, 0.86);
+  --color-console-shell: #0a0a0a;
 
-  --color-border-subtle: #2a2a2a;
-  --color-border-emphasis: #404a3a;
-  --color-border-panel: rgba(42, 42, 42, 0.9);
+  --color-border-subtle: rgba(255, 255, 255, 0.07);
+  --color-border-emphasis: rgba(255, 255, 255, 0.12);
+  --color-border-panel: rgba(255, 255, 255, 0.09);
   --color-border-accent-muted: rgba(128, 220, 91, 0.24);
   --color-border-accent: rgba(128, 220, 91, 0.5);
+  --color-border-panel-muted: rgba(255, 255, 255, 0.07);
+  --color-border-panel-default: rgba(255, 255, 255, 0.09);
+  --color-border-panel-strong: rgba(255, 255, 255, 0.12);
+  --color-border-panel-hover: rgba(255, 255, 255, 0.12);
 
   --color-text-primary: #e5e2e1;
   --color-text-secondary: #bfcab5;
@@ -32,6 +41,8 @@
   --color-accent-pattern: rgba(71, 160, 37, 0.55);
   --color-accent-glow: rgba(128, 220, 91, 0.1);
   --color-accent-glow-soft: rgba(128, 220, 91, 0.08);
+  --color-accent-glow-medium: rgba(128, 220, 91, 0.25);
+  --color-accent-glow-strong: rgba(128, 220, 91, 0.4);
 
   --color-sync: #2389d7;
   --color-sync-glow: rgba(35, 137, 215, 0.36);
@@ -39,11 +50,28 @@
   --color-danger: #b3312c;
   --color-danger-glow: rgba(179, 49, 44, 0.22);
   --color-danger-text: #ffb4ab;
+  --color-danger-icon: #ff9c9c;
+  --color-danger-text-strong: #ffdddd;
+  --color-danger-surface: rgba(194, 64, 64, 0.18);
+  --color-danger-surface-hover: rgba(194, 64, 64, 0.26);
+  --color-danger-border: rgba(255, 111, 111, 0.34);
+  --color-danger-border-strong: rgba(255, 111, 111, 0.56);
   --color-info: #7fb3ff;
+  --color-info-icon: #9cc6ff;
+  --color-info-surface: rgba(127, 179, 255, 0.1);
+  --color-info-border: rgba(127, 179, 255, 0.3);
   --color-warning: #fbbc05;
+  --color-warning-icon: #ffd27d;
+  --color-warning-surface: rgba(251, 188, 5, 0.1);
+  --color-warning-border: rgba(251, 188, 5, 0.3);
+  --color-warning-glow: rgba(251, 188, 5, 0.28);
 
-  --color-shadow-strong: rgba(0, 0, 0, 0.4);
-  --color-shadow-soft: rgba(0, 0, 0, 0.34);
+  --color-overlay: rgba(0, 0, 0, 0.62);
+  --color-overlay-muted: rgba(0, 0, 0, 0.54);
+  --color-overlay-strong: rgb(10 12 10 / 72%);
+
+  --color-shadow-strong: rgba(0, 0, 0, 0.3);
+  --color-shadow-soft: rgba(0, 0, 0, 0.22);
 
   --color-scrollbar-thumb: #3a4636;
   --color-scrollbar-thumb-muted: #4b5746;

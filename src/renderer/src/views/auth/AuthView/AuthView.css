@@ -11,9 +11,10 @@
 
 .login-card {
   align-items: center;
-  background: var(--color-background-app);
+  backdrop-filter: var(--blur-surface);
+  background: var(--color-surface-panel);
   border: 1px solid var(--color-border-subtle);
-  border-radius: 12px;
+  border-radius: var(--radius-feature);
   box-shadow:
     0 0 26px var(--color-accent-glow),
     0 8px 24px var(--color-shadow-strong),
@@ -29,7 +30,7 @@
   align-items: center;
   background: var(--color-surface-raised);
   border: 1px solid var(--color-border-subtle);
-  border-radius: 12px;
+  border-radius: var(--radius-feature);
   color: var(--color-accent);
   display: flex;
   height: 64px;
@@ -69,7 +70,7 @@
   align-items: center;
   background: var(--color-surface-raised);
   border: 1px solid var(--color-border-subtle);
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   color: var(--color-text-primary);
   cursor: pointer;
   display: flex;
@@ -78,7 +79,7 @@
   gap: 12px;
   justify-content: center;
   margin-top: 32px;
-  min-height: 50px;
+  min-height: var(--size-control-large);
   padding: 12px 16px;
   transition:
     background-color 160ms ease,
@@ -90,6 +91,10 @@
 .google-button:hover:not(:disabled) {
   background: var(--color-surface-hover);
   border-color: var(--color-surface-hover-strong);
+}
+
+.google-button:active:not(:disabled) {
+  transform: scale(0.98);
 }
 
 .google-button:disabled {

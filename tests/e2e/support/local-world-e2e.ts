@@ -9,7 +9,7 @@ import {
 export async function createLocalWorld(app: ChunkShareE2EApp): Promise<void> {
   const { page, user } = app
 
-  await user.click(page.getByRole('button', { name: 'Create Instance', exact: true }).first())
+  await user.click(page.getByRole('button', { name: 'Create Server', exact: true }).first())
   await user.fill(page.getByLabel('Server Name'), E2E_SERVER_NAME)
   await user.fill(page.getByLabel('Server Port'), '25570')
   await user.check(page.getByLabel('I agree to the Minecraft EULA'))
@@ -37,4 +37,41 @@ export async function stopServer(app: ChunkShareE2EApp, publishedVersion: number
 export async function publishLocalWorld(app: ChunkShareE2EApp): Promise<void> {
   await startServer(app)
   await stopServer(app, 1)
+}
+
+export async function openServerDashboard(
+  app: ChunkShareE2EApp,
+  serverName = E2E_SERVER_NAME
+): Promise<void> {
+  await app.user.click(app.page.getByRole('button', { name: `Open ${serverName}`, exact: true }))
+  await expect(app.page.getByRole('heading', { name: serverName })).toBeVisible()
+}
+
+export async function navigateToServers(app: ChunkShareE2EApp): Promise<void> {
+  const createServerButton = app.page.getByRole('button', { name: 'Create Server', exact: true })
+  const serversPageBreadcrumb = app.page
+    .getByLabel('Breadcrumb')
+    .getByRole('strong')
+    .filter({ hasText: /^Servers$/ })
+
+  if (await serversPageBreadcrumb.isVisible()) {
+    return
+  }
+
+  const breadcrumbButton = app.page
+    .getByLabel('Breadcrumb')
+    .getByRole('button', { name: 'Servers', exact: true })
+
+  if (await breadcrumbButton.isVisible()) {
+    await app.user.click(breadcrumbButton)
+  } else {
+    await app.user.click(app.page.getByRole('button', { name: 'Open navigation', exact: true }))
+    await app.user.click(
+      app.page
+        .getByRole('navigation', { name: 'Primary navigation' })
+        .getByRole('button', { name: 'Servers', exact: true })
+    )
+  }
+
+  await expect(createServerButton).toBeVisible()
 }

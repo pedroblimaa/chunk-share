@@ -1,13 +1,13 @@
 .chunk-button {
   align-items: center;
   border: 0;
-  border-radius: 4px;
+  border-radius: var(--radius-control);
   cursor: pointer;
   display: inline-flex;
   font-family: inherit;
   font-size: var(--font-size-body);
   font-weight: var(--font-weight-bold);
-  gap: 8px;
+  gap: var(--space-control-gap);
   justify-content: center;
   transition:
     background-color 140ms ease,
@@ -18,26 +18,52 @@
 }
 
 .chunk-button-default {
-  min-height: 40px;
+  min-height: var(--size-control-default);
   padding: 0 20px;
 }
 
 .chunk-button-compact {
   font-size: var(--font-size-caption);
-  min-height: 32px;
+  min-height: var(--size-control-compact);
   padding: 0 12px;
   text-transform: uppercase;
 }
 
 .chunk-button-large {
-  min-height: 48px;
+  min-height: var(--size-control-large);
   padding: 0 20px;
 }
 
 .chunk-button-square {
-  height: 38px;
+  height: var(--size-control-default);
   padding: 0;
-  width: 38px;
+  width: var(--size-control-default);
+}
+
+.chunk-button-square-compact {
+  height: var(--size-control-compact);
+  padding: 0;
+  width: var(--size-control-compact);
+}
+
+.chunk-button-square-large {
+  height: var(--size-control-large);
+  padding: 0;
+  width: var(--size-control-large);
+}
+
+.chunk-button .material-symbols-outlined {
+  font-size: var(--font-size-icon-md);
+}
+
+.chunk-button-compact .material-symbols-outlined,
+.chunk-button-square-compact .material-symbols-outlined {
+  font-size: var(--font-size-icon-sm);
+}
+
+.chunk-button-large .material-symbols-outlined,
+.chunk-button-square-large .material-symbols-outlined {
+  font-size: var(--font-size-icon-lg);
 }
 
 .chunk-button-full-width {
@@ -52,6 +78,10 @@
 .chunk-button-primary:hover:not(:disabled) {
   background: var(--color-accent-strong);
   transform: translateY(-1px);
+}
+
+.chunk-button:active:not(:disabled) {
+  transform: scale(0.98);
 }
 
 .chunk-button-secondary {
@@ -78,15 +108,26 @@
 }
 
 .chunk-button-danger {
-  background: rgba(194, 64, 64, 0.18);
-  border: 1px solid rgba(255, 111, 111, 0.34);
-  color: #ffb4b4;
+  background: var(--color-danger-surface);
+  border: 1px solid var(--color-danger-border);
+  color: var(--color-danger-text);
 }
 
 .chunk-button-danger:hover:not(:disabled) {
-  background: rgba(194, 64, 64, 0.26);
-  border-color: rgba(255, 111, 111, 0.56);
-  color: #ffdddd;
+  background: var(--color-danger-surface-hover);
+  border-color: var(--color-danger-border-strong);
+  color: var(--color-danger-text-strong);
+}
+
+.chunk-button-danger-ghost {
+  background: transparent;
+  border: 0;
+  color: var(--color-danger-text);
+}
+
+.chunk-button-danger-ghost:hover:not(:disabled) {
+  background: var(--color-danger-surface);
+  color: var(--color-danger-text-strong);
 }
 
 .chunk-button-icon {

@@ -1,10 +1,11 @@
 .server-state-panel {
+  backdrop-filter: var(--blur-surface);
   background: var(--color-surface-panel);
-  border: 1px solid var(--color-border-panel);
-  border-radius: 10px;
-  min-height: 236px;
+  border: 1px solid var(--color-border-panel-muted);
+  border-radius: var(--radius-feature);
+  min-height: 220px;
   overflow: hidden;
-  padding: 24px;
+  padding: 28px;
   position: relative;
   transition:
     border-color 220ms ease,
@@ -17,27 +18,28 @@
 }
 
 .server-state-pattern {
-  background-image: radial-gradient(var(--color-accent-pattern) 1px, transparent 1px);
-  background-size: 24px 24px;
+  background: linear-gradient(135deg, var(--color-surface) 0%, var(--color-surface-raised) 100%);
   inset: 0;
-  opacity: 0.12;
+  opacity: 0.5;
   position: absolute;
+}
+
+.server-state-watermark {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-icon-watermark);
+  opacity: 0.1;
+  position: absolute;
+  right: 24px;
+  top: 16px;
 }
 
 .server-state-content {
   display: flex;
   flex-direction: column;
   height: 100%;
-  justify-content: space-between;
+  justify-content: center;
   position: relative;
   z-index: 1;
-}
-
-.panel-kicker {
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-action);
-  font-weight: var(--font-weight-medium);
-  margin-bottom: 12px;
 }
 
 .server-state-summary {
@@ -49,18 +51,18 @@
 .power-indicator {
   align-items: center;
   background: var(--color-background-console);
-  border: 2px solid var(--color-surface-muted);
-  border-radius: 999px;
+  border: 1px solid var(--color-border-panel-strong);
+  border-radius: var(--radius-overlay);
   color: var(--color-surface-muted);
   cursor: pointer;
   display: flex;
-  height: 56px;
+  height: 64px;
   justify-content: center;
   transition:
     border-color 220ms ease,
     color 220ms ease,
     transform 220ms ease;
-  width: 56px;
+  width: 64px;
 }
 
 .power-indicator:hover {
@@ -69,7 +71,7 @@
 }
 
 .power-indicator:active {
-  transform: scale(0.96);
+  transform: scale(0.98);
 }
 
 .power-indicator:focus-visible {
@@ -108,13 +110,23 @@
   color: var(--color-text-primary);
   font-size: var(--font-size-state-title);
   font-weight: var(--font-weight-bold);
-  line-height: var(--line-height-compact);
+  line-height: var(--line-height-state-title);
 }
 
 .server-state-summary p {
   color: var(--color-text-secondary);
   font-size: var(--font-size-console);
   margin-top: 6px;
+}
+
+.server-last-active {
+  align-items: center;
+  display: flex;
+  gap: 6px;
+}
+
+.server-last-active .material-symbols-outlined {
+  font-size: var(--font-size-icon-sm);
 }
 
 .server-sync-status {
@@ -136,57 +148,11 @@
 }
 
 .server-sync-status-danger {
-  color: #ffb4b4;
+  color: var(--color-danger-text);
 }
 
 .server-sync-status-neutral {
   color: var(--color-text-muted);
-}
-
-.resource-grid {
-  display: grid;
-  gap: 14px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  margin-top: 28px;
-}
-
-.resource-meter {
-  background: var(--color-background-console);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: 6px;
-  padding: 14px;
-}
-
-.resource-meter p {
-  align-items: center;
-  color: var(--color-text-secondary);
-  display: flex;
-  font-size: var(--font-size-small);
-  gap: 8px;
-  justify-content: space-between;
-  margin-bottom: 6px;
-}
-
-.resource-meter strong {
-  color: var(--color-text-primary);
-  display: block;
-  font-size: var(--font-size-small);
-  margin-bottom: 10px;
-}
-
-.meter-track {
-  background: var(--color-surface-hover);
-  border-radius: 999px;
-  display: block;
-  height: 4px;
-  overflow: hidden;
-}
-
-.meter-track span {
-  background: var(--color-accent);
-  display: block;
-  height: 100%;
-  transition: width 320ms ease;
 }
 
 .is-server-toggle-animating .server-state-panel {
@@ -194,10 +160,6 @@
 }
 
 @media (max-width: 720px) {
-  .resource-grid {
-    grid-template-columns: 1fr;
-  }
-
   .server-state-panel {
     padding: 20px;
   }

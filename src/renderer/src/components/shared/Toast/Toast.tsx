@@ -46,7 +46,7 @@ function Toast({
           <Button
             aria-label={action.label}
             icon={action.icon}
-            size="square"
+            size="square-compact"
             variant="ghost"
             onClick={action.onClick}
           />
@@ -54,7 +54,7 @@ function Toast({
         <Button
           aria-label="Close notification"
           icon="close"
-          size="square"
+          size="square-compact"
           variant="ghost"
           onClick={onClose}
         />

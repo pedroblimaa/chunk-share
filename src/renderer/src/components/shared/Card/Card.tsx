@@ -1,24 +1,8 @@
 import './Card.css'
 
 import type { FormHTMLAttributes, HTMLAttributes } from 'react'
+import { getCardClassName } from './card-classes'
 import { CARD_PRIVATE_PROP_NAMES, type CardProps } from './Card.model'
-
-function getCardClassName({
-  className = '',
-  interactive = false,
-  padding = 'default',
-  tone = 'default'
-}: Pick<CardProps, 'className' | 'interactive' | 'padding' | 'tone'>): string {
-  return [
-    'chunk-card',
-    `chunk-card-${tone}`,
-    `chunk-card-padding-${padding}`,
-    interactive ? 'chunk-card-interactive' : '',
-    className
-  ]
-    .filter(Boolean)
-    .join(' ')
-}
 
 function Card(props: CardProps): React.JSX.Element {
   const classes = getCardClassName(props)

@@ -21,23 +21,27 @@ interface TopBarRefreshAction {
 interface TopBarProps {
   user: SignedInUser | null
   breadcrumbs: BreadcrumbItem[]
-  createInstanceDisabled?: boolean
-  createInstanceTitle?: string | undefined
+  isSidebarOpen?: boolean
+  createServerDisabled?: boolean
+  createServerTitle?: string | undefined
   refreshAction?: TopBarRefreshAction
-  onCreateInstance?: (() => void) | undefined
+  onCreateServer?: (() => void) | undefined
   onOpenSettings?: () => void
   onSignOut?: () => void
+  onToggleSidebar?: () => void
 }
 
 function TopBar({
   user,
   breadcrumbs,
-  createInstanceDisabled = false,
-  createInstanceTitle,
+  isSidebarOpen = false,
+  createServerDisabled = false,
+  createServerTitle,
   refreshAction,
-  onCreateInstance,
+  onCreateServer,
   onOpenSettings,
-  onSignOut
+  onSignOut,
+  onToggleSidebar
 }: TopBarProps): React.JSX.Element {
   const [accountMenuOpen, setAccountMenuOpen] = useState(false)
 
@@ -52,25 +56,39 @@ function TopBar({
 
   return (
     <header className="dashboard-topbar">
-      <div className="dashboard-breadcrumbs" aria-label="Breadcrumb">
-        {breadcrumbs.map((breadcrumb, index) => {
-          const isLast = index === breadcrumbs.length - 1
+      <div className="dashboard-topbar-leading">
+        {onToggleSidebar && (
+          <button
+            aria-controls="app-sidebar"
+            aria-expanded={isSidebarOpen}
+            aria-label={isSidebarOpen ? 'Close navigation' : 'Open navigation'}
+            className="icon-button sidebar-menu-button"
+            type="button"
+            onClick={onToggleSidebar}
+          >
+            <MaterialIcon name="menu" />
+          </button>
+        )}
+        <div className="dashboard-breadcrumbs" aria-label="Breadcrumb">
+          {breadcrumbs.map((breadcrumb, index) => {
+            const isLast = index === breadcrumbs.length - 1
 
-          return (
-            <span className="breadcrumb-segment" key={`${breadcrumb.label}-${index}`}>
-              {breadcrumb.onClick && !isLast ? (
-                <button type="button" onClick={breadcrumb.onClick}>
-                  {breadcrumb.label}
-                </button>
-              ) : isLast ? (
-                <strong>{breadcrumb.label}</strong>
-              ) : (
-                <span>{breadcrumb.label}</span>
-              )}
-              {!isLast && <MaterialIcon name="chevron_right" className="breadcrumb-icon" />}
-            </span>
-          )
-        })}
+            return (
+              <span className="breadcrumb-segment" key={`${breadcrumb.label}-${index}`}>
+                {breadcrumb.onClick && !isLast ? (
+                  <button type="button" onClick={breadcrumb.onClick}>
+                    {breadcrumb.label}
+                  </button>
+                ) : isLast ? (
+                  <strong>{breadcrumb.label}</strong>
+                ) : (
+                  <span>{breadcrumb.label}</span>
+                )}
+                {!isLast && <MaterialIcon name="chevron_right" className="breadcrumb-icon" />}
+              </span>
+            )
+          })}
+        </div>
       </div>
 
       <div className="dashboard-topbar-actions">
@@ -88,19 +106,28 @@ function TopBar({
             </button>
           </Tooltip>
         )}
-        <button className="icon-button" type="button" aria-label="Settings" onClick={onOpenSettings}>
-          <MaterialIcon name="settings" />
-        </button>
-        <Tooltip content={createInstanceDisabled ? createInstanceTitle : undefined}>
-          <Button
-            disabled={createInstanceDisabled}
-            icon="add"
-            onClick={onCreateInstance}
-            className="create-instance-button"
+        {onOpenSettings && (
+          <button
+            className="icon-button topbar-settings-button"
+            type="button"
+            aria-label="Settings"
+            onClick={onOpenSettings}
           >
-            Create Instance
-          </Button>
-        </Tooltip>
+            <MaterialIcon name="settings" />
+          </button>
+        )}
+        {(onCreateServer || createServerDisabled) && (
+          <Tooltip content={createServerDisabled ? createServerTitle : undefined}>
+            <Button
+              disabled={createServerDisabled}
+              icon="add"
+              onClick={onCreateServer}
+              className="create-server-button"
+            >
+              Create Server
+            </Button>
+          </Tooltip>
+        )}
         <Popover
           ariaLabel="Account menu"
           className="account-menu"

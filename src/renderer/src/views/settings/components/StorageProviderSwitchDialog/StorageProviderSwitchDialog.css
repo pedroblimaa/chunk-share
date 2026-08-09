@@ -11,7 +11,7 @@
   display: block;
   font-size: var(--font-size-caption);
   line-height: var(--line-height-copy);
-  margin-top: 3px;
+  margin-top: 4px;
 }
 
 .settings-provider-switch-comparison {
@@ -24,7 +24,7 @@
 .settings-provider-switch-summary {
   background: var(--color-background-console);
   border: 1px solid var(--color-border-subtle);
-  border-radius: 6px;
+  border-radius: var(--radius-notice);
   padding: 12px;
 }
 
@@ -36,7 +36,7 @@
 }
 
 .settings-provider-switch-direction .material-symbols-outlined {
-  font-size: 22px;
+  font-size: var(--font-size-icon-md);
 }
 
 .settings-provider-switch-summary-heading {
@@ -47,7 +47,7 @@
 
 .settings-provider-switch-summary-heading .material-symbols-outlined {
   color: var(--color-accent);
-  font-size: 18px;
+  font-size: var(--font-size-icon-md);
 }
 
 .settings-provider-switch-loading {
@@ -59,14 +59,14 @@
 .settings-provider-switch-loading > .material-symbols-outlined {
   animation: settings-provider-switch-spin 900ms linear infinite;
   color: var(--color-accent);
-  font-size: 28px;
+  font-size: var(--font-size-icon-lg);
 }
 
 .settings-provider-switch-warning {
   align-items: center;
-  background: rgba(251, 188, 5, 0.1);
-  border: 1px solid rgba(251, 188, 5, 0.3);
-  border-radius: 6px;
+  background: var(--color-warning-surface);
+  border: 1px solid var(--color-warning-border);
+  border-radius: var(--radius-notice);
   display: flex;
   gap: 10px;
   max-height: 64px;
@@ -93,7 +93,7 @@
 .settings-provider-switch-warning > .material-symbols-outlined {
   color: var(--color-warning);
   flex: 0 0 auto;
-  font-size: 20px;
+  font-size: var(--font-size-icon-md);
 }
 
 .settings-provider-switch-warning > span {
@@ -105,8 +105,8 @@
 
 .settings-provider-switch-error {
   background: var(--color-danger-glow);
-  border: 1px solid rgba(255, 180, 171, 0.26);
-  border-radius: 6px;
+  border: 1px solid var(--color-danger-border);
+  border-radius: var(--radius-notice);
   color: var(--color-danger-text);
   font-size: var(--font-size-caption);
   line-height: var(--line-height-copy);
@@ -117,20 +117,6 @@
 .settings-provider-switch-actions {
   display: grid;
   gap: 12px;
-}
-
-.settings-provider-switch-actions .chunk-button-primary {
-  background: var(--color-accent);
-  color: var(--color-text-on-accent);
-}
-
-.settings-provider-switch-actions .chunk-button-primary:hover:not(:disabled) {
-  background: var(--color-accent-strong);
-}
-
-.settings-provider-switch-actions .chunk-button-primary .chunk-button-label,
-.settings-provider-switch-actions .chunk-button-primary .material-symbols-outlined {
-  color: var(--color-text-on-accent);
 }
 
 .settings-provider-copy-loading .material-symbols-outlined {

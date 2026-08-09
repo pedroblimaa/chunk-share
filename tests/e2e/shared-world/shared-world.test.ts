@@ -25,6 +25,7 @@ import {
   type ElectronE2EPaths
 } from '../support/electron-test-app'
 import { GoogleDriveE2EMock } from '../support/google-drive-e2e-mock'
+import { openServerDashboard } from '../support/local-world-e2e'
 
 test('owner invites a friend who joins and downloads the shared world', async () => {
   const driveMock = new GoogleDriveE2EMock()
@@ -88,7 +89,7 @@ test('opens a Drive world before its delayed snapshot finishes loading', async (
     })
 
     const openWorld = ownerApp.user.click(
-      ownerApp.page.getByRole('button', { name: 'Download', exact: true })
+      ownerApp.page.getByRole('button', { name: 'Open Shared Test World', exact: true })
     )
 
     await expect(ownerApp.page.getByRole('heading', { name: 'Shared Test World' })).toBeVisible({
@@ -138,7 +139,9 @@ test('shows a remote starting state instead of a spinning download action', asyn
       }
     })
 
-    await friendApp.user.click(friendApp.page.getByRole('button', { name: 'Download', exact: true }))
+    await friendApp.user.click(
+      friendApp.page.getByRole('button', { name: 'Open Shared Test World', exact: true })
+    )
 
     await expect(friendApp.page.getByRole('button', { name: 'Starting...' })).toBeVisible()
     await expect(friendApp.page.getByRole('button', { name: 'Download shared server' })).toHaveCount(0)
@@ -183,16 +186,18 @@ test('hands hosting from the owner to a friend', async () => {
     await friendApp.user.click(
       friendApp.page.getByLabel('Breadcrumb').getByRole('button', { name: 'Servers', exact: true })
     )
-    await expect(friendApp.page.getByRole('button', { name: 'Manage', exact: true })).toBeVisible()
+    await expect(
+      friendApp.page.getByRole('button', { name: 'Open Shared Test World', exact: true })
+    ).toBeVisible()
 
     await startServer(ownerApp)
-    await friendApp.user.click(friendApp.page.getByRole('button', { name: 'Manage', exact: true }))
+    await openServerDashboard(friendApp, 'Shared Test World')
 
     await expect(friendApp.page.getByText('Online with Owner Player')).toBeVisible()
     await expect(friendApp.page.getByText('Owner Player', { exact: true })).toBeVisible()
     await expect(friendApp.page.getByRole('button', { name: 'Start Server', exact: true })).toHaveCount(0)
     await friendApp.user.click(friendApp.page.getByRole('button', { name: 'Join Server' }))
-    await expect(friendApp.page.getByText(/:25565/)).toBeVisible()
+    await expect(friendApp.page.getByRole('dialog', { name: 'Connection addresses' })).toContainText(/:25565/)
 
     await stopServer(ownerApp, 2)
     await refreshServer(friendApp)
@@ -250,15 +255,21 @@ test('refreshes the server list when another machine starts hosting', async () =
       has: friendApp.page.getByRole('heading', { name: 'Shared Test World' })
     })
 
-    await expect(serverCard.getByRole('button', { name: 'Manage', exact: true })).toBeVisible()
+    await expect(
+      serverCard.getByRole('button', { name: 'Open Shared Test World', exact: true })
+    ).toBeVisible()
     await startServer(ownerApp)
-    await expect(serverCard.getByRole('button', { name: 'Manage', exact: true })).toBeVisible()
+    await expect(
+      serverCard.getByRole('button', { name: 'Open Shared Test World', exact: true })
+    ).toBeVisible()
 
     await friendApp.user.click(friendApp.page.getByRole('button', { name: 'Refresh servers' }))
 
     await expect(serverCard).toContainText('Online with Owner Player')
     await expect(serverCard.getByText('Owner Player', { exact: true })).toBeVisible()
-    await expect(serverCard.getByRole('button', { name: 'Join', exact: true })).toBeVisible()
+    await expect(
+      serverCard.getByRole('button', { name: 'Open Shared Test World', exact: true })
+    ).toBeVisible()
 
     await stopServer(ownerApp, 2)
   } finally {
@@ -341,7 +352,7 @@ test('restores a shared world after relaunch and publishes the next version', as
       driveMock,
       paths: ownerPaths
     })
-    await ownerApp.user.click(ownerApp.page.getByRole('button', { name: 'Manage', exact: true }))
+    await openServerDashboard(ownerApp, 'Shared Test World')
 
     await expect(ownerApp.page.getByRole('heading', { name: 'Shared Test World' })).toBeVisible()
     await expect(ownerApp.page.getByRole('button', { name: 'Start Server', exact: true })).toBeVisible()
@@ -370,8 +381,7 @@ async function prepareSharedWorld(
 }
 
 async function openSharedWorldDashboard(app: ChunkShareE2EApp): Promise<void> {
-  await app.user.click(app.page.getByRole('button', { name: 'Download', exact: true }))
-  await expect(app.page.getByRole('heading', { name: 'Shared Test World' })).toBeVisible()
+  await openServerDashboard(app, 'Shared Test World')
 }
 
 async function inviteFriend(ownerApp: ChunkShareE2EApp): Promise<string> {

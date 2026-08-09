@@ -14,7 +14,9 @@ import TopBar from '../../dashboard/components/TopBar/TopBar'
 import ServerCard, { type ServerCardSummary } from '../components/ServerCard/ServerCard'
 
 interface ServersViewProps {
+  isSidebarOpen: boolean
   onCreateServer: () => void
+  onCloseSidebar: () => void
   onDeleteServer: (worldId: WorldId) => Promise<void>
   onJoinSharedWorld: () => void
   serverDisplayState: ServerDisplayState
@@ -22,6 +24,7 @@ interface ServersViewProps {
   onOpenSettings: () => void
   onSignOut: () => void
   onRefreshServerDisplayState: () => Promise<void>
+  onToggleSidebar: () => void
 }
 
 const RUNNING_SERVER_DISABLED_REASON = 'Stop the running server before creating another one.'
@@ -61,14 +64,17 @@ function createConfiguredServers(
 }
 
 function ServersView({
+  isSidebarOpen,
   serverDisplayState,
   onCreateServer,
+  onCloseSidebar,
   onDeleteServer,
   onJoinSharedWorld,
   onOpenServer,
   onOpenSettings,
   onSignOut,
-  onRefreshServerDisplayState
+  onRefreshServerDisplayState,
+  onToggleSidebar
 }: ServersViewProps): React.JSX.Element {
   const [runtimeSnapshot, setRuntimeSnapshot] = useState<ServerRuntimeSnapshot | null>(null)
   const servers = createConfiguredServers(serverDisplayState, runtimeSnapshot)
@@ -181,23 +187,24 @@ function ServersView({
     <div className="dashboard-screen servers-screen">
       <AppSidebar
         activeItem="servers"
-        addServerDisabled={createDisabled}
-        addServerTitle={createDisabled ? RUNNING_SERVER_DISABLED_REASON : undefined}
-        onAddServer={createDisabled ? undefined : onCreateServer}
+        isOpen={isSidebarOpen}
+        onClose={onCloseSidebar}
         onOpenServers={onRefreshServerDisplayState}
         onOpenSettings={onOpenSettings}
       />
 
       <div className="dashboard-main">
         <TopBar
+          isSidebarOpen={isSidebarOpen}
           user={serverDisplayState.signedInUser}
           breadcrumbs={[{ label: 'Servers' }]}
-          createInstanceDisabled={createDisabled}
-          createInstanceTitle={createDisabled ? RUNNING_SERVER_DISABLED_REASON : undefined}
+          createServerDisabled={createDisabled}
+          createServerTitle={createDisabled ? RUNNING_SERVER_DISABLED_REASON : undefined}
           refreshAction={{ isRefreshing, label: 'Refresh servers', onClick: refreshServers }}
-          onCreateInstance={createDisabled ? undefined : onCreateServer}
+          onCreateServer={createDisabled ? undefined : onCreateServer}
           onOpenSettings={onOpenSettings}
           onSignOut={onSignOut}
+          onToggleSidebar={onToggleSidebar}
         />
 
         <main className="dashboard-content servers-content">
@@ -249,7 +256,7 @@ function ServersView({
               <p>Create your first managed Minecraft server to start sharing a world.</p>
               <div className="servers-empty-actions">
                 <Button icon="add" onClick={onCreateServer}>
-                  Create Instance
+                  Create Server
                 </Button>
                 <Button icon="link" variant="secondary" onClick={onJoinSharedWorld}>
                   Join Shared World

@@ -1,6 +1,7 @@
 import './Badge.css'
 
 import MaterialIcon from '../MaterialIcon/MaterialIcon'
+import { getBadgeClassName } from './badge-classes'
 import type { BadgeProps } from './Badge.model'
 
 function Badge({
@@ -13,9 +14,7 @@ function Badge({
   tone = 'default',
   ...badgeProps
 }: BadgeProps): React.JSX.Element {
-  const classes = ['chunk-badge', `chunk-badge-${tone}`, `chunk-badge-${size}`, className]
-    .filter(Boolean)
-    .join(' ')
+  const classes = getBadgeClassName({ className, size, tone })
 
   return (
     <span className={classes} {...badgeProps}>

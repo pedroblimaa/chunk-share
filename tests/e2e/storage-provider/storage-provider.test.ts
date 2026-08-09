@@ -6,9 +6,16 @@ import {
   GOOGLE_TEST_ACCOUNTS,
   GOOGLE_TEST_IDS
 } from '../../support/google-drive/google-drive-test-environment'
-import { createElectronE2EPaths, E2E_SERVER_NAME, launchChunkShareE2EApp } from '../support/electron-test-app'
+import { createElectronE2EPaths, launchChunkShareE2EApp } from '../support/electron-test-app'
 import { GoogleDriveE2EMock } from '../support/google-drive-e2e-mock'
-import { createLocalWorld, publishLocalWorld, startServer, stopServer } from '../support/local-world-e2e'
+import {
+  createLocalWorld,
+  navigateToServers,
+  openServerDashboard,
+  publishLocalWorld,
+  startServer,
+  stopServer
+} from '../support/local-world-e2e'
 
 test('copies a local world to Google Drive through Settings', async () => {
   const driveMock = new GoogleDriveE2EMock()
@@ -45,9 +52,8 @@ test('copies a local world to Google Drive through Settings', async () => {
       expect(driveMock.drive.getFileContentByName('control.json')).not.toBeNull()
       expect(driveMock.drive.getFileContentByName('world.zip')).not.toBeNull()
 
-      await app.user.click(app.page.getByRole('button', { name: 'Servers', exact: true }))
-      await app.user.click(app.page.getByRole('button', { name: 'Manage', exact: true }))
-      await expect(app.page.getByRole('heading', { name: E2E_SERVER_NAME })).toBeVisible()
+      await navigateToServers(app)
+      await openServerDashboard(app)
 
       const downloadUpdate = app.page
         .getByRole('button', { name: 'Download Update' })

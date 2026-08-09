@@ -1,7 +1,7 @@
 import './ConfirmationDialog.css'
 
 import Button from '../Button/Button'
-import MaterialIcon from '../MaterialIcon/MaterialIcon'
+import Dialog from '../Dialog/Dialog'
 
 interface ConfirmationDialogProps {
   cancelLabel?: string
@@ -27,30 +27,17 @@ function ConfirmationDialog({
   onConfirm
 }: ConfirmationDialogProps): React.JSX.Element {
   return (
-    <div
-      aria-labelledby="confirmation-dialog-title"
-      aria-modal="true"
-      className="confirmation-dialog-backdrop"
-      role="dialog"
-    >
-      <section className="confirmation-dialog">
-        <div className="confirmation-dialog-icon">
-          <MaterialIcon name={icon} />
-        </div>
-        <div className="confirmation-dialog-copy">
-          <h3 id="confirmation-dialog-title">{title}</h3>
-          <p>{description}</p>
-        </div>
-        <div className="confirmation-dialog-actions">
-          <Button disabled={isLoading} variant="secondary" onClick={onCancel}>
-            {cancelLabel}
-          </Button>
-          <Button disabled={isLoading} icon={confirmIcon} onClick={onConfirm}>
-            {confirmLabel}
-          </Button>
-        </div>
-      </section>
-    </div>
+    <Dialog className="confirmation-dialog" icon={icon} isBusy={isLoading} title={title} onClose={onCancel}>
+      <p className="confirmation-dialog-description">{description}</p>
+      <div className="confirmation-dialog-actions">
+        <Button disabled={isLoading} variant="secondary" onClick={onCancel}>
+          {cancelLabel}
+        </Button>
+        <Button disabled={isLoading} icon={confirmIcon} onClick={onConfirm}>
+          {confirmLabel}
+        </Button>
+      </div>
+    </Dialog>
   )
 }
 

@@ -1,0 +1,34 @@
+:root {
+  --space-page-padding: 32px;
+  --space-page-padding-mobile-block: 20px;
+  --space-page-padding-mobile-inline: 16px;
+  --space-page-sections: 28px;
+  --space-primary-grid: 28px;
+  --space-card-stack: 18px;
+  --space-control-gap: 10px;
+
+  --size-control-compact: 34px;
+  --size-control-default: 42px;
+  --size-control-prominent: 46px;
+  --size-control-large: 50px;
+  --size-field-compact: 44px;
+  --size-field-default: 50px;
+
+  --radius-control: 10px;
+  --radius-notice: 14px;
+  --radius-card: 16px;
+  --radius-overlay: 18px;
+  --radius-feature: 20px;
+  --radius-pill: 999px;
+
+  --blur-surface: blur(12px);
+  --blur-sidebar: blur(18px);
+  --blur-overlay: blur(20px);
+
+  --shadow-card-hover: 0 18px 42px rgb(0 0 0 / 20%);
+  --shadow-popover: 0 20px 48px rgb(0 0 0 / 24%);
+  --shadow-modal: 0 30px 80px rgb(0 0 0 / 30%);
+  --shadow-toast: 0 22px 54px rgb(0 0 0 / 28%);
+  --shadow-tooltip: 0 14px 34px rgb(0 0 0 / 22%);
+  --shadow-sidebar: 10px 0 40px rgb(0 0 0 / 24%);
+}

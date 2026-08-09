@@ -2,6 +2,9 @@ import './ServerHeader.css'
 
 import { useState } from 'react'
 import type { ServerStatus } from '../../../../../../shared/dashboard'
+import Badge from '../../../../components/shared/Badge/Badge'
+import type { BadgeTone } from '../../../../components/shared/Badge/Badge.model'
+import Button from '../../../../components/shared/Button/Button'
 import MaterialIcon from '../../../../components/shared/MaterialIcon/MaterialIcon'
 import Popover from '../../../../components/shared/Popover/Popover'
 import Tooltip from '../../../../components/shared/Tooltip/Tooltip'
@@ -9,6 +12,26 @@ import type { ServerHeaderProps } from './ServerHeader.model'
 
 function formatStatus(status: ServerStatus): string {
   return status.replace('-', ' ').toUpperCase()
+}
+
+function getStatusTone(status: ServerStatus): BadgeTone {
+  if (status === 'stopped') {
+    return 'disabled'
+  }
+
+  if (status === 'running') {
+    return 'active'
+  }
+
+  if (status === 'starting' || status === 'stopping' || status === 'updating') {
+    return 'warning'
+  }
+
+  if (status === 'crashed' || status === 'error') {
+    return 'danger'
+  }
+
+  return 'default'
 }
 
 function isServerRunning(status: ServerStatus): boolean {
@@ -59,14 +82,14 @@ function ServerHeader({
     return (
       <>
         <p>{connection.connectionAddressDetails}</p>
-        <button
+        <Button
           aria-label={copyConnectionDetailsLabel}
           className={`connection-popover-copy${copyConnectionDetailsStateClass}`}
-          type="button"
+          icon="content_copy"
+          size="square-compact"
+          variant="icon"
           onClick={connection.onCopyConnectionAddressDetails ?? connection.onCopyConnectionAddress}
-        >
-          <MaterialIcon name="content_copy" />
-        </button>
+        />
       </>
     )
   }
@@ -97,10 +120,13 @@ function ServerHeader({
       <div>
         <h2>{server.name}</h2>
         <div className="server-meta-row">
-          <span className={`status-pill status-${server.status}`}>
-            <span />
+          <Badge
+            dot
+            className={`server-status-badge status-${server.status}`}
+            tone={getStatusTone(server.status)}
+          >
             {formatStatus(server.status)}
-          </span>
+          </Badge>
 
           <Popover
             ariaLabel="Connection addresses"
@@ -119,7 +145,8 @@ function ServerHeader({
               onClick={connection.onToggleConnectionDetails}
             >
               <MaterialIcon name="lan" />
-              <span>Connection</span>
+              <span>{connection.connectionAddress ?? 'Connection unavailable'}</span>
+              <MaterialIcon name="content_copy" />
             </button>
           </Popover>
         </div>
@@ -128,19 +155,20 @@ function ServerHeader({
       <div className="server-actions">
         <div className="server-primary-action">
           <Tooltip content={primaryAction.tooltip}>
-            <button
+            <Button
               aria-label={toggleButtonLabel}
               aria-busy={primaryAction.isAnimating || serverIsBusy}
               className={`server-toggle-button is-${serverIsRunning ? 'running' : 'stopped'} is-tone-${toggleButtonTone}${
                 primaryAction.isAnimating ? ' is-animating' : ''
               }${serverIsBusy ? ' is-busy' : ''}`}
               disabled={primaryAction.disabled}
-              type="button"
+              icon={toggleButtonIcon}
+              iconFilled
+              size="large"
               onClick={primaryAction.onClick}
             >
-              <MaterialIcon name={toggleButtonIcon} filled />
-              <span>{toggleButtonLabel}</span>
-            </button>
+              {toggleButtonLabel}
+            </Button>
           </Tooltip>
 
           {downloadEula?.isVisible && (
@@ -169,16 +197,16 @@ function ServerHeader({
           onClose={() => setActionsMenuOpen(false)}
           content={getActionsMenuContent()}
         >
-          <button
+          <Button
             aria-expanded={actionsMenuOpen}
             aria-haspopup="menu"
             aria-label="More server actions"
             className="overflow-button"
-            type="button"
+            icon="more_vert"
+            size="square-large"
+            variant="icon"
             onClick={() => setActionsMenuOpen((isOpen) => !isOpen)}
-          >
-            <MaterialIcon name="more_vert" />
-          </button>
+          />
         </Popover>
       </div>
     </section>

@@ -4,6 +4,7 @@
 
 .chunk-popover-panel {
   animation: chunk-popover-enter 140ms ease-out both;
+  backdrop-filter: var(--blur-surface);
   position: absolute;
   top: calc(100% + 8px);
   z-index: 20;

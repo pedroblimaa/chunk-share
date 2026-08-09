@@ -1,91 +1,30 @@
-.confirmation-dialog-backdrop {
+.confirmation-dialog .chunk-dialog-heading > .material-symbols-outlined {
   align-items: center;
-  animation: confirmation-dialog-backdrop-enter 160ms ease-out both;
-  backdrop-filter: blur(8px);
-  background: rgba(0, 0, 0, 0.72);
+  background: color-mix(in srgb, var(--color-danger-icon) 12%, transparent);
+  border: 1px solid var(--color-danger-border);
+  border-radius: var(--radius-overlay);
+  color: var(--color-danger-icon);
   display: flex;
-  inset: 0;
+  height: var(--size-control-large);
   justify-content: center;
-  padding: 24px;
-  position: fixed;
-  z-index: 20;
+  width: var(--size-control-large);
 }
 
-.confirmation-dialog {
-  animation: confirmation-dialog-enter 180ms ease-out both;
-  background: var(--color-surface-panel);
-  border: 1px solid var(--color-border-panel);
-  border-radius: 8px;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.38);
-  display: grid;
-  gap: 18px;
-  grid-template-columns: auto 1fr;
-  max-width: 520px;
-  padding: 24px;
-  width: min(100%, 520px);
-}
-
-.confirmation-dialog-icon {
-  align-items: center;
-  background: rgba(255, 111, 111, 0.12);
-  border: 1px solid rgba(255, 111, 111, 0.34);
-  border-radius: 8px;
-  color: #ff9c9c;
-  display: flex;
-  height: 48px;
-  justify-content: center;
-  width: 48px;
-}
-
-.confirmation-dialog-copy h3 {
-  color: var(--color-text-primary);
-  font-size: var(--font-size-title);
-  font-weight: var(--font-weight-bold);
-}
-
-.confirmation-dialog-copy p {
+.confirmation-dialog-description {
   color: var(--color-text-secondary);
   line-height: var(--line-height-copy);
-  margin-top: 8px;
 }
 
 .confirmation-dialog-actions {
   border-top: 1px solid var(--color-border-subtle);
   display: flex;
   gap: 12px;
-  grid-column: 1 / -1;
   justify-content: flex-end;
   padding-top: 18px;
 }
 
 @media (max-width: 720px) {
-  .confirmation-dialog {
-    grid-template-columns: 1fr;
-  }
-
   .confirmation-dialog-actions {
     flex-direction: column-reverse;
-  }
-}
-
-@keyframes confirmation-dialog-backdrop-enter {
-  from {
-    opacity: 0;
-  }
-
-  to {
-    opacity: 1;
-  }
-}
-
-@keyframes confirmation-dialog-enter {
-  from {
-    opacity: 0;
-    transform: translateY(8px) scale(0.98);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
   }
 }
