@@ -97,6 +97,7 @@ function validateRawVisualValues(file, source, failures) {
 
   if (file !== LAYOUT_TOKEN_FILE) {
     reportDeclarationMatches(file, source, 'border-radius', /-?\d*\.?\d+px/i, 'Use a radius token.', failures)
+    reportMatches(file, source, /\bblur\(\s*-?\d*\.?\d+(?:px|rem|em)\s*\)/gi, 'Use a blur token.', failures)
   }
 }
 

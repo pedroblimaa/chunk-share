@@ -61,7 +61,7 @@
 }
 
 .servers-error-copy-button:active {
-  transform: scale(0.92);
+  transform: scale(0.98);
 }
 
 .servers-error-copy-button.is-copied {

@@ -15,7 +15,8 @@
 }
 
 .tooltip[data-tooltip]::before {
-  background: var(--color-surface-hover-strong);
+  backdrop-filter: var(--blur-surface);
+  background: var(--color-surface-overlay);
   border: 1px solid var(--color-border-emphasis);
   border-radius: var(--radius-notice);
   box-shadow: var(--shadow-tooltip);
@@ -32,7 +33,7 @@
 }
 
 .tooltip[data-tooltip]::after {
-  background: var(--color-surface-hover-strong);
+  background: var(--color-surface-overlay);
   border-left: 1px solid var(--color-border-emphasis);
   border-top: 1px solid var(--color-border-emphasis);
   content: '';

@@ -89,7 +89,7 @@ test('opens a Drive world before its delayed snapshot finishes loading', async (
     })
 
     const openWorld = ownerApp.user.click(
-      ownerApp.page.getByRole('button', { name: 'Download', exact: true })
+      ownerApp.page.getByRole('button', { name: 'Open Shared Test World', exact: true })
     )
 
     await expect(ownerApp.page.getByRole('heading', { name: 'Shared Test World' })).toBeVisible({
@@ -139,7 +139,9 @@ test('shows a remote starting state instead of a spinning download action', asyn
       }
     })
 
-    await friendApp.user.click(friendApp.page.getByRole('button', { name: 'Download', exact: true }))
+    await friendApp.user.click(
+      friendApp.page.getByRole('button', { name: 'Open Shared Test World', exact: true })
+    )
 
     await expect(friendApp.page.getByRole('button', { name: 'Starting...' })).toBeVisible()
     await expect(friendApp.page.getByRole('button', { name: 'Download shared server' })).toHaveCount(0)
@@ -195,7 +197,7 @@ test('hands hosting from the owner to a friend', async () => {
     await expect(friendApp.page.getByText('Owner Player', { exact: true })).toBeVisible()
     await expect(friendApp.page.getByRole('button', { name: 'Start Server', exact: true })).toHaveCount(0)
     await friendApp.user.click(friendApp.page.getByRole('button', { name: 'Join Server' }))
-    await expect(friendApp.page.getByText(/:25565/)).toBeVisible()
+    await expect(friendApp.page.getByText(/^CloudflareWARP: .*:25565, Wi-Fi:/)).toBeVisible()
 
     await stopServer(ownerApp, 2)
     await refreshServer(friendApp)
@@ -265,7 +267,9 @@ test('refreshes the server list when another machine starts hosting', async () =
 
     await expect(serverCard).toContainText('Online with Owner Player')
     await expect(serverCard.getByText('Owner Player', { exact: true })).toBeVisible()
-    await expect(serverCard.getByRole('button', { name: 'Join', exact: true })).toBeVisible()
+    await expect(
+      serverCard.getByRole('button', { name: 'Open Shared Test World', exact: true })
+    ).toBeVisible()
 
     await stopServer(ownerApp, 2)
   } finally {
@@ -377,8 +381,7 @@ async function prepareSharedWorld(
 }
 
 async function openSharedWorldDashboard(app: ChunkShareE2EApp): Promise<void> {
-  await app.user.click(app.page.getByRole('button', { name: 'Download', exact: true }))
-  await expect(app.page.getByRole('heading', { name: 'Shared Test World' })).toBeVisible()
+  await openServerDashboard(app, 'Shared Test World')
 }
 
 async function inviteFriend(ownerApp: ChunkShareE2EApp): Promise<string> {

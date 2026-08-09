@@ -1,6 +1,7 @@
 .toast {
   align-items: start;
   animation: toast-enter 180ms ease-out both;
+  backdrop-filter: var(--blur-overlay);
   background: var(--color-surface-overlay);
   border: 1px solid var(--color-border-panel);
   border-radius: var(--radius-overlay);

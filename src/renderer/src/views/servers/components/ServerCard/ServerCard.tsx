@@ -94,6 +94,10 @@ function getStatusTone(server: ServerCardSummary): BadgeTone {
     return isRemoteHostTransitioning(server.syncStatus) ? 'warning' : 'active'
   }
 
+  if (server.status === 'stopped') {
+    return 'disabled'
+  }
+
   if (server.status === 'running') {
     return 'active'
   }

@@ -31,12 +31,6 @@ function Dialog({
     if (dialog && !dialog.open) {
       dialog.showModal()
     }
-
-    return () => {
-      if (dialog?.open) {
-        dialog.close()
-      }
-    }
   }, [])
 
   useEffect(() => {

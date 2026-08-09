@@ -1,5 +1,6 @@
 .dashboard-sidebar {
-  background: var(--color-surface-raised);
+  backdrop-filter: var(--blur-sidebar);
+  background: var(--color-surface-overlay);
   border-right: 1px solid var(--color-border-emphasis);
   display: flex;
   flex: 0 0 260px;

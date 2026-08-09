@@ -10,7 +10,7 @@ import {
   type ChunkShareE2EApp,
   type ElectronE2EPaths
 } from '../support/electron-test-app'
-import { openServerDashboard } from '../support/local-world-e2e'
+import { navigateToServers as navigateToServerList, openServerDashboard } from '../support/local-world-e2e'
 
 const WORLD_A_NAME = 'World Alpha'
 const WORLD_B_NAME = 'World Beta'
@@ -157,8 +157,7 @@ async function createWorld(app: ChunkShareE2EApp, name: string, port: number): P
 }
 
 async function navigateToServers(app: ChunkShareE2EApp): Promise<void> {
-  await app.user.click(app.page.getByRole('button', { name: 'Servers', exact: true }).first())
-  await expect(app.page.getByRole('button', { name: 'Create Server', exact: true })).toBeVisible()
+  await navigateToServerList(app)
 }
 
 async function openServer(app: ChunkShareE2EApp, name: string): Promise<void> {

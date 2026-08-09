@@ -15,6 +15,10 @@ function formatStatus(status: ServerStatus): string {
 }
 
 function getStatusTone(status: ServerStatus): BadgeTone {
+  if (status === 'stopped') {
+    return 'disabled'
+  }
+
   if (status === 'running') {
     return 'active'
   }

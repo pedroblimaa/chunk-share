@@ -1,6 +1,6 @@
 .server-card {
-  animation: server-card-enter 260ms ease-out both;
-  backdrop-filter: blur(6px);
+  animation: server-card-enter 260ms ease-out backwards;
+  backdrop-filter: var(--blur-surface);
   display: flex;
   flex-direction: column;
   height: 372px;
@@ -8,6 +8,11 @@
   padding: 0;
   position: relative;
   text-align: left;
+}
+
+.server-card:hover,
+.server-card:focus-within {
+  translate: 0 -8px;
 }
 
 .server-card-open-area {
@@ -270,6 +275,11 @@
   .server-card:focus-within .server-delete-action {
     opacity: 1;
   }
+}
+
+.server-card .server-delete-action:disabled {
+  opacity: 0;
+  visibility: hidden;
 }
 
 @media (max-width: 720px) {

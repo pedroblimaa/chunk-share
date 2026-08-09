@@ -46,3 +46,32 @@ export async function openServerDashboard(
   await app.user.click(app.page.getByRole('button', { name: `Open ${serverName}`, exact: true }))
   await expect(app.page.getByRole('heading', { name: serverName })).toBeVisible()
 }
+
+export async function navigateToServers(app: ChunkShareE2EApp): Promise<void> {
+  const createServerButton = app.page.getByRole('button', { name: 'Create Server', exact: true })
+  const serversPageBreadcrumb = app.page
+    .getByLabel('Breadcrumb')
+    .getByRole('strong')
+    .filter({ hasText: /^Servers$/ })
+
+  if (await serversPageBreadcrumb.isVisible()) {
+    return
+  }
+
+  const breadcrumbButton = app.page
+    .getByLabel('Breadcrumb')
+    .getByRole('button', { name: 'Servers', exact: true })
+
+  if (await breadcrumbButton.isVisible()) {
+    await app.user.click(breadcrumbButton)
+  } else {
+    await app.user.click(app.page.getByRole('button', { name: 'Open navigation', exact: true }))
+    await app.user.click(
+      app.page
+        .getByRole('navigation', { name: 'Primary navigation' })
+        .getByRole('button', { name: 'Servers', exact: true })
+    )
+  }
+
+  await expect(createServerButton).toBeVisible()
+}

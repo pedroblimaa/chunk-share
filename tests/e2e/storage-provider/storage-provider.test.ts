@@ -10,6 +10,7 @@ import { createElectronE2EPaths, launchChunkShareE2EApp } from '../support/elect
 import { GoogleDriveE2EMock } from '../support/google-drive-e2e-mock'
 import {
   createLocalWorld,
+  navigateToServers,
   openServerDashboard,
   publishLocalWorld,
   startServer,
@@ -51,7 +52,7 @@ test('copies a local world to Google Drive through Settings', async () => {
       expect(driveMock.drive.getFileContentByName('control.json')).not.toBeNull()
       expect(driveMock.drive.getFileContentByName('world.zip')).not.toBeNull()
 
-      await app.user.click(app.page.getByRole('button', { name: 'Servers', exact: true }))
+      await navigateToServers(app)
       await openServerDashboard(app)
 
       const downloadUpdate = app.page

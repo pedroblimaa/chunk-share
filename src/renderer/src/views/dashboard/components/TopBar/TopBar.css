@@ -154,7 +154,7 @@
 }
 
 .account-popover {
-  background: var(--color-surface-raised);
+  background: var(--color-surface-overlay);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-overlay);
   box-shadow: var(--shadow-popover);

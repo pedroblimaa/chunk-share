@@ -15,6 +15,7 @@ export default defineConfig({
     ? [['line'], ['html', { open: 'never', outputFolder: 'playwright-report' }]]
     : 'line',
   use: {
+    actionTimeout: 10_000,
     screenshot: 'only-on-failure',
     trace: 'retain-on-failure'
   }

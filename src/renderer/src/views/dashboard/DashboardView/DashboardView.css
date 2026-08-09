@@ -27,7 +27,7 @@
 
 .dashboard-loading-overlay {
   align-items: center;
-  backdrop-filter: blur(5px);
+  backdrop-filter: var(--blur-overlay);
   background: var(--color-overlay-strong);
   display: flex;
   inset: 0;

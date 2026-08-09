@@ -11,7 +11,8 @@
 
 .login-card {
   align-items: center;
-  background: var(--color-background-app);
+  backdrop-filter: var(--blur-surface);
+  background: var(--color-surface-panel);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-feature);
   box-shadow:
@@ -90,6 +91,10 @@
 .google-button:hover:not(:disabled) {
   background: var(--color-surface-hover);
   border-color: var(--color-surface-hover-strong);
+}
+
+.google-button:active:not(:disabled) {
+  transform: scale(0.98);
 }
 
 .google-button:disabled {

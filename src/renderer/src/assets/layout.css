@@ -3,28 +3,32 @@
   --space-page-padding-mobile-block: 20px;
   --space-page-padding-mobile-inline: 16px;
   --space-page-sections: 28px;
-  --space-primary-grid: 24px;
-  --space-card-stack: 16px;
-  --space-control-gap: 8px;
+  --space-primary-grid: 28px;
+  --space-card-stack: 18px;
+  --space-control-gap: 10px;
 
-  --size-control-compact: 32px;
-  --size-control-default: 40px;
-  --size-control-prominent: 44px;
-  --size-control-large: 48px;
-  --size-field-compact: 42px;
-  --size-field-default: 48px;
+  --size-control-compact: 34px;
+  --size-control-default: 42px;
+  --size-control-prominent: 46px;
+  --size-control-large: 50px;
+  --size-field-compact: 44px;
+  --size-field-default: 50px;
 
-  --radius-control: 4px;
-  --radius-notice: 6px;
-  --radius-overlay: 8px;
-  --radius-card: 10px;
-  --radius-feature: 12px;
+  --radius-control: 10px;
+  --radius-notice: 14px;
+  --radius-card: 16px;
+  --radius-overlay: 18px;
+  --radius-feature: 20px;
   --radius-pill: 999px;
 
-  --shadow-card-hover: 0 16px 34px var(--color-shadow-soft);
-  --shadow-popover: 0 16px 34px rgb(0 0 0 / 28%);
-  --shadow-modal: 0 24px 70px var(--color-shadow-strong);
-  --shadow-toast: 0 18px 42px rgb(0 0 0 / 42%);
-  --shadow-tooltip: 0 12px 28px var(--color-shadow-soft);
-  --shadow-sidebar: 8px 0 28px rgb(0 0 0 / 36%);
+  --blur-surface: blur(12px);
+  --blur-sidebar: blur(18px);
+  --blur-overlay: blur(20px);
+
+  --shadow-card-hover: 0 18px 42px rgb(0 0 0 / 20%);
+  --shadow-popover: 0 20px 48px rgb(0 0 0 / 24%);
+  --shadow-modal: 0 30px 80px rgb(0 0 0 / 30%);
+  --shadow-toast: 0 22px 54px rgb(0 0 0 / 28%);
+  --shadow-tooltip: 0 14px 34px rgb(0 0 0 / 22%);
+  --shadow-sidebar: 10px 0 40px rgb(0 0 0 / 24%);
 }

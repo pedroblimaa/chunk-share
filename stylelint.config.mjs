@@ -5,12 +5,14 @@ const rawColorPatterns = [
 ]
 const colorProperties =
   '/^(?:background|background-color|border|border-(?:top|right|bottom|left)|border-(?:top|right|bottom|left)-color|border-color|box-shadow|color|fill|outline|outline-color|stroke|text-shadow)$/'
+const blurProperties = '/^(?:backdrop-filter|filter)$/'
 
 function createVisualValueRules({ allowColors = false, allowFontSizes = false, allowRadii = false } = {}) {
   return {
     ...(allowColors ? {} : { [colorProperties]: rawColorPatterns }),
     ...(allowFontSizes ? {} : { 'font-size': ['/-?\\d*\\.?\\d+px/'] }),
-    ...(allowRadii ? {} : { 'border-radius': ['/-?\\d*\\.?\\d+px/'] })
+    ...(allowRadii ? {} : { 'border-radius': ['/-?\\d*\\.?\\d+px/'] }),
+    ...(allowRadii ? {} : { [blurProperties]: ['/\\bblur\\(\\s*-?\\d*\\.?\\d+(?:px|rem|em)\\s*\\)/i'] })
   }
 }
 
