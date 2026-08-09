@@ -115,6 +115,7 @@ function SetupForm({
           <label className="setup-field">
             <span>Server Name</span>
             <input
+              className="chunk-field-control"
               type="text"
               value={formState.name}
               placeholder="e.g. Survival World"
@@ -127,7 +128,7 @@ function SetupForm({
 
           <label className="setup-field">
             <span>Server Type</span>
-            <select value={formState.serverType} disabled>
+            <select className="chunk-field-control" value={formState.serverType} disabled>
               <option>Vanilla</option>
             </select>
           </label>
@@ -135,6 +136,7 @@ function SetupForm({
           <label className="setup-field">
             <span>Minecraft Version</span>
             <select
+              className="chunk-field-control"
               value={selectedMinecraftVersion}
               disabled={formIsDisabled || versions.length === 0}
               onChange={(event) => updateField('minecraftVersion', event.target.value)}
@@ -164,6 +166,7 @@ function SetupForm({
           <label className="setup-field">
             <span>Server Port</span>
             <input
+              className="chunk-field-control"
               type="number"
               inputMode="numeric"
               min="1"

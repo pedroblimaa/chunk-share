@@ -21,6 +21,7 @@ import {
   type ElectronE2EPaths
 } from '../support/electron-test-app'
 import { GoogleDriveE2EMock } from '../support/google-drive-e2e-mock'
+import { openServerDashboard } from '../support/local-world-e2e'
 
 const WORLD_A = {
   id: '00000000-0000-4000-8000-000000000061',
@@ -250,11 +251,7 @@ async function startServer(app: ChunkShareE2EApp): Promise<void> {
 }
 
 async function openWorld(app: ChunkShareE2EApp, worldName: string): Promise<void> {
-  const serverCard = app.page.getByRole('article').filter({
-    has: app.page.getByRole('heading', { name: worldName })
-  })
-  await app.user.click(serverCard.getByRole('button', { name: 'Manage', exact: true }))
-  await expect(app.page.getByRole('heading', { name: worldName })).toBeVisible()
+  await openServerDashboard(app, worldName)
 }
 
 async function stopServer(app: ChunkShareE2EApp, publishedVersion: number): Promise<void> {

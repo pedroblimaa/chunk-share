@@ -117,10 +117,9 @@ function DriveSharingDialog({ sharingState, onChange, onClose }: DriveSharingDia
           </div>
         ) : (
           <Button
-            className="drive-sharing-revoke-button"
             disabled={isInviting || isRevoking}
             size="compact"
-            variant="ghost"
+            variant="danger-ghost"
             onClick={() => setPendingRevokeId(member.permissionId)}
           >
             Revoke
@@ -144,6 +143,7 @@ function DriveSharingDialog({ sharingState, onChange, onClose }: DriveSharingDia
         <div className="drive-sharing-email-input">
           <MaterialIcon name="mail" />
           <input
+            className="chunk-field-control chunk-field-control-compact"
             required
             id="drive-sharing-email"
             placeholder="Enter email address"

@@ -17,8 +17,8 @@
 .tooltip[data-tooltip]::before {
   background: var(--color-surface-hover-strong);
   border: 1px solid var(--color-border-emphasis);
-  border-radius: 6px;
-  box-shadow: 0 12px 28px var(--color-shadow-soft);
+  border-radius: var(--radius-notice);
+  box-shadow: var(--shadow-tooltip);
   color: var(--color-text-primary);
   content: attr(data-tooltip);
   font-size: var(--font-size-caption);

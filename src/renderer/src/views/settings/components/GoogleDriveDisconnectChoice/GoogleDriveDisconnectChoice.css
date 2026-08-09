@@ -1,7 +1,7 @@
 .settings-drive-disconnect-choice {
   background: var(--color-background-console);
   border: 1px solid var(--color-border-subtle);
-  border-radius: 6px;
+  border-radius: var(--radius-notice);
   display: grid;
   gap: 14px;
   padding: 16px;
@@ -20,7 +20,7 @@
   display: block;
   font-size: var(--font-size-caption);
   line-height: var(--line-height-copy);
-  margin-top: 3px;
+  margin-top: 4px;
 }
 
 .settings-drive-disconnect-actions {

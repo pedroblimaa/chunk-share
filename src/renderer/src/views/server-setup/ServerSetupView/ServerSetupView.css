@@ -1,13 +1,13 @@
 .setup-content {
   animation: setup-route-enter 220ms ease-out;
-  gap: 28px;
+  gap: var(--space-page-sections);
 }
 
 .setup-header h2 {
   color: var(--color-text-primary);
-  font-size: 36px;
+  font-size: var(--font-size-page-title);
   font-weight: var(--font-weight-medium);
-  line-height: var(--line-height-title);
+  line-height: var(--line-height-page-title);
 }
 
 .setup-header p {
@@ -18,7 +18,7 @@
 
 .setup-form-card,
 .setup-progress-card {
-  box-shadow: 0 16px 34px var(--color-shadow-soft);
+  box-shadow: var(--shadow-card-hover);
 }
 
 .setup-form-card {
@@ -56,24 +56,6 @@
   gap: 8px;
 }
 
-.setup-field input,
-.setup-field select {
-  appearance: none;
-  background: var(--color-background-console);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: 6px;
-  color: var(--color-text-primary);
-  font: inherit;
-  font-size: var(--font-size-body);
-  min-height: 48px;
-  padding: 0 14px;
-  transition:
-    border-color 140ms ease,
-    box-shadow 140ms ease,
-    color 140ms ease,
-    opacity 140ms ease;
-}
-
 .setup-field select {
   background-image:
     linear-gradient(45deg, transparent 50%, var(--color-text-muted) 50%),
@@ -88,17 +70,7 @@
   padding-right: 42px;
 }
 
-.setup-field input:focus,
-.setup-field select:focus {
-  border-color: var(--color-border-accent);
-  box-shadow: 0 0 0 3px var(--color-accent-glow);
-  outline: 0;
-}
-
-.setup-field input:disabled,
-.setup-field select:disabled,
 .setup-checkbox-field input:disabled {
-  color: var(--color-text-muted);
   cursor: not-allowed;
   opacity: 0.68;
 }
@@ -117,7 +89,7 @@
   align-items: center;
   background: var(--color-danger-glow);
   border: 1px solid var(--color-danger);
-  border-radius: 6px;
+  border-radius: var(--radius-notice);
   color: var(--color-danger-text);
   display: flex;
   gap: 12px;
@@ -183,7 +155,7 @@
 .setup-progress-track {
   background: var(--color-background-console);
   border: 1px solid var(--color-border-subtle);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   height: 12px;
   overflow: hidden;
 }
@@ -191,7 +163,7 @@
 .setup-progress-value {
   background: var(--color-accent);
   border-radius: inherit;
-  box-shadow: 0 0 20px rgba(128, 220, 91, 0.4);
+  box-shadow: 0 0 20px var(--color-accent-glow-strong);
   height: 100%;
   transition: width 420ms ease;
 }
@@ -249,7 +221,7 @@
   align-items: center;
   background: var(--color-danger-glow);
   border: 1px solid var(--color-danger);
-  border-radius: 6px;
+  border-radius: var(--radius-notice);
   color: var(--color-danger-text);
   display: flex;
   gap: 10px;
@@ -274,7 +246,7 @@
 
 @media (max-width: 720px) {
   .setup-header h2 {
-    font-size: 32px;
+    font-size: var(--font-size-page-title-mobile);
   }
 
   .setup-form-card,

@@ -1,0 +1,30 @@
+:root {
+  --space-page-padding: 32px;
+  --space-page-padding-mobile-block: 20px;
+  --space-page-padding-mobile-inline: 16px;
+  --space-page-sections: 28px;
+  --space-primary-grid: 24px;
+  --space-card-stack: 16px;
+  --space-control-gap: 8px;
+
+  --size-control-compact: 32px;
+  --size-control-default: 40px;
+  --size-control-prominent: 44px;
+  --size-control-large: 48px;
+  --size-field-compact: 42px;
+  --size-field-default: 48px;
+
+  --radius-control: 4px;
+  --radius-notice: 6px;
+  --radius-overlay: 8px;
+  --radius-card: 10px;
+  --radius-feature: 12px;
+  --radius-pill: 999px;
+
+  --shadow-card-hover: 0 16px 34px var(--color-shadow-soft);
+  --shadow-popover: 0 16px 34px rgb(0 0 0 / 28%);
+  --shadow-modal: 0 24px 70px var(--color-shadow-strong);
+  --shadow-toast: 0 18px 42px rgb(0 0 0 / 42%);
+  --shadow-tooltip: 0 12px 28px var(--color-shadow-soft);
+  --shadow-sidebar: 8px 0 28px rgb(0 0 0 / 36%);
+}

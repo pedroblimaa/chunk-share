@@ -7,7 +7,13 @@ import {
   readSelectedWorldE2EPaths,
   type ChunkShareE2EApp
 } from '../support/electron-test-app'
-import { createLocalWorld, publishLocalWorld, startServer, stopServer } from '../support/local-world-e2e'
+import {
+  createLocalWorld,
+  openServerDashboard,
+  publishLocalWorld,
+  startServer,
+  stopServer
+} from '../support/local-world-e2e'
 
 test('repairs an invalid lock in control.json without losing the published save', async () => {
   let app: ChunkShareE2EApp | null = await launchChunkShareE2EApp()
@@ -28,7 +34,7 @@ test('repairs an invalid lock in control.json without losing the published save'
     await expect(app.page.getByRole('heading', { name: E2E_SERVER_NAME })).toBeVisible()
     await expectControlRecovered(worldPaths.controlFile)
 
-    await app.user.click(app.page.getByRole('button', { name: 'Manage', exact: true }))
+    await openServerDashboard(app)
     await startServer(app)
     await stopServer(app, 2)
   } finally {

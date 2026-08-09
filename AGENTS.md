@@ -1,5 +1,9 @@
 # Repository Guidelines
 
+## Communication Style
+
+Keep responses concise and direct. Prefer 2 to 5 short bullets. Include only the outcome, important decisions, and next action. Provide details only when asked.
+
 ## Project Structure & Module Organization
 
 This is an Electron Vite application using React and TypeScript. Main-process code lives in `src/main`, with IPC handlers under `src/main/ipc/handlers` and storage adapters, persistence, and server-save operations under `src/main/storage`. The preload bridge is in `src/preload`, shared types and channel constants are in `src/shared`, and renderer code lives in `src/renderer/src`.
@@ -40,6 +44,8 @@ Keep renderer work UI-only. Filesystem, Java validation, Minecraft server proces
 - `pnpm dev`: run the Electron Vite development app.
 - `pnpm start`: preview the built Electron app.
 - `pnpm lint`: run ESLint with cache over the repository.
+- `pnpm lint:css`: lint renderer CSS and reject disallowed feature-level shared-component overrides.
+- `pnpm check:ui-tokens`: validate CSS token references, raw visual values, and spacing-grid usage.
 - `pnpm format`: format files with Prettier.
 - `pnpm test`: run all Vitest unit and integration tests.
 - `pnpm test:watch`: run Vitest in watch mode.
@@ -51,6 +57,7 @@ Keep renderer work UI-only. Filesystem, Java validation, Minecraft server proces
 - `pnpm typecheck`: run both Node and web TypeScript checks.
 - `pnpm build`: typecheck and build the app.
 - `pnpm verify`: check formatting, lint, run unit/integration tests, typecheck, and build.
+- `pnpm verify:ui`: run CSS linting, UI token validation, and shared-component contract tests.
 - `pnpm verify:full`: run `pnpm verify` and the complete Electron E2E suite.
 - `pnpm build:win`, `pnpm build:mac`, `pnpm build:linux`: create platform packages with electron-builder.
 
@@ -79,6 +86,18 @@ Name booleans after the positive state they represent, such as `isActive` or `ha
 In JSX, prefer boolean `&&` rendering over `condition ? element : null`. Ensure the left side is explicitly boolean when needed.
 
 Formatting is handled by `.editorconfig` and Prettier. Run `pnpm lint` and `pnpm format` before handoff when relevant.
+
+## UI Consistency Contract
+
+Use semantic tokens from `src/renderer/src/assets` for colors, typography, spacing, control sizes, radii, and shadows. Raw colors, pixel font sizes, and pixel radii belong only in their corresponding token files.
+
+Use shared components from `src/renderer/src/components/shared` before adding feature-specific controls. When the current API does not cover a real design need, add an explicit shared variant first, then use that variant from the feature.
+
+Feature CSS may position shared components and control responsive visibility, but it must not redefine shared component geometry, typography, colors, radii, or shadows. Do not target shared Button, Card, Badge, or Dialog variant classes from files under `views`.
+
+Keep raw margin, padding, and gap values on the 2px spacing grid. Prefer the semantic layout tokens for page, grid, card, and control spacing roles.
+
+Run `pnpm verify:ui` after renderer UI work. Run the broader `pnpm verify` before handoff when the change has wider regression risk.
 
 ## Testing Guidelines
 

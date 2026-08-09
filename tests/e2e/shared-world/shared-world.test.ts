@@ -25,6 +25,7 @@ import {
   type ElectronE2EPaths
 } from '../support/electron-test-app'
 import { GoogleDriveE2EMock } from '../support/google-drive-e2e-mock'
+import { openServerDashboard } from '../support/local-world-e2e'
 
 test('owner invites a friend who joins and downloads the shared world', async () => {
   const driveMock = new GoogleDriveE2EMock()
@@ -183,10 +184,12 @@ test('hands hosting from the owner to a friend', async () => {
     await friendApp.user.click(
       friendApp.page.getByLabel('Breadcrumb').getByRole('button', { name: 'Servers', exact: true })
     )
-    await expect(friendApp.page.getByRole('button', { name: 'Manage', exact: true })).toBeVisible()
+    await expect(
+      friendApp.page.getByRole('button', { name: 'Open Shared Test World', exact: true })
+    ).toBeVisible()
 
     await startServer(ownerApp)
-    await friendApp.user.click(friendApp.page.getByRole('button', { name: 'Manage', exact: true }))
+    await openServerDashboard(friendApp, 'Shared Test World')
 
     await expect(friendApp.page.getByText('Online with Owner Player')).toBeVisible()
     await expect(friendApp.page.getByText('Owner Player', { exact: true })).toBeVisible()
@@ -250,9 +253,13 @@ test('refreshes the server list when another machine starts hosting', async () =
       has: friendApp.page.getByRole('heading', { name: 'Shared Test World' })
     })
 
-    await expect(serverCard.getByRole('button', { name: 'Manage', exact: true })).toBeVisible()
+    await expect(
+      serverCard.getByRole('button', { name: 'Open Shared Test World', exact: true })
+    ).toBeVisible()
     await startServer(ownerApp)
-    await expect(serverCard.getByRole('button', { name: 'Manage', exact: true })).toBeVisible()
+    await expect(
+      serverCard.getByRole('button', { name: 'Open Shared Test World', exact: true })
+    ).toBeVisible()
 
     await friendApp.user.click(friendApp.page.getByRole('button', { name: 'Refresh servers' }))
 
@@ -341,7 +348,7 @@ test('restores a shared world after relaunch and publishes the next version', as
       driveMock,
       paths: ownerPaths
     })
-    await ownerApp.user.click(ownerApp.page.getByRole('button', { name: 'Manage', exact: true }))
+    await openServerDashboard(ownerApp, 'Shared Test World')
 
     await expect(ownerApp.page.getByRole('heading', { name: 'Shared Test World' })).toBeVisible()
     await expect(ownerApp.page.getByRole('button', { name: 'Start Server', exact: true })).toBeVisible()

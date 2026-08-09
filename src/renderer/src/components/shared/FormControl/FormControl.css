@@ -1,0 +1,34 @@
+.chunk-field-control {
+  appearance: none;
+  background: var(--color-background-console);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: var(--font-size-body);
+  min-height: var(--size-field-default);
+  padding: 0 14px;
+  transition:
+    border-color 140ms ease,
+    box-shadow 140ms ease,
+    color 140ms ease,
+    opacity 140ms ease;
+}
+
+.chunk-field-control-compact {
+  background: var(--color-surface);
+  min-height: var(--size-field-compact);
+  padding-inline: 12px;
+}
+
+.chunk-field-control:focus {
+  border-color: var(--color-border-accent);
+  box-shadow: 0 0 0 3px var(--color-accent-glow);
+  outline: 0;
+}
+
+.chunk-field-control:disabled {
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+  opacity: 0.68;
+}

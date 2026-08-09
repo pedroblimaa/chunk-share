@@ -1,6 +1,12 @@
 import { expect, test } from '@playwright/test'
 import { E2E_SERVER_NAME, launchChunkShareE2EApp, type ChunkShareE2EApp } from '../support/electron-test-app'
-import { createLocalWorld, publishLocalWorld, startServer, stopServer } from '../support/local-world-e2e'
+import {
+  createLocalWorld,
+  openServerDashboard,
+  publishLocalWorld,
+  startServer,
+  stopServer
+} from '../support/local-world-e2e'
 
 test('blocks removal while hosting and keeps a stopped world removed after relaunch', async () => {
   let app: ChunkShareE2EApp | null = await launchChunkShareE2EApp()
@@ -13,7 +19,7 @@ test('blocks removal while hosting and keeps a stopped world removed after relau
 
     await expect(app.page.getByRole('button', { name: `Delete ${E2E_SERVER_NAME}` })).toBeDisabled()
 
-    await app.user.click(app.page.getByRole('button', { name: 'Manage', exact: true }))
+    await openServerDashboard(app)
     await stopServer(app, 2)
     await openServers(app)
     await app.user.click(app.page.getByRole('button', { name: `Delete ${E2E_SERVER_NAME}` }))

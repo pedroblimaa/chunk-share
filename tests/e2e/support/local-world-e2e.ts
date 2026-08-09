@@ -38,3 +38,11 @@ export async function publishLocalWorld(app: ChunkShareE2EApp): Promise<void> {
   await startServer(app)
   await stopServer(app, 1)
 }
+
+export async function openServerDashboard(
+  app: ChunkShareE2EApp,
+  serverName = E2E_SERVER_NAME
+): Promise<void> {
+  await app.user.click(app.page.getByRole('button', { name: `Open ${serverName}`, exact: true }))
+  await expect(app.page.getByRole('heading', { name: serverName })).toBeVisible()
+}

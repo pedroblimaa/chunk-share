@@ -51,6 +51,7 @@ function DriveJoinDialog({ initialJoinLink, onClose, onJoined }: DriveJoinDialog
         <div className="drive-join-input">
           <MaterialIcon name="link" />
           <input
+            className="chunk-field-control chunk-field-control-compact"
             required
             autoFocus
             id="drive-join-link"

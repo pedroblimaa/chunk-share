@@ -1,6 +1,7 @@
 import './Button.css'
 
 import MaterialIcon from '../MaterialIcon/MaterialIcon'
+import { getButtonClassName } from './button-classes'
 import type { ButtonProps } from './Button.model'
 
 function Button({
@@ -8,24 +9,17 @@ function Button({
   className = '',
   fullWidth = false,
   icon,
+  iconFilled = false,
   size = 'default',
   type = 'button',
   variant = 'primary',
   ...buttonProps
 }: ButtonProps): React.JSX.Element {
-  const classes = [
-    'chunk-button',
-    `chunk-button-${variant}`,
-    `chunk-button-${size}`,
-    fullWidth ? 'chunk-button-full-width' : '',
-    className
-  ]
-    .filter(Boolean)
-    .join(' ')
+  const classes = getButtonClassName({ className, fullWidth, size, variant })
 
   return (
     <button className={classes} type={type} {...buttonProps}>
-      {icon && <MaterialIcon name={icon} />}
+      {icon && <MaterialIcon name={icon} filled={iconFilled} />}
       {children && <span className="chunk-button-label">{children}</span>}
     </button>
   )

@@ -1,13 +1,6 @@
 .server-card {
   animation: server-card-enter 260ms ease-out both;
   backdrop-filter: blur(6px);
-  background: rgba(30, 30, 30, 0.7);
-  border: 1px solid #2a2a2a;
-  border-radius: 12px;
-  box-shadow:
-    0 10px 15px -3px rgba(0, 0, 0, 0.1),
-    0 4px 6px -4px rgba(0, 0, 0, 0.1);
-  color: var(--color-text-primary);
   display: flex;
   flex-direction: column;
   height: 372px;
@@ -15,11 +8,6 @@
   padding: 0;
   position: relative;
   text-align: left;
-  transition:
-    background-color 160ms ease,
-    border-color 160ms ease,
-    box-shadow 160ms ease,
-    transform 160ms ease;
 }
 
 .server-card-open-area {
@@ -35,14 +23,6 @@
   text-align: left;
 }
 
-.server-card:hover,
-.server-card:focus-within {
-  border-color: var(--color-border-accent);
-  box-shadow: 0 16px 34px var(--color-shadow-soft);
-  outline: 0;
-  transform: translateY(-5px);
-}
-
 .server-card-open-area:focus-visible {
   outline: 0;
 }
@@ -55,8 +35,8 @@
 }
 
 .server-card-visual {
-  background: #0e0e0e;
-  border-bottom: 1px solid #404a3a;
+  background: var(--color-background-page);
+  border-bottom: 1px solid var(--color-border-emphasis);
   flex: 0 0 128px;
   isolation: isolate;
   overflow: hidden;
@@ -74,7 +54,7 @@
 }
 
 .server-card-visual::after {
-  background: linear-gradient(0deg, #1e1e1e 0%, rgba(30, 30, 30, 0) 100%);
+  background: linear-gradient(0deg, var(--color-surface) 0%, transparent 100%);
   content: '';
   inset: 0;
   position: absolute;
@@ -85,66 +65,10 @@
   position: static;
 }
 
-.server-status-pill {
-  align-items: center;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border-emphasis);
-  border-radius: 999px;
-  color: var(--color-text-secondary);
-  display: inline-flex;
-  font-size: var(--font-size-caption);
-  font-weight: var(--font-weight-medium);
-  gap: 6px;
-  min-height: 26px;
-  padding: 4px 10px;
+.server-status-badge {
   position: absolute;
   right: 16px;
   top: 16px;
-}
-
-.server-status-pill span {
-  background: var(--color-text-muted);
-  border-radius: 999px;
-  height: 8px;
-  width: 8px;
-}
-
-.server-status-pill-running span {
-  background: var(--color-accent);
-  box-shadow: 0 0 8px rgba(128, 220, 91, 0.6);
-}
-
-.server-status-pill-running,
-.server-status-pill-hosted {
-  color: var(--color-accent);
-}
-
-.server-status-pill-starting,
-.server-status-pill-stopping,
-.server-status-pill-updating,
-.server-status-pill-remote-transitioning {
-  color: var(--color-warning);
-}
-
-.server-status-pill-starting span {
-  background: var(--color-warning);
-}
-
-.server-status-pill-stopping span {
-  background: var(--color-warning);
-}
-
-.server-status-pill-updating span {
-  background: var(--color-warning);
-}
-
-.server-status-pill-remote-transitioning span {
-  background: var(--color-warning);
-}
-
-.server-status-pill-hosted span {
-  background: var(--color-accent);
-  box-shadow: 0 0 12px var(--color-accent);
 }
 
 .server-card-sync-status {
@@ -161,7 +85,7 @@
 }
 
 .server-card-sync-status .material-symbols-outlined {
-  font-size: 13px;
+  font-size: var(--font-size-icon-sm);
 }
 
 .server-card-sync-status-success {
@@ -173,7 +97,7 @@
 }
 
 .server-card-sync-status-danger {
-  color: #ffb4b4;
+  color: var(--color-danger-text);
 }
 
 .server-card-sync-status-neutral {
@@ -197,14 +121,14 @@
 
 .server-card-body h3 {
   color: var(--color-text-primary);
-  font-size: 18px;
+  font-size: var(--font-size-action);
   font-weight: var(--font-weight-semibold);
   line-height: 24px;
 }
 
 .server-card-availability {
   align-items: center;
-  border-top: 1px solid rgba(64, 74, 58, 0.5);
+  border-top: 1px solid var(--color-border-panel-strong);
   color: var(--color-text-muted);
   display: flex;
   flex-wrap: wrap;
@@ -233,12 +157,12 @@
 }
 
 .server-card-availability .material-symbols-outlined {
-  font-size: 14px;
+  font-size: var(--font-size-small);
 }
 
 .server-card-body p {
   color: var(--color-text-secondary);
-  font-size: 14px;
+  font-size: var(--font-size-small);
   font-family: var(--font-family-mono);
   line-height: 20px;
   text-transform: capitalize;
@@ -246,26 +170,26 @@
 
 .server-player-count {
   align-items: center;
-  background: rgba(16, 17, 16, 0.7);
+  background: var(--color-background-page);
   border: 1px solid var(--color-border-subtle);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   color: var(--color-text-muted);
   display: flex;
   flex: 0 0 auto;
   font-family: var(--font-family-mono);
-  font-size: 14px;
+  font-size: var(--font-size-small);
   gap: 8px;
   min-height: 34px;
   padding: 6px 12px;
 }
 
 .server-player-count .material-symbols-outlined {
-  font-size: 14px;
+  font-size: var(--font-size-small);
 }
 
 .server-player-count strong {
   color: var(--color-text-primary);
-  font-size: 14px;
+  font-size: var(--font-size-small);
   font-weight: var(--font-weight-regular);
 }
 
@@ -274,9 +198,9 @@
 }
 
 .server-card-stats {
-  background: #1c1b1b;
-  border: 1px solid rgba(64, 74, 58, 0.5);
-  border-radius: 8px;
+  background: var(--color-surface-stat);
+  border: 1px solid var(--color-border-panel-strong);
+  border-radius: var(--radius-overlay);
   display: grid;
   gap: 20px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -295,7 +219,7 @@
 
 .server-card-stats dt {
   color: var(--color-text-secondary);
-  font-size: 10px;
+  font-size: var(--font-size-micro);
   font-weight: var(--font-weight-semibold);
   letter-spacing: 0.5px;
   line-height: 15px;
@@ -306,7 +230,7 @@
 .server-card-stats dd {
   color: var(--color-text-primary);
   font-family: var(--font-family-mono);
-  font-size: 14px;
+  font-size: var(--font-size-small);
   font-weight: var(--font-weight-regular);
   line-height: 20px;
 }
@@ -318,22 +242,22 @@
 }
 
 .server-delete-action {
-  border-color: rgba(64, 74, 58, 0.5);
-  border-radius: 4px;
-  height: 40px;
+  border-color: var(--color-border-panel-strong);
+  border-radius: var(--radius-control);
+  height: var(--size-control-default);
   transition:
     background-color 140ms ease,
     border-color 140ms ease,
     color 140ms ease,
     opacity 140ms ease;
-  width: 40px;
+  width: var(--size-control-default);
 }
 
 .server-delete-action:hover,
 .server-delete-action:focus-visible {
-  background: rgba(194, 64, 64, 0.18);
-  border-color: rgba(255, 111, 111, 0.56);
-  color: #ff9c9c;
+  background: var(--color-danger-surface);
+  border-color: var(--color-danger-border-strong);
+  color: var(--color-danger-icon);
   outline: 0;
 }
 

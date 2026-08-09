@@ -1,7 +1,5 @@
 .chunk-button,
-.server-toggle-button,
 .power-indicator,
-.overflow-button,
 .icon-button,
 .connection-pill button,
 .console-panel button {
@@ -15,7 +13,6 @@
 
 .dashboard-brand p,
 .user-avatar,
-.status-pill,
 .connection-pill,
 .server-state-summary p,
 .resource-meter strong,
@@ -44,14 +41,14 @@
 .dashboard-content::-webkit-scrollbar-track,
 .console-lines::-webkit-scrollbar-track {
   background: var(--color-background-console);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
 }
 
 .dashboard-content::-webkit-scrollbar-thumb,
 .console-lines::-webkit-scrollbar-thumb {
   background: var(--color-scrollbar-thumb);
   border: 2px solid var(--color-background-console);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
 }
 
 .dashboard-content::-webkit-scrollbar-thumb:hover,

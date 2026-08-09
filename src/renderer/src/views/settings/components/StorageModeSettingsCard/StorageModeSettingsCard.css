@@ -12,18 +12,18 @@
   align-items: center;
   background: transparent;
   border: 1px solid transparent;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   color: var(--color-text-muted);
   cursor: pointer;
   display: inline-flex;
-  height: 28px;
+  height: var(--size-control-compact);
   justify-content: center;
   padding: 0;
   transition:
     background-color 140ms ease,
     border-color 140ms ease,
     color 140ms ease;
-  width: 28px;
+  width: var(--size-control-compact);
 }
 
 .settings-info-button:hover,
@@ -35,7 +35,7 @@
 
 .settings-info-button .material-symbols-outlined {
   color: currentColor;
-  font-size: 18px;
+  font-size: var(--font-size-icon-md);
 }
 
 .settings-storage-options {
@@ -49,9 +49,9 @@
 }
 
 .settings-storage-note {
-  background: rgba(127, 179, 255, 0.08);
-  border: 1px solid rgba(127, 179, 255, 0.24);
-  border-radius: 6px;
+  background: var(--color-info-surface);
+  border: 1px solid var(--color-info-border);
+  border-radius: var(--radius-notice);
   color: var(--color-text-secondary);
   font-size: var(--font-size-caption);
   line-height: var(--line-height-copy);
@@ -69,7 +69,7 @@
 
 .settings-drive-details div {
   display: grid;
-  gap: 3px;
+  gap: 4px;
 }
 
 .settings-drive-details dt {
@@ -88,10 +88,10 @@
 }
 
 .settings-drive-error {
-  background: rgba(255, 108, 108, 0.08);
-  border: 1px solid rgba(255, 108, 108, 0.26);
-  border-radius: 6px;
-  color: var(--color-danger);
+  background: var(--color-danger-surface);
+  border: 1px solid var(--color-danger-border);
+  border-radius: var(--radius-notice);
+  color: var(--color-danger-text);
   font-size: var(--font-size-caption);
   line-height: var(--line-height-copy);
   margin-top: 14px;

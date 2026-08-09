@@ -1,7 +1,7 @@
 .chunk-card {
   background: var(--color-surface-panel);
   border: 1px solid var(--color-border-panel);
-  border-radius: 10px;
+  border-radius: var(--radius-card);
   color: var(--color-text-primary);
   transition:
     border-color 180ms ease,
@@ -18,7 +18,7 @@
 }
 
 .chunk-card-danger {
-  border-color: rgba(255, 111, 111, 0.34);
+  border-color: var(--color-danger-border);
 }
 
 .chunk-card-dashed {
@@ -27,6 +27,10 @@
 
 .chunk-card-padding-compact {
   padding: 14px;
+}
+
+.chunk-card-padding-none {
+  padding: 0;
 }
 
 .chunk-card-padding-default {
@@ -40,6 +44,6 @@
 .chunk-card-interactive:hover,
 .chunk-card-interactive:focus-within {
   border-color: var(--color-border-accent);
-  box-shadow: 0 16px 34px var(--color-shadow-soft);
+  box-shadow: var(--shadow-card-hover);
   transform: translateY(-2px);
 }

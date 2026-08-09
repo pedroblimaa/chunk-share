@@ -1,3 +1,5 @@
+import './MaterialIcon.css'
+
 interface MaterialIconProps {
   name: string
   filled?: boolean

@@ -4,7 +4,10 @@ import type { KeyboardEvent } from 'react'
 import type { ServerAvailability, ServerStatus } from '../../../../../../shared/dashboard'
 import { ServerHostingStatus, ServerLockStatus, type ServerLock } from '../../../../../../shared/domain'
 import { ServerSyncStatus, type ServerSyncSnapshot } from '../../../../../../shared/server-sync'
+import Badge from '../../../../components/shared/Badge/Badge'
+import type { BadgeTone } from '../../../../components/shared/Badge/Badge.model'
 import Button from '../../../../components/shared/Button/Button'
+import Card from '../../../../components/shared/Card/Card'
 import MaterialIcon from '../../../../components/shared/MaterialIcon/MaterialIcon'
 import Tooltip from '../../../../components/shared/Tooltip/Tooltip'
 import { getServerSyncView } from '../../../../utils/server-sync-ui'
@@ -86,20 +89,24 @@ function isRemoteHostTransitioning(syncStatus: ServerSyncSnapshot): boolean {
   return isRemoteLocked(syncStatus) && syncStatus.serverLock.hostingStatus !== ServerHostingStatus.Running
 }
 
-function getStatusPillClassName(server: ServerCardSummary): string {
-  const lockedClass = getRemoteLockStatusPillClassName(server)
-
-  return `server-status-pill server-status-pill-${server.status}${lockedClass}`
-}
-
-function getRemoteLockStatusPillClassName(server: ServerCardSummary): string {
-  if (server.status !== 'stopped' || server.syncStatus.status !== ServerSyncStatus.LockedByOther) {
-    return ''
+function getStatusTone(server: ServerCardSummary): BadgeTone {
+  if (server.status === 'stopped' && server.syncStatus.status === ServerSyncStatus.LockedByOther) {
+    return isRemoteHostTransitioning(server.syncStatus) ? 'warning' : 'active'
   }
 
-  return isRemoteHostTransitioning(server.syncStatus)
-    ? ' server-status-pill-remote-transitioning'
-    : ' server-status-pill-hosted'
+  if (server.status === 'running') {
+    return 'active'
+  }
+
+  if (server.status === 'starting' || server.status === 'stopping' || server.status === 'updating') {
+    return 'warning'
+  }
+
+  if (server.status === 'crashed' || server.status === 'error') {
+    return 'danger'
+  }
+
+  return 'default'
 }
 
 function isOpenKey(event: KeyboardEvent): boolean {
@@ -127,11 +134,15 @@ function ServerCard({
   }
 
   return (
-    <article
+    <Card
+      as="article"
       className={`server-card server-card-${server.status}`}
+      interactive
+      padding="none"
       style={{ animationDelay: `${animationDelayMs}ms` }}
     >
       <div
+        aria-label={`Open ${server.name}`}
         className="server-card-open-area"
         role="button"
         tabIndex={0}
@@ -140,10 +151,9 @@ function ServerCard({
       >
         <div className="server-card-visual">
           <div className="server-card-top">
-            <span className={getStatusPillClassName(server)}>
-              <span aria-hidden="true" />
+            <Badge dot className="server-status-badge" size="small" tone={getStatusTone(server)}>
               {getStatusLabel(server)}
-            </span>
+            </Badge>
             <span className={`server-card-sync-status server-card-sync-status-${syncView.tone}`}>
               <MaterialIcon name="sync" />
               {syncView.label}
@@ -210,7 +220,7 @@ function ServerCard({
           />
         </Tooltip>
       </div>
-    </article>
+    </Card>
   )
 }
 
