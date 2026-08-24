@@ -30,6 +30,8 @@ import {
   STORAGE_CLOUD_SETTINGS_CHANNEL,
   STORAGE_DELETE_SERVER_CHANNEL,
   STORAGE_GET_PROVIDER_SWITCH_PREVIEW_CHANNEL,
+  STORAGE_OPERATION_EVENTS_CHANNEL,
+  STORAGE_OPERATION_SNAPSHOT_CHANNEL,
   STORAGE_PROVIDER_COPY_PROGRESS_CHANNEL,
   STORAGE_RESET_SERVER_LOCK_CHANNEL,
   STORAGE_SAVE_SERVER_CONFIG_CHANNEL,
@@ -39,6 +41,7 @@ import {
   STORAGE_VALIDATE_GOOGLE_DRIVE_FOLDER_CHANNEL
 } from '../shared/ipc-channels'
 import type { ServerRuntimeEvent } from '../shared/server-runtime'
+import type { StorageOperationSnapshot } from '../shared/storage-operation'
 import type {
   ServerSetupProgressEvent,
   DownloadSharedServerInput,
@@ -78,6 +81,9 @@ const chunkShareApi = {
   storage: {
     getSnapshot: () => invokeIpc(STORAGE_SNAPSHOT_CHANNEL),
     getCloudStorageSettings: () => invokeIpc(STORAGE_CLOUD_SETTINGS_CHANNEL),
+    getOperationSnapshot: () => invokeIpc(STORAGE_OPERATION_SNAPSHOT_CHANNEL),
+    onOperationChanged: (listener: (snapshot: StorageOperationSnapshot) => void): (() => void) =>
+      subscribeToIpcEvent(STORAGE_OPERATION_EVENTS_CHANNEL, listener),
     setupGoogleDriveFolder: () => invokeIpc(STORAGE_SETUP_GOOGLE_DRIVE_FOLDER_CHANNEL),
     validateGoogleDriveFolder: () => invokeIpc(STORAGE_VALIDATE_GOOGLE_DRIVE_FOLDER_CHANNEL),
     clearGoogleDriveFolder: () => invokeIpc(STORAGE_CLEAR_GOOGLE_DRIVE_FOLDER_CHANNEL),

@@ -7,7 +7,7 @@ import {
   type ServerLock,
   type ServerStorageSnapshot
 } from '../../../shared/domain'
-import { STALE_LOCK_THRESHOLD_MS } from '../../../shared/server-sync'
+import { isServerLockStale } from '../../../shared/server-sync'
 import type { StorageAdapter } from '../../storage/adapters/storage-adapter.model'
 import type { WorldId } from '../../../shared/world'
 import type { WorldOperationContext } from '../../storage/core/world-operation-context'
@@ -144,7 +144,7 @@ function assertHostingLockCanBeAcquired(
   const lockIsCurrentRuntimeSession =
     activeRuntimeSession?.worldId === worldId && serverLock.sessionId === activeRuntimeSession.sessionId
   const lockBelongsToPersistedSession = serverLock.sessionId === persistedSessionId
-  const lockIsStale = isStaleLock(serverLock.lastHeartbeat)
+  const lockIsStale = isServerLockStale(serverLock.lastHeartbeat)
 
   if (lockIsCurrentRuntimeSession || lockBelongsToPersistedSession || lockIsStale) {
     return
@@ -209,10 +209,4 @@ function getHostingPlayer(storageSnapshot: ServerStorageSnapshot): Player {
   }
 
   throw new ServerRuntimeError('Cannot start server because no Google user is signed in.')
-}
-
-function isStaleLock(lastHeartbeat: string): boolean {
-  const heartbeatAgeMs = Date.now() - new Date(lastHeartbeat).getTime()
-
-  return !Number.isFinite(heartbeatAgeMs) || heartbeatAgeMs > STALE_LOCK_THRESHOLD_MS
 }

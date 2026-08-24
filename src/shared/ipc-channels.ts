@@ -19,6 +19,7 @@ import type {
   SetupVanillaServerInput,
   VanillaMinecraftVersion
 } from './server-setup'
+import type { StorageOperationSnapshot } from './storage-operation'
 
 export const AUTH_GET_SESSION_CHANNEL = 'auth:get-session'
 export const AUTH_SIGN_IN_WITH_GOOGLE_CHANNEL = 'auth:sign-in-with-google'
@@ -43,6 +44,8 @@ export const STORAGE_CLEAR_GOOGLE_DRIVE_FOLDER_CHANNEL = 'storage:clear-google-d
 export const STORAGE_GET_PROVIDER_SWITCH_PREVIEW_CHANNEL = 'storage:get-provider-switch-preview'
 export const STORAGE_SET_PROVIDER_CHANNEL = 'storage:set-provider'
 export const STORAGE_PROVIDER_COPY_PROGRESS_CHANNEL = 'storage:provider-copy-progress'
+export const STORAGE_OPERATION_SNAPSHOT_CHANNEL = 'storage:get-operation-snapshot'
+export const STORAGE_OPERATION_EVENTS_CHANNEL = 'storage:operation-events'
 export const STORAGE_SAVE_SERVER_CONFIG_CHANNEL = 'storage:save-server-config'
 export const STORAGE_DELETE_SERVER_CHANNEL = 'storage:delete-server'
 export const STORAGE_RESET_SERVER_LOCK_CHANNEL = 'storage:reset-server-lock'
@@ -70,6 +73,7 @@ export interface IpcInvokeContract {
   [DRIVE_JOIN_WORLD_CHANNEL]: IpcOperation<[joinLink: string], ServerDisplayState>
   [STORAGE_SNAPSHOT_CHANNEL]: IpcOperation<[], ServerStorageSnapshot>
   [STORAGE_CLOUD_SETTINGS_CHANNEL]: IpcOperation<[], CloudStorageSettings>
+  [STORAGE_OPERATION_SNAPSHOT_CHANNEL]: IpcOperation<[], StorageOperationSnapshot>
   [STORAGE_SETUP_GOOGLE_DRIVE_FOLDER_CHANNEL]: IpcOperation<[], CloudStorageSettings>
   [STORAGE_VALIDATE_GOOGLE_DRIVE_FOLDER_CHANNEL]: IpcOperation<[], CloudStorageSettings>
   [STORAGE_CLEAR_GOOGLE_DRIVE_FOLDER_CHANNEL]: IpcOperation<[], CloudStorageSettings>
@@ -102,6 +106,7 @@ export interface IpcInvokeContract {
 export interface IpcEventContract {
   [DRIVE_JOIN_LINK_AVAILABLE_CHANNEL]: []
   [STORAGE_PROVIDER_COPY_PROGRESS_CHANNEL]: [progress: StorageProviderCopyProgress]
+  [STORAGE_OPERATION_EVENTS_CHANNEL]: [snapshot: StorageOperationSnapshot]
   [SERVER_SETUP_PROGRESS_CHANNEL]: [event: ServerSetupProgressEvent]
   [SERVER_RUNTIME_EVENTS_CHANNEL]: [event: ServerRuntimeEvent]
 }

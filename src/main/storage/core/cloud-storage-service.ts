@@ -10,6 +10,7 @@ import {
   type GoogleDriveWorldState
 } from '../../../shared/cloud-storage.model'
 import { ServerLockStatus } from '../../../shared/domain'
+import { ExclusiveStorageOperation } from '../../../shared/storage-operation'
 import type { AppState, LocalWorldState } from '../../../shared/world'
 import { AuthError } from '../../auth/auth-error'
 import { AuthErrorCode } from '../../auth/auth-model'
@@ -30,7 +31,6 @@ import {
   writeCloudStorageSettings
 } from '../persistence/local-state-store'
 import { runExclusiveStorageOperation } from './operations/operation-coordinator'
-import { ExclusiveStorageOperation } from './operations/operation.model'
 import type { StorageProviderCopyProgressListener } from './provider-copy/provider-copy.model'
 import { executeStorageProviderCopy, createVisibleProgressReporter } from './provider-copy-service'
 import { StorageError } from './support/storage-error'
@@ -55,7 +55,13 @@ export function activateSharedGoogleDriveWorld(
   return runStorageSettingsChange(() => saveSharedGoogleDriveWorld(reference))
 }
 
-export async function getCloudStorageProviderSwitchPreview(
+export function getCloudStorageProviderSwitchPreview(
+  targetProvider: CloudStorageProvider
+): Promise<CloudStorageProviderSwitchPreview> {
+  return runStorageSettingsChange(() => createCloudStorageProviderSwitchPreview(targetProvider))
+}
+
+async function createCloudStorageProviderSwitchPreview(
   targetProvider: CloudStorageProvider
 ): Promise<CloudStorageProviderSwitchPreview> {
   const settings = await readCloudStorageSettings()
@@ -352,9 +358,27 @@ function assertServerIsNotActive(): void {
 function runStorageSettingsChange<Result>(executeOperation: () => Promise<Result>): Promise<Result> {
   return runExclusiveStorageOperation(
     ExclusiveStorageOperation.StorageSettingsChange,
-    new StorageError('Cannot change storage settings while another storage operation is in progress.'),
+    (activeOperation) =>
+      new StorageError(
+        `Cannot change storage settings while ${getStorageOperationLabel(activeOperation)} is in progress.`
+      ),
     executeOperation
   )
+}
+
+function getStorageOperationLabel(operation: ExclusiveStorageOperation): string {
+  switch (operation) {
+    case ExclusiveStorageOperation.ServerDelete:
+      return 'server removal'
+    case ExclusiveStorageOperation.ServerDownload:
+      return 'a server download'
+    case ExclusiveStorageOperation.ServerSetup:
+      return 'server setup'
+    case ExclusiveStorageOperation.ServerStart:
+      return 'Minecraft startup'
+    case ExclusiveStorageOperation.StorageSettingsChange:
+      return 'another storage settings update'
+  }
 }
 
 async function assertCloudStorageProviderCanSwitch(

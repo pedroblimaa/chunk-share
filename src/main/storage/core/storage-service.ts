@@ -1,6 +1,8 @@
 import { CloudStorageProvider, GoogleDriveSetupStatus } from '../../../shared/cloud-storage.model'
 import { ServerLockStatus, type ServerConfig, type ServerStorageSnapshot } from '../../../shared/domain'
+import { ExclusiveStorageOperation } from '../../../shared/storage-operation'
 import type { WorldId } from '../../../shared/world'
+import { isServerLockStale } from '../../../shared/server-sync'
 import { getServerRuntimeSnapshot } from '../../server-runtime/server-runtime-service'
 import { getServerSyncSnapshot } from '../../server-sync/server-sync-service'
 import { deleteGoogleDriveWorldFilesIfOwned } from '../adapters/google-drive-storage-adapter'
@@ -11,7 +13,6 @@ import { backupServerFolder } from '../server-save/server-folder-backup'
 import { StorageError } from './support/storage-error'
 import { createWorldContext, type WorldContext } from './world-context'
 import { runExclusiveStorageOperation } from './operations/operation-coordinator'
-import { ExclusiveStorageOperation } from './operations/operation.model'
 
 export async function getStorageSnapshot(): Promise<ServerStorageSnapshot> {
   return getServerSyncSnapshot()
@@ -99,7 +100,7 @@ async function assertServerCanBeRemoved(
   const storageAdapter = await getStorageAdapterForProvider(activeProvider, context)
   const serverLock = await storageAdapter.readServerLock()
 
-  if (serverLock.status === ServerLockStatus.Locked) {
+  if (serverLock.status === ServerLockStatus.Locked && !isServerLockStale(serverLock.lastHeartbeat)) {
     throw new StorageError(
       `Cannot remove this server while ${serverLock.lockedBy.displayName} is hosting it.`
     )

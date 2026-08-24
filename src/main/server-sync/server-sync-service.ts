@@ -5,7 +5,7 @@ import {
   type ServerLock,
   type ServerStorageSnapshot
 } from '../../shared/domain'
-import { STALE_LOCK_THRESHOLD_MS, ServerSyncStatus, type ServerSyncSnapshot } from '../../shared/server-sync'
+import { isServerLockStale, ServerSyncStatus, type ServerSyncSnapshot } from '../../shared/server-sync'
 import { getStorageAdapterForProvider } from '../storage/adapters/storage-adapter-service'
 import { readAppState, readWorldLocalState } from '../storage/persistence/local-state-store'
 import { getActiveRuntimeSessionId } from '../server-runtime/lifecycle/hosting-lock-manager'
@@ -236,8 +236,7 @@ function getLockState(
 
   const isCurrentRuntimeLock = serverLock.sessionId === getActiveRuntimeSessionId(worldId)
   const isPersistedWorldLock = serverLock.sessionId === persistedSessionId
-  const heartbeatAgeMs = Date.now() - new Date(serverLock.lastHeartbeat).getTime()
-  const isStale = !Number.isFinite(heartbeatAgeMs) || heartbeatAgeMs > STALE_LOCK_THRESHOLD_MS
+  const isStale = isServerLockStale(serverLock.lastHeartbeat)
 
   return {
     blocksCurrentUser: !isCurrentRuntimeLock && !isPersistedWorldLock && !isStale,

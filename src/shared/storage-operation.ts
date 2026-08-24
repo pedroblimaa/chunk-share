@@ -5,3 +5,8 @@ export enum ExclusiveStorageOperation {
   StorageSettingsChange = 'storage-settings-change',
   ServerStart = 'server-start'
 }
+
+export interface StorageOperationSnapshot {
+  activeOperation: ExclusiveStorageOperation | null
+  revision: number
+}

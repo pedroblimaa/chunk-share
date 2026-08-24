@@ -20,7 +20,7 @@ import {
 } from '../storage/server-save/server-save-publisher'
 import { restoreLatestServerSave } from '../storage/server-save/server-save-restorer'
 import { runExclusiveStorageOperation } from '../storage/core/operations/operation-coordinator'
-import { ExclusiveStorageOperation } from '../storage/core/operations/operation.model'
+import { ExclusiveStorageOperation } from '../../shared/storage-operation'
 import {
   getSelectedWorldOperationContext,
   resolvePublishingWorldOperationContext,
@@ -64,6 +64,7 @@ class ServerRuntime {
   private stopTimeout: NodeJS.Timeout | null = null
   private sessionId: string | null = null
   private lockActivation: Promise<void> | null = null
+  private serverReachedReady = false
   private stdoutBuffer = ''
   private stderrBuffer = ''
   private userRequestedStop = false
@@ -191,6 +192,7 @@ class ServerRuntime {
   }
 
   private beginServerStart(): void {
+    this.serverReachedReady = false
     this.status = 'starting'
     this.errorMessage = null
     this.logs = []
@@ -461,6 +463,10 @@ class ServerRuntime {
     await stopHeartbeat()
     this.flushServerOutputBuffers()
 
+    if (!this.serverReachedReady && !this.userRequestedStop) {
+      await clearHostingLockAfterStartFailure(operationContext, sessionId).catch(() => undefined)
+    }
+
     if (this.status === 'error') {
       this.serverProcess = null
       if (this.sessionId === sessionId) {
@@ -613,6 +619,7 @@ class ServerRuntime {
   }
 
   private markServerReady(sessionId: string): void {
+    this.serverReachedReady = true
     this.status = 'running'
     const lockActivation = this.startHeartbeatAfterLockActivation(sessionId)
     this.lockActivation = lockActivation

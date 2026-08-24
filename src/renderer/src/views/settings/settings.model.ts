@@ -8,6 +8,7 @@ import type {
   StorageProviderCopyProgress
 } from '../../../../shared/cloud-storage.model'
 import type { BadgeTone } from '../../components/shared/Badge/Badge.model'
+import type { ExclusiveStorageOperation } from '../../../../shared/storage-operation'
 
 export interface GoogleDriveStatusView {
   label: string
@@ -27,6 +28,7 @@ export enum StorageSettingsOperation {
 export type GoogleDriveStatusViewMap = Record<GoogleDriveSetupStatus, GoogleDriveStatusView>
 
 export interface StorageProviderOperationState {
+  blockingOperation: ExclusiveStorageOperation | null
   errorMessage: string | null
   isBusy: boolean
   operation: StorageSettingsOperation

@@ -2,6 +2,12 @@ import type { LatestSave, Player, ServerLock } from './domain'
 
 export const STALE_LOCK_THRESHOLD_MS = 3 * 60 * 1000
 
+export function isServerLockStale(lastHeartbeat: string): boolean {
+  const heartbeatAgeMs = Date.now() - new Date(lastHeartbeat).getTime()
+
+  return !Number.isFinite(heartbeatAgeMs) || heartbeatAgeMs > STALE_LOCK_THRESHOLD_MS
+}
+
 export enum ServerSyncStatus {
   Ready = 'ready',
   NoCloudSave = 'no-cloud-save',

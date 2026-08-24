@@ -7,6 +7,7 @@ import {
   writeAppState
 } from '../../../src/main/storage/persistence/local-state-store'
 import { deleteConfiguredServer } from '../../../src/main/storage/core/storage-service'
+import { getCloudStorageProviderSwitchPreview } from '../../../src/main/storage/core/cloud-storage-service'
 import { createLocalTestWorld } from '../support/world-test-data'
 import {
   GOOGLE_TEST_ACCOUNTS,
@@ -104,9 +105,19 @@ describe('world deletion isolation', () => {
 
     const deletion = deleteConfiguredServer()
     await driveDeletionGate.waitUntilStarted()
+    await expect(getCloudStorageProviderSwitchPreview(CloudStorageProvider.Local)).rejects.toThrow(
+      'Cannot change storage settings while server removal is in progress.'
+    )
     await selectWorld(WORLD_B_ID)
     driveDeletionGate.release()
     await deletion
+
+    await expect(
+      getCloudStorageProviderSwitchPreview(CloudStorageProvider.GoogleDrive)
+    ).resolves.toMatchObject({
+      source: { provider: CloudStorageProvider.Local },
+      target: { provider: CloudStorageProvider.GoogleDrive }
+    })
 
     const nextState = await readAppState()
     expect(nextState.worlds.map(({ id }) => id)).toEqual([WORLD_B_ID])

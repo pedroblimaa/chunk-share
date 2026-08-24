@@ -7,6 +7,10 @@ import {
   type CloudStorageSettings,
   type StorageProviderCopyProgress
 } from '../../../../../shared/cloud-storage.model'
+import {
+  type ExclusiveStorageOperation,
+  type StorageOperationSnapshot
+} from '../../../../../shared/storage-operation'
 import { getErrorMessage } from '../../../utils/error-message'
 import { StorageSettingsOperation, type StorageProviderSettingsController } from '../settings.model'
 
@@ -20,11 +24,24 @@ export function useStorageProviderSettingsController(): StorageProviderSettingsC
     useState<CloudStorageProviderSwitchPreview | null>(null)
   const [storageProviderCopyProgress, setStorageProviderCopyProgress] =
     useState<StorageProviderCopyProgress | null>(null)
+  const [storageOperationSnapshot, setStorageOperationSnapshot] = useState<StorageOperationSnapshot | null>(
+    null
+  )
   const operationIsRunning = useRef(true)
+  const activeStorageOperation = useRef<ExclusiveStorageOperation | null | undefined>(undefined)
+  const storageOperationRevision = useRef(-1)
   const activeStorageProvider = storageProviderSettings?.activeProvider ?? null
+  const blockingOperation =
+    currentOperation === StorageSettingsOperation.Idle
+      ? (storageOperationSnapshot?.activeOperation ?? null)
+      : null
   const operationState = {
+    blockingOperation,
     errorMessage,
-    isBusy: currentOperation !== StorageSettingsOperation.Idle,
+    isBusy:
+      currentOperation !== StorageSettingsOperation.Idle ||
+      storageOperationSnapshot === null ||
+      storageOperationSnapshot.activeOperation !== null,
     operation: currentOperation
   }
 
@@ -58,7 +75,7 @@ export function useStorageProviderSettingsController(): StorageProviderSettingsC
     applyResult: (result: Result) => void,
     fallbackErrorMessage = 'Unable to update storage.'
   ): Promise<boolean> => {
-    if (operationIsRunning.current) {
+    if (operationIsRunning.current || activeStorageOperation.current !== null) {
       return false
     }
 
@@ -89,6 +106,38 @@ export function useStorageProviderSettingsController(): StorageProviderSettingsC
 
   useEffect(() => {
     return window.chunkShare.storage.onProviderCopyProgress(setStorageProviderCopyProgress)
+  }, [])
+
+  useEffect(() => {
+    let isMounted = true
+    const applySnapshot = (snapshot: StorageOperationSnapshot): void => {
+      if (snapshot.revision < storageOperationRevision.current) {
+        return
+      }
+
+      storageOperationRevision.current = snapshot.revision
+      activeStorageOperation.current = snapshot.activeOperation
+      setStorageOperationSnapshot(snapshot)
+    }
+    const unsubscribe = window.chunkShare.storage.onOperationChanged(applySnapshot)
+
+    window.chunkShare.storage
+      .getOperationSnapshot()
+      .then((snapshot) => {
+        if (isMounted) {
+          applySnapshot(snapshot)
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          applySnapshot({ activeOperation: null, revision: 0 })
+        }
+      })
+
+    return () => {
+      isMounted = false
+      unsubscribe()
+    }
   }, [])
 
   const requestGoogleDriveSetup = (): void => {

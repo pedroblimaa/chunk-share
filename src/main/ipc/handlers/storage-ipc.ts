@@ -1,8 +1,11 @@
+import { BrowserWindow } from 'electron'
 import {
   STORAGE_CLEAR_GOOGLE_DRIVE_FOLDER_CHANNEL,
   STORAGE_CLOUD_SETTINGS_CHANNEL,
   STORAGE_DELETE_SERVER_CHANNEL,
   STORAGE_GET_PROVIDER_SWITCH_PREVIEW_CHANNEL,
+  STORAGE_OPERATION_EVENTS_CHANNEL,
+  STORAGE_OPERATION_SNAPSHOT_CHANNEL,
   STORAGE_RESET_SERVER_LOCK_CHANNEL,
   STORAGE_SAVE_SERVER_CONFIG_CHANNEL,
   STORAGE_SET_PROVIDER_CHANNEL,
@@ -34,12 +37,18 @@ import {
   isServerConfig
 } from '../../storage/core/support/storage-validation'
 import { createCopyProgressSender } from '../support/storage-progress-sender'
-import { handleIpc } from '../typed-ipc'
+import {
+  getStorageOperationSnapshot,
+  subscribeToStorageOperation
+} from '../../storage/core/operations/operation-coordinator'
+import { handleIpc, sendIpcEvent } from '../typed-ipc'
 
 export function registerStorageIpcHandlers(): void {
   handleIpc(STORAGE_SNAPSHOT_CHANNEL, () => getStorageSnapshot())
 
   handleIpc(STORAGE_CLOUD_SETTINGS_CHANNEL, () => getCloudStorageSettings())
+
+  handleIpc(STORAGE_OPERATION_SNAPSHOT_CHANNEL, () => getStorageOperationSnapshot())
 
   handleIpc(STORAGE_SETUP_GOOGLE_DRIVE_FOLDER_CHANNEL, () => setupGoogleDriveFolder())
 
@@ -79,5 +88,11 @@ export function registerStorageIpcHandlers(): void {
     }
 
     return updateServerConfig(serverConfig)
+  })
+
+  subscribeToStorageOperation((snapshot) => {
+    BrowserWindow.getAllWindows().forEach((browserWindow) => {
+      sendIpcEvent(browserWindow.webContents, STORAGE_OPERATION_EVENTS_CHANNEL, snapshot)
+    })
   })
 }

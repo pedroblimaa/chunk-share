@@ -4,6 +4,7 @@ import { join } from 'path'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ServerHostingStatus, ServerLockStatus } from '../../../src/shared/domain'
 import { ServerSetupProgressStep } from '../../../src/shared/server-setup'
+import { STALE_LOCK_THRESHOLD_MS } from '../../../src/shared/server-sync'
 import { CloudStorageProvider, GoogleDriveSetupStatus } from '../../../src/shared/cloud-storage.model'
 import {
   getServerRuntimeSnapshot,
@@ -167,6 +168,28 @@ describe('world lifecycle', () => {
     expect(publishLogs.some((message) => message.includes('completed in'))).toBe(false)
   })
 
+  it('clears the hosting lock when Java exits before the server is ready', async () => {
+    await createLocalTestWorld()
+    const storageAdapter = await getLocalStorageAdapter()
+
+    await startMinecraftServer()
+    getMinecraftProcessMock().stderr.write(
+      'UnsupportedClassVersionError: class file version 69.0, this runtime only recognizes up to 52.0\n'
+    )
+    getMinecraftProcessMock().emit('close', 1)
+
+    await vi.waitFor(
+      async () => {
+        expect(getServerRuntimeSnapshot()).toMatchObject({ runningWorldId: null, status: 'error' })
+        await expect(storageAdapter.readServerLock()).resolves.toEqual({
+          status: ServerLockStatus.Unlocked
+        })
+        await expect(readLocalState()).resolves.toMatchObject({ activeSessionId: null })
+      },
+      { timeout: INTEGRATION_WAIT_TIMEOUT_MS }
+    )
+  })
+
   it('deletes a local world and keeps its server-folder backup', async () => {
     await createLocalTestWorld()
     await publishServerSave()
@@ -187,6 +210,48 @@ describe('world lifecycle', () => {
     await expect(
       readFile(join(worldPaths.backupsFolder, backupFolderName, 'world', 'level.dat'), 'utf8')
     ).resolves.toBe(TEST_WORLD_DATA)
+  })
+
+  it('deletes a local world after its hosting lock becomes stale', async () => {
+    await createLocalTestWorld()
+    const storageAdapter = await getLocalStorageAdapter()
+    const staleHeartbeat = new Date(Date.now() - STALE_LOCK_THRESHOLD_MS - 1).toISOString()
+
+    await storageAdapter.updateServerLock(() => ({
+      status: ServerLockStatus.Locked,
+      lockedBy: GOOGLE_TEST_ACCOUNTS.owner.session.player,
+      sessionId: 'stale-session',
+      saveVersion: 0,
+      hostingStatus: ServerHostingStatus.Starting,
+      startedAt: staleHeartbeat,
+      lastHeartbeat: staleHeartbeat,
+      connectionAddresses: []
+    }))
+
+    await expect(deleteConfiguredServer()).resolves.toMatchObject({
+      localState: { serverSetup: { status: 'not-configured' } }
+    })
+  })
+
+  it('keeps a local world protected while its hosting lock is fresh', async () => {
+    await createLocalTestWorld()
+    const storageAdapter = await getLocalStorageAdapter()
+    const now = new Date().toISOString()
+
+    await storageAdapter.updateServerLock(() => ({
+      status: ServerLockStatus.Locked,
+      lockedBy: GOOGLE_TEST_ACCOUNTS.owner.session.player,
+      sessionId: 'fresh-session',
+      saveVersion: 0,
+      hostingStatus: ServerHostingStatus.Starting,
+      startedAt: now,
+      lastHeartbeat: now,
+      connectionAddresses: []
+    }))
+
+    await expect(deleteConfiguredServer()).rejects.toThrow(
+      `Cannot remove this server while ${GOOGLE_TEST_ACCOUNTS.owner.session.player.displayName} is hosting it.`
+    )
   })
 
   it('deletes an owned Google Drive world and resets its local configuration', async () => {
