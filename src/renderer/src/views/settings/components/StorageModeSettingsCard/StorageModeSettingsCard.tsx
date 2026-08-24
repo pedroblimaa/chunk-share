@@ -20,6 +20,7 @@ import StorageProviderOption from '../StorageProviderOption/StorageProviderOptio
 import StorageProviderSwitchDialog from '../StorageProviderSwitchDialog/StorageProviderSwitchDialog'
 import type { StorageModeSettingsCardProps } from './StorageModeSettingsCard.model'
 import { STORAGE_MODE_INFO } from './storage-mode-settings.constants'
+import { ExclusiveStorageOperation } from '../../../../../../shared/storage-operation'
 
 function StorageModeSettingsCard({
   onStorageProviderChange
@@ -32,6 +33,7 @@ function StorageModeSettingsCard({
   const displayedProvider = selectedProvider ?? activeProvider
   const isLoading = activeProvider === null
   const storageErrorMessage = storage.operationState.errorMessage ?? refreshErrorMessage
+  const blockingMessage = getBlockingStorageOperationMessage(storage.operationState.blockingOperation)
 
   const cancelProviderSwitch = (): void => {
     setSwitchTargetProvider(null)
@@ -132,6 +134,12 @@ function StorageModeSettingsCard({
         </Tooltip>
       </div>
 
+      {blockingMessage && (
+        <p className="settings-storage-note" role="status">
+          {blockingMessage}
+        </p>
+      )}
+
       {isLoading && storage.operationState.errorMessage !== null && (
         <div className="settings-storage-actions">
           <Button
@@ -194,6 +202,23 @@ function StorageModeSettingsCard({
 
 function targetCanBeActivatedWithoutChoice(preview: CloudStorageProviderSwitchPreview): boolean {
   return !storageProviderHasData(preview.source) && storageProviderHasData(preview.target)
+}
+
+function getBlockingStorageOperationMessage(operation: ExclusiveStorageOperation | null): string | null {
+  switch (operation) {
+    case ExclusiveStorageOperation.ServerDelete:
+      return 'Server removal is still finishing. Storage settings will unlock automatically.'
+    case ExclusiveStorageOperation.ServerDownload:
+      return 'A server download is still finishing. Storage settings will unlock automatically.'
+    case ExclusiveStorageOperation.ServerSetup:
+      return 'Server setup is still finishing. Storage settings will unlock automatically.'
+    case ExclusiveStorageOperation.ServerStart:
+      return 'Minecraft startup is still finishing. Storage settings will unlock automatically.'
+    case ExclusiveStorageOperation.StorageSettingsChange:
+      return 'Another storage settings update is still finishing.'
+    case null:
+      return null
+  }
 }
 
 export default StorageModeSettingsCard

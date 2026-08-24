@@ -20,7 +20,7 @@ import {
 } from '../storage/persistence/local-state-store'
 import { getServerSyncSnapshot } from '../server-sync/server-sync-service'
 import { runExclusiveStorageOperation } from '../storage/core/operations/operation-coordinator'
-import { ExclusiveStorageOperation } from '../storage/core/operations/operation.model'
+import { ExclusiveStorageOperation } from '../../shared/storage-operation'
 import { backupServerFolder } from '../storage/server-save/server-folder-backup'
 import { restoreLatestServerSave } from '../storage/server-save/server-save-restorer'
 import {
