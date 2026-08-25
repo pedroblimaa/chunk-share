@@ -3,10 +3,10 @@ import { defineConfig } from '@playwright/test'
 export default defineConfig({
   testDir: './tests/e2e',
   fullyParallel: true,
-  workers: process.env.CI ? 2 : 1,
+  workers: process.env.CI ? 2 : 4,
   retries: process.env.CI ? 1 : 0,
   failOnFlakyTests: Boolean(process.env.CI),
-  timeout: 30_000,
+  timeout: 15_000,
   expect: {
     timeout: 5_000
   },

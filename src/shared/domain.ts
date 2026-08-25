@@ -49,8 +49,6 @@ export interface ServerConfig {
 export interface JavaConfig {
   mode: 'system' | 'custom'
   executablePath: string | null
-  detectedVersion: string | null
-  isValidated: boolean
 }
 
 export type ServerSetupStatus = 'not-configured' | 'downloading' | 'ready' | 'error'

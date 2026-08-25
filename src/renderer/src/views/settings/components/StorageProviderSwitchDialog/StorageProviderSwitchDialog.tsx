@@ -87,7 +87,7 @@ function renderDialogContent({
   if (errorMessage) {
     return (
       <>
-        <div>
+        <div className="settings-provider-switch-message">
           <strong>Unable to check storage data</strong>
           <span>{errorMessage}</span>
         </div>

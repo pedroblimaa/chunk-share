@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { ServerDisplayState } from '../../shared/dashboard'
+import type { JavaConfig } from '../../shared/domain'
+import type { WorldId } from '../../shared/world'
 import { useAuthSession } from './hooks/useAuthSession'
 import { useServerActions } from './hooks/useServerActions'
 import { useServerLockRepair } from './hooks/useServerLockRepair'
 import type { AppView } from './hooks/server.model'
+import { applyJavaConfigToServerDisplayState } from './utils/server-display-state'
 import AuthView from './views/auth/AuthView/AuthView'
 import DashboardView from './views/dashboard/DashboardView/DashboardView'
 import ServerSetupView from './views/server-setup/ServerSetupView/ServerSetupView'
@@ -51,6 +54,12 @@ function App(): React.JSX.Element {
 
   const toggleSidebar = useCallback((): void => {
     setSidebarOpen((isOpen) => !isOpen)
+  }, [])
+
+  const updateWorldJavaConfig = useCallback((worldId: WorldId, javaConfig: JavaConfig): void => {
+    setServerDisplayState((currentState) =>
+      currentState ? applyJavaConfigToServerDisplayState(currentState, worldId, javaConfig) : null
+    )
   }, [])
 
   const completeDriveJoin = (nextServerDisplayState: ServerDisplayState): void => {
@@ -107,6 +116,7 @@ function App(): React.JSX.Element {
           <DashboardView
             isSidebarOpen={sidebarOpen}
             serverDisplayState={serverDisplayState}
+            onJavaConfigSaved={updateWorldJavaConfig}
             onServerDisplayStateChange={setServerDisplayState}
             onCreateServer={() => setAppView('server-setup')}
             onCloseSidebar={closeSidebar}

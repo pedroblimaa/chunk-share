@@ -29,6 +29,11 @@ describe('multi-world local state', () => {
       serverSetup: { status: 'not-configured' }
     })
     expect(world.serverConfig).not.toHaveProperty('serverFolderPath')
+    expect(world.javaConfig).toEqual({ mode: 'system', executablePath: null })
+
+    const otherWorld = createDefaultLocalWorldState('00000000-0000-4000-8000-000000000002')
+    world.javaConfig = { mode: 'custom', executablePath: 'C:\\Java\\bin\\java.exe' }
+    expect(otherWorld.javaConfig).toEqual({ mode: 'system', executablePath: null })
   })
 
   it('accepts an empty catalog and rejects duplicate world IDs', () => {
@@ -57,5 +62,6 @@ describe('multi-world local state', () => {
       latestSave: null,
       storageMutation: null
     })
+    expect(control).not.toHaveProperty('javaConfig')
   })
 })

@@ -1,4 +1,4 @@
-import type { ServerStatus } from './domain'
+import type { JavaConfig, ServerStatus } from './domain'
 import type { ServerConnectionAddress } from './server-runtime'
 import type { ServerSyncSnapshot } from './server-sync'
 import type { WorldId } from './world'
@@ -47,6 +47,7 @@ export interface ConsoleLogLine {
 
 export interface ServerCatalogEntry {
   worldId: WorldId
+  javaConfig: JavaConfig
   serverAvailability: ServerAvailability
   serverName: string
   serverStatus: ServerStatus
@@ -62,6 +63,7 @@ export interface ServerDisplayState {
   selectedWorldId: WorldId | null
   runningWorldId: WorldId | null
   worlds: ServerCatalogEntry[]
+  javaConfig: JavaConfig
   serverAvailability: ServerAvailability
   serverName: string
   serverStatus: ServerStatus

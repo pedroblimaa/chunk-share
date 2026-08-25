@@ -1,0 +1,112 @@
+.java-runtime-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.java-runtime-automatic {
+  align-items: center;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  display: inline-flex;
+  gap: 10px;
+  width: fit-content;
+}
+
+.java-runtime-manual {
+  color: var(--color-text-secondary);
+  display: flex;
+  flex-direction: column;
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-medium);
+  gap: 8px;
+  min-width: 0;
+}
+
+.java-runtime-manual-row {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.java-runtime-select-control {
+  display: grid;
+  flex: 1;
+  max-width: 760px;
+  min-width: 0;
+  position: relative;
+}
+
+.java-runtime-select-control .chunk-field-control {
+  min-width: 0;
+  padding-left: 44px;
+  padding-right: 42px;
+  width: 100%;
+}
+
+.java-runtime-select-control .material-symbols-outlined {
+  color: var(--color-text-secondary);
+  pointer-events: none;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.java-runtime-terminal-icon,
+.java-runtime-loading-icon {
+  left: 14px;
+}
+
+.java-runtime-loading-icon {
+  animation: java-runtime-spin 900ms linear infinite;
+}
+
+.java-runtime-expand-icon {
+  right: 14px;
+}
+
+.java-runtime-actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: 8px;
+}
+
+.java-runtime-actions.is-automatic {
+  justify-content: flex-start;
+}
+
+.java-runtime-message {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-caption);
+  line-height: var(--line-height-copy);
+  overflow-wrap: anywhere;
+}
+
+.java-runtime-message.is-error {
+  color: var(--color-danger-text);
+}
+
+.java-runtime-selector.is-minimal .java-runtime-manual {
+  gap: 0;
+}
+
+@keyframes java-runtime-spin {
+  from {
+    transform: translateY(-50%) rotate(0deg);
+  }
+
+  to {
+    transform: translateY(-50%) rotate(360deg);
+  }
+}
+
+@media (max-width: 640px) {
+  .java-runtime-manual-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .java-runtime-actions {
+    justify-content: flex-end;
+  }
+}

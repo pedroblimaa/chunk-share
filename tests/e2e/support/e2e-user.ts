@@ -17,6 +17,10 @@ export class E2EUser {
     return this.run(() => locator.check())
   }
 
+  public uncheck(locator: Locator): Promise<void> {
+    return this.run(() => locator.uncheck())
+  }
+
   private async run(action: () => Promise<void>): Promise<void> {
     await action()
 

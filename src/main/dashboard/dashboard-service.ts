@@ -20,7 +20,11 @@ import {
 import { ServerSyncStatus, type ServerSyncSnapshot } from '../../shared/server-sync'
 import type { LocalWorldState, WorldId } from '../../shared/world'
 import { getServerRuntimeSnapshot } from '../server-runtime/server-runtime-service'
-import { DEFAULT_SERVER_CONFIG, DEFAULT_SERVER_LOCK } from '../storage/core/support/storage-defaults'
+import {
+  DEFAULT_JAVA_CONFIG,
+  DEFAULT_SERVER_CONFIG,
+  DEFAULT_SERVER_LOCK
+} from '../storage/core/support/storage-defaults'
 import { readAppState } from '../storage/persistence/local-state-store'
 import { inspectWorldCatalog, isWorldCatalogEntryVisible } from '../world-catalog/world-catalog-service'
 
@@ -68,6 +72,7 @@ export async function getServerDisplayState(): Promise<ServerDisplayState> {
     selectedWorldId: selectedWorld?.worldId ?? null,
     runningWorldId: runtimeSnapshot.runningWorldId,
     worlds: worlds.map(toServerCatalogEntry),
+    javaConfig: selectedDisplay.javaConfig,
     serverAvailability: selectedDisplay.serverAvailability,
     serverName: selectedDisplay.serverName,
     serverStatus: selectedDisplay.serverStatus,
@@ -113,6 +118,7 @@ function buildWorldDisplayData(
 
   return {
     worldId,
+    javaConfig: localState.javaConfig,
     serverAvailability,
     serverName: remoteSave?.serverName ?? localState.serverConfig.name,
     serverStatus,
@@ -156,6 +162,7 @@ function getRuntimeAppliesToWorld(
 function toServerCatalogEntry(world: WorldDisplayData): ServerCatalogEntry {
   return {
     worldId: world.worldId,
+    javaConfig: world.javaConfig,
     serverAvailability: world.serverAvailability,
     serverName: world.serverName,
     serverStatus: world.serverStatus,
@@ -169,6 +176,7 @@ function toServerCatalogEntry(world: WorldDisplayData): ServerCatalogEntry {
 
 function createEmptyWorldDisplayData(): SelectedWorldDisplayData {
   return {
+    javaConfig: { ...DEFAULT_JAVA_CONFIG },
     serverAvailability: ServerAvailability.None,
     serverName: DEFAULT_SERVER_CONFIG.name,
     serverStatus: 'not-configured',
@@ -204,6 +212,7 @@ function createWorldStateFallback(
 ): WorldDisplayData {
   return {
     worldId: world.id,
+    javaConfig: world.javaConfig,
     serverAvailability,
     serverName: world.serverConfig.name,
     serverStatus,

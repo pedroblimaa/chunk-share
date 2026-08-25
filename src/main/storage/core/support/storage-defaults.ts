@@ -21,9 +21,7 @@ export const DEFAULT_SERVER_CONFIG: ServerConfig = {
 
 export const DEFAULT_JAVA_CONFIG: JavaConfig = {
   mode: 'system',
-  executablePath: null,
-  detectedVersion: null,
-  isValidated: false
+  executablePath: null
 }
 
 export const DEFAULT_LATEST_SAVE: LatestSave = null

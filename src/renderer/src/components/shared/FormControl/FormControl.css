@@ -32,3 +32,50 @@
   cursor: not-allowed;
   opacity: 0.68;
 }
+
+.chunk-checkbox {
+  appearance: none;
+  background: var(--color-background-console);
+  border: 1px solid var(--color-border-emphasis);
+  border-radius: calc(var(--radius-control) / 2);
+  cursor: pointer;
+  display: grid;
+  height: 20px;
+  place-content: center;
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease,
+    box-shadow 140ms ease,
+    opacity 140ms ease;
+  width: 20px;
+}
+
+.chunk-checkbox::before {
+  border-bottom: 2px solid var(--color-text-on-accent);
+  border-right: 2px solid var(--color-text-on-accent);
+  content: '';
+  height: 8px;
+  transform: rotate(45deg) scale(0);
+  transition: transform 120ms ease;
+  width: 4px;
+}
+
+.chunk-checkbox:checked {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.chunk-checkbox:checked::before {
+  transform: rotate(45deg) scale(1);
+}
+
+.chunk-checkbox:focus-visible {
+  border-color: var(--color-border-accent);
+  box-shadow: 0 0 0 3px var(--color-accent-glow);
+  outline: 0;
+}
+
+.chunk-checkbox:disabled {
+  cursor: not-allowed;
+  opacity: 0.68;
+}

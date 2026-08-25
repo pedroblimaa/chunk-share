@@ -41,13 +41,13 @@ import { startPlayerPolling, stopPlayerPolling } from './lifecycle/player-poller
 import { parseMinecraftOutput, type MinecraftOutputEvent } from './support/minecraft-output-parser'
 import { getConnectionAddresses } from './support/network-addresses'
 import { ServerRuntimeError } from './support/runtime-error'
+import { validateJavaRuntime } from '../java-runtime/java-runtime-service'
 import { assertFileExists, assertFolderExists, isMissingFileError } from './support/runtime-file-checks'
 
 type ServerRuntimeListener = (event: ServerRuntimeEvent) => void
 type RuntimeLogTone = ServerRuntimeLogLine['tone']
 
 const SERVER_STOP_TIMEOUT_MS = 15_000
-const JAVA_COMMAND = 'java'
 const JAVA_ARGS = ['-Xmx4G', '-Xms2G', '-jar', 'server.jar', 'nogui']
 const DEFAULT_PLAYER_LIMIT = 20
 const MOCK_RESOURCES: ServerRuntimeResources = {
@@ -118,13 +118,17 @@ class ServerRuntime {
 
   private async startServerSession(): Promise<ServerRuntimeSnapshot> {
     const worldContext = await getSelectedWorldContext()
+    const javaRuntime = await validateJavaRuntime(
+      worldContext.world.javaConfig,
+      worldContext.world.serverConfig.minecraftVersion
+    )
     const operationContext = await resolvePublishingWorldOperationContext(worldContext)
     this.runningWorld = operationContext
     this.runtimeWorldId = operationContext.worldId
     this.beginServerStart()
 
     try {
-      return await this.startConfiguredServerSession(operationContext)
+      return await this.startConfiguredServerSession(operationContext, javaRuntime.executablePath)
     } catch (error) {
       await this.handleStartSessionFailure(operationContext, error)
       throw error
@@ -132,7 +136,8 @@ class ServerRuntime {
   }
 
   private async startConfiguredServerSession(
-    operationContext: WorldOperationContext
+    operationContext: WorldOperationContext,
+    javaExecutablePath: string
   ): Promise<ServerRuntimeSnapshot> {
     let storageSnapshot = await getServerSyncSnapshot(operationContext)
     let { localState, serverSync } = storageSnapshot
@@ -179,9 +184,12 @@ class ServerRuntime {
       this.assertServerSyncAllowsStart(serverSync)
     }
 
-    this.addLogLine('ChunkShare', `Starting Minecraft server with ${JAVA_COMMAND} ${JAVA_ARGS.join(' ')}`)
+    this.addLogLine(
+      'ChunkShare',
+      `Starting Minecraft server with ${javaExecutablePath} ${JAVA_ARGS.join(' ')}`
+    )
 
-    this.serverProcess = spawn(JAVA_COMMAND, JAVA_ARGS, {
+    this.serverProcess = spawn(javaExecutablePath, JAVA_ARGS, {
       cwd: serverFolderPath,
       windowsHide: true
     })
@@ -800,7 +808,7 @@ async function readMaxPlayers(serverFolderPath: string): Promise<number> {
 
 function getProcessStartErrorMessage(error: Error): string {
   if (isMissingExecutableError(error)) {
-    return 'Java was not found on PATH. Install Java or add java.exe to PATH, then restart ChunkShare and try again.'
+    return 'The selected Java executable is no longer available. Rescan or choose another Java installation.'
   }
 
   return `Unable to start Minecraft server: ${error.message}`

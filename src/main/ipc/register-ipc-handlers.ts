@@ -5,6 +5,7 @@ import { registerDriveSharingIpcHandlers } from './handlers/drive-sharing-ipc'
 import { registerServerRuntimeIpcHandlers } from './handlers/server-runtime-ipc'
 import { registerServerSetupIpcHandlers } from './handlers/server-setup-ipc'
 import { registerStorageIpcHandlers } from './handlers/storage-ipc'
+import { registerJavaRuntimeIpcHandlers } from './handlers/java-runtime-ipc'
 
 export function registerIpcHandlers(): void {
   registerDashboardIpcHandlers()
@@ -12,6 +13,7 @@ export function registerIpcHandlers(): void {
   registerDriveSharingIpcHandlers()
   registerAuthIpcHandlers()
   registerStorageIpcHandlers()
+  registerJavaRuntimeIpcHandlers()
   registerServerSetupIpcHandlers()
   registerServerRuntimeIpcHandlers()
 }

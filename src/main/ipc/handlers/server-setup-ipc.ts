@@ -12,6 +12,7 @@ import {
 import { downloadSharedServer, setupNewVanillaServer } from '../../server-setup/server-setup-service'
 import { listVanillaReleaseVersions } from '../../server-setup/vanilla-version-resolver'
 import { StorageError } from '../../storage/core/support/storage-error'
+import { isJavaConfig } from '../../storage/core/support/storage-validation'
 import { getStorageSnapshot } from '../../storage/core/storage-service'
 import { handleIpc, sendIpcEvent } from '../typed-ipc'
 
@@ -63,7 +64,8 @@ function isSetupVanillaServerInput(value: unknown): value is SetupVanillaServerI
     isString(value.minecraftVersion) &&
     isOptionalString(value.minecraftVersionMetadataUrl) &&
     typeof value.port === 'number' &&
-    typeof value.eulaAccepted === 'boolean'
+    typeof value.eulaAccepted === 'boolean' &&
+    isJavaConfig(value.javaConfig)
   )
 }
 

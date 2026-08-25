@@ -17,6 +17,9 @@ export interface ServerDownloadMetadata {
 }
 
 export interface VersionMetadata {
+  javaVersion: {
+    majorVersion: number
+  }
   downloads: {
     server?: ServerDownloadMetadata
   }

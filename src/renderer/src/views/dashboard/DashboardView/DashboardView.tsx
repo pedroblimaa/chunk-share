@@ -2,6 +2,9 @@ import './DashboardView.css'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ServerDisplayState } from '../../../../../shared/dashboard'
+import type { JavaConfig } from '../../../../../shared/domain'
+import type { JavaRuntimeStatus } from '../../../../../shared/java-runtime'
+import type { WorldId } from '../../../../../shared/world'
 import type {
   GoogleDriveSharingAvailability,
   GoogleDriveSharingState
@@ -10,7 +13,9 @@ import { isServerActiveStatus, type ServerRuntimeSnapshot } from '../../../../..
 import AppSidebar from '../../../components/shared/AppSidebar/AppSidebar'
 import Card from '../../../components/shared/Card/Card'
 import MaterialIcon from '../../../components/shared/MaterialIcon/MaterialIcon'
+import JavaRuntimeSelector from '../../../components/shared/JavaRuntimeSelector/JavaRuntimeSelector'
 import Toast from '../../../components/shared/Toast/Toast'
+import { useJavaRuntimeStatus } from '../../../hooks/useJavaRuntimeStatus'
 import { getErrorMessage } from '../../../utils/error-message'
 import {
   applyRuntimeSnapshotToServerDisplayState,
@@ -29,6 +34,7 @@ import TopBar from '../components/TopBar/TopBar'
 interface DashboardViewProps {
   isSidebarOpen: boolean
   serverDisplayState: ServerDisplayState
+  onJavaConfigSaved: (worldId: WorldId, javaConfig: JavaConfig) => void
   onServerDisplayStateChange: (serverDisplayState: ServerDisplayState) => void
   onCreateServer: () => void
   onCloseSidebar: () => void
@@ -39,6 +45,12 @@ interface DashboardViewProps {
 }
 
 type CopyStatus = 'idle' | 'copied' | 'failed'
+
+interface SavedJavaRuntimeStatus {
+  minecraftVersion: string
+  status: JavaRuntimeStatus | null
+  worldId: WorldId
+}
 
 const COPY_STATUS_LABELS: Record<CopyStatus, string> = {
   copied: 'Copied',
@@ -55,6 +67,7 @@ const COPY_STATUS_ICONS: Record<CopyStatus, string> = {
 function DashboardView({
   isSidebarOpen,
   serverDisplayState,
+  onJavaConfigSaved,
   onServerDisplayStateChange,
   onCreateServer,
   onCloseSidebar,
@@ -77,18 +90,24 @@ function DashboardView({
     useState<GoogleDriveSharingAvailability | null>(null)
   const [sharingAvailabilityIsLoaded, setSharingAvailabilityIsLoaded] = useState(false)
   const [sharingDialogIsOpen, setSharingDialogIsOpen] = useState(false)
+  const [javaConfig, setJavaConfig] = useState<JavaConfig>(() => serverDisplayState.javaConfig)
+  const [savedJavaRuntimeStatus, setSavedJavaRuntimeStatus] = useState<SavedJavaRuntimeStatus | null>(null)
+  const [javaConfigIsDirty, setJavaConfigIsDirty] = useState(false)
+  const [javaScanId, setJavaScanId] = useState(0)
+  const javaRequestIdRef = useRef(0)
+  const javaSaveRequestIdRef = useRef(0)
+  const javaSaveStartedRequestIdRef = useRef(0)
+  const validatesDraftJavaConfig = javaConfigIsDirty || javaScanId > 0
+  const { isLoading: isDraftJavaStatusLoading, status: draftJavaStatus } = useJavaRuntimeStatus(
+    validatesDraftJavaConfig && serverDisplayState.selectedWorldId ? javaConfig : null,
+    serverDisplayState.minecraftVersion,
+    undefined,
+    javaScanId
+  )
 
   useEffect(() => {
     serverDisplayStateRef.current = serverDisplayState
   }, [serverDisplayState])
-
-  useEffect(() => {
-    window.chunkShare.driveSharing
-      .getAvailability()
-      .then(setDriveSharingAvailability)
-      .catch(() => setDriveSharingAvailability(null))
-      .finally(() => setSharingAvailabilityIsLoaded(true))
-  }, [])
 
   const updateServerDisplayState = useCallback(
     (nextServerDisplayState: ServerDisplayState): void => {
@@ -97,6 +116,93 @@ function DashboardView({
     },
     [onServerDisplayStateChange]
   )
+
+  useEffect(() => {
+    const worldId = serverDisplayState.selectedWorldId
+    const minecraftVersion = serverDisplayState.minecraftVersion
+
+    if (!worldId) {
+      return
+    }
+
+    javaSaveRequestIdRef.current += 1
+    const requestId = ++javaRequestIdRef.current
+    window.chunkShare.javaRuntime
+      .getWorldStatus(worldId, minecraftVersion)
+      .then((status) => {
+        if (requestId !== javaRequestIdRef.current) {
+          return
+        }
+
+        setJavaConfig(status.config)
+        setSavedJavaRuntimeStatus({ minecraftVersion, status, worldId })
+        setJavaConfigIsDirty(false)
+        setJavaScanId(0)
+      })
+      .catch(() => {
+        if (requestId === javaRequestIdRef.current) {
+          setSavedJavaRuntimeStatus({ minecraftVersion, status: null, worldId })
+        }
+      })
+
+    return () => {
+      javaRequestIdRef.current += 1
+    }
+  }, [serverDisplayState.minecraftVersion, serverDisplayState.selectedWorldId])
+
+  useEffect(() => {
+    const worldId = serverDisplayState.selectedWorldId
+    const saveRequestId = javaSaveRequestIdRef.current
+
+    if (
+      !worldId ||
+      !javaConfigIsDirty ||
+      isDraftJavaStatusLoading ||
+      !draftJavaStatus?.selectedRuntime ||
+      javaSaveStartedRequestIdRef.current === saveRequestId
+    ) {
+      return
+    }
+
+    javaSaveStartedRequestIdRef.current = saveRequestId
+    window.chunkShare.javaRuntime
+      .saveConfig({ worldId, config: javaConfig })
+      .then(() => {
+        if (javaSaveRequestIdRef.current !== saveRequestId) {
+          return
+        }
+
+        setSavedJavaRuntimeStatus({
+          minecraftVersion: serverDisplayState.minecraftVersion,
+          status: draftJavaStatus,
+          worldId
+        })
+        setJavaConfigIsDirty(false)
+        setJavaScanId(0)
+        onJavaConfigSaved(worldId, javaConfig)
+      })
+      .catch((error: unknown) => {
+        if (javaSaveRequestIdRef.current === saveRequestId) {
+          setRuntimeErrorMessage(getErrorMessage(error, 'Unable to save Java selection.'))
+        }
+      })
+  }, [
+    draftJavaStatus,
+    isDraftJavaStatusLoading,
+    javaConfig,
+    javaConfigIsDirty,
+    onJavaConfigSaved,
+    serverDisplayState.minecraftVersion,
+    serverDisplayState.selectedWorldId
+  ])
+
+  useEffect(() => {
+    window.chunkShare.driveSharing
+      .getAvailability()
+      .then(setDriveSharingAvailability)
+      .catch(() => setDriveSharingAvailability(null))
+      .finally(() => setSharingAvailabilityIsLoaded(true))
+  }, [])
 
   const applyRuntimeSnapshotToDisplayState = useCallback(
     (runtimeSnapshot: ServerRuntimeSnapshot): void => {
@@ -287,6 +393,20 @@ function DashboardView({
     }
   }
 
+  async function browseForJava(): Promise<void> {
+    const worldId = dashboardSnapshot.selectedWorldId
+    const executablePath = await window.chunkShare.javaRuntime.browse()
+    if (executablePath && serverDisplayStateRef.current.selectedWorldId === worldId) {
+      changeJavaConfig({ mode: 'custom', executablePath })
+    }
+  }
+
+  function changeJavaConfig(config: JavaConfig): void {
+    javaSaveRequestIdRef.current += 1
+    setJavaConfig(config)
+    setJavaConfigIsDirty(true)
+  }
+
   function toggleConnectionDetails(): void {
     setConnectionDetailsOpen((isOpen) => !isOpen)
   }
@@ -326,11 +446,34 @@ function DashboardView({
   }
 
   const dashboardSnapshot = serverDisplayState
+  const savedJavaStatusIsCurrent =
+    savedJavaRuntimeStatus?.worldId === dashboardSnapshot.selectedWorldId &&
+    savedJavaRuntimeStatus.minecraftVersion === dashboardSnapshot.minecraftVersion
+  const savedJavaStatus = savedJavaStatusIsCurrent ? savedJavaRuntimeStatus.status : null
+  const currentJavaStatus = validatesDraftJavaConfig ? draftJavaStatus : savedJavaStatus
   const primaryActionView = getDashboardPrimaryActionView({
     dashboardSnapshot,
     downloadEulaAccepted
   })
-  const primaryActionIsDisabled = isInitialSnapshotRefreshing || primaryActionView.isDisabled
+  const javaBlocksPrimaryAction =
+    primaryActionView.kind === 'download-server' ||
+    (primaryActionView.kind === 'toggle-server' && dashboardSnapshot.serverStatus !== 'running')
+  const primaryActionIsDisabled =
+    isInitialSnapshotRefreshing ||
+    primaryActionView.isDisabled ||
+    (javaBlocksPrimaryAction && (!currentJavaStatus?.selectedRuntime || javaConfigIsDirty))
+  const isDashboardLoading =
+    isInitialSnapshotRefreshing || (dashboardSnapshot.selectedWorldId !== null && !savedJavaStatusIsCurrent)
+  const javaActionTooltip = javaBlocksPrimaryAction
+    ? (currentJavaStatus?.errorMessage ??
+      (isDraftJavaStatusLoading
+        ? 'Checking Java compatibility...'
+        : javaConfigIsDirty
+          ? 'Saving Java selection...'
+          : !currentJavaStatus?.selectedRuntime
+            ? 'Select a compatible Java installation.'
+            : undefined))
+    : undefined
   const createServerIsDisabled = dashboardSnapshot.runningWorldId !== null
   const createServerDisabledReason = createServerIsDisabled
     ? 'Stop the running server before creating another one.'
@@ -422,7 +565,7 @@ function DashboardView({
               isAnimating: isServerToggleAnimating,
               label: primaryActionView.label,
               tone: primaryActionView.tone,
-              tooltip: primaryActionView.tooltip,
+              tooltip: javaActionTooltip ?? primaryActionView.tooltip,
               onClick: handleHeaderServerAction
             }}
             sharingAction={{
@@ -436,6 +579,19 @@ function DashboardView({
               onChange: setDownloadEulaAccepted
             }}
           />
+
+          {dashboardSnapshot.selectedWorldId && (
+            <JavaRuntimeSelector
+              minimal
+              config={javaConfig}
+              disabled={isServerActiveStatus(dashboardSnapshot.serverStatus) || !savedJavaStatusIsCurrent}
+              isLoading={isDraftJavaStatusLoading || !savedJavaStatusIsCurrent}
+              status={currentJavaStatus}
+              onBrowse={() => browseForJava()}
+              onChange={changeJavaConfig}
+              onRescan={() => setJavaScanId((current) => current + 1)}
+            />
+          )}
 
           <div className="dashboard-grid">
             <ServerStatePanel
@@ -480,11 +636,11 @@ function DashboardView({
 
           <ConsoleOutput logs={dashboardSnapshot.consoleLogs} />
 
-          {isInitialSnapshotRefreshing && (
+          {isDashboardLoading && (
             <div className="dashboard-loading-overlay" role="status" aria-live="polite">
               <div className="dashboard-loading-indicator">
                 <MaterialIcon name="sync" />
-                <span>Syncing server data...</span>
+                <span>Preparing server...</span>
               </div>
             </div>
           )}

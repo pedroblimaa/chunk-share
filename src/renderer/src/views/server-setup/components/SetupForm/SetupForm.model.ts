@@ -1,4 +1,5 @@
 import type { SetupVanillaServerInput, VanillaMinecraftVersion } from '../../../../../../shared/server-setup'
+import type { JavaConfig } from '../../../../../../shared/domain'
 
 export interface SetupFormProps {
   disabled: boolean
@@ -16,6 +17,7 @@ export interface SetupFormState {
   name: string
   port: string
   serverType: string
+  javaConfig: JavaConfig
 }
 
 export type SetupFieldName = keyof SetupFormState
@@ -25,5 +27,6 @@ export const DEFAULT_SETUP_FORM_STATE: SetupFormState = {
   minecraftVersion: '',
   name: '',
   port: '25565',
-  serverType: 'Vanilla'
+  serverType: 'Vanilla',
+  javaConfig: { mode: 'system', executablePath: null }
 }

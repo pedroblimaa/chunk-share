@@ -76,7 +76,7 @@ function StorageProviderSwitchChoice({
 
   return (
     <>
-      <div>
+      <div className="settings-provider-switch-message">
         <strong>{choiceLabels.title}</strong>
         <span>{choiceLabels.description}</span>
       </div>

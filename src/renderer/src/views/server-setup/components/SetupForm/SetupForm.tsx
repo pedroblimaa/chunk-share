@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import Button from '../../../../components/shared/Button/Button'
 import Card from '../../../../components/shared/Card/Card'
+import JavaRuntimeSelector from '../../../../components/shared/JavaRuntimeSelector/JavaRuntimeSelector'
+import { useJavaRuntimeStatus } from '../../../../hooks/useJavaRuntimeStatus'
 import {
   DEFAULT_SETUP_FORM_STATE,
   type SetupFieldName,
@@ -50,10 +52,18 @@ function SetupForm({
   const [formState, setFormState] = useState<SetupFormState>(DEFAULT_SETUP_FORM_STATE)
   const [touchedFields, setTouchedFields] = useState<Partial<Record<SetupFieldName, boolean>>>({})
   const [submitAttempted, setSubmitAttempted] = useState(false)
+  const [javaScanId, setJavaScanId] = useState(0)
   const selectedMinecraftVersion = formState.minecraftVersion || versions[0]?.id || ''
   const selectedVersion = versions.find((version) => version.id === selectedMinecraftVersion)
-  const formIsValid = isFormValid(formState) && Boolean(selectedVersion)
   const formIsDisabled = disabled || versionsLoading || Boolean(versionsErrorMessage)
+  const { isLoading: javaStatusLoading, status: javaStatus } = useJavaRuntimeStatus(
+    selectedVersion ? formState.javaConfig : null,
+    selectedVersion?.id ?? '',
+    selectedVersion?.metadataUrl,
+    javaScanId
+  )
+  const formIsValid =
+    isFormValid(formState) && Boolean(selectedVersion) && Boolean(javaStatus?.selectedRuntime)
 
   function updateField<FieldName extends SetupFieldName>(
     fieldName: FieldName,
@@ -103,8 +113,14 @@ function SetupForm({
       minecraftVersion: selectedVersion.id,
       minecraftVersionMetadataUrl: selectedVersion.metadataUrl,
       port: Number(formState.port),
-      eulaAccepted: formState.eulaAccepted
+      eulaAccepted: formState.eulaAccepted,
+      javaConfig: formState.javaConfig
     })
+  }
+
+  async function browseForJava(): Promise<void> {
+    const executablePath = await window.chunkShare.javaRuntime.browse()
+    if (executablePath) updateField('javaConfig', { mode: 'custom', executablePath })
   }
 
   return (
@@ -181,8 +197,22 @@ function SetupForm({
         </div>
       </section>
 
+      <section className="setup-form-section">
+        <h3>Java Runtime</h3>
+        <JavaRuntimeSelector
+          config={formState.javaConfig}
+          disabled={formIsDisabled}
+          isLoading={javaStatusLoading}
+          status={javaStatus}
+          onBrowse={() => browseForJava()}
+          onChange={(javaConfig) => updateField('javaConfig', javaConfig)}
+          onRescan={() => setJavaScanId((current) => current + 1)}
+        />
+      </section>
+
       <label className="setup-checkbox-field">
         <input
+          className="chunk-checkbox"
           type="checkbox"
           checked={formState.eulaAccepted}
           disabled={formIsDisabled}
