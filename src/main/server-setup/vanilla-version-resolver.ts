@@ -42,6 +42,16 @@ export async function resolveVanillaServerDownload(
   }
 }
 
+export async function resolveRequiredJavaMajorVersion(
+  minecraftVersion: string,
+  metadataUrl?: string
+): Promise<number> {
+  const versionMetadataUrl = metadataUrl ?? (await resolveVanillaVersionMetadataUrl(minecraftVersion))
+  const versionMetadata = await fetchJson<VersionMetadata>(versionMetadataUrl, isVersionMetadata)
+
+  return versionMetadata.javaVersion.majorVersion
+}
+
 async function resolveVanillaVersionMetadataUrl(minecraftVersion: string): Promise<string> {
   const manifest = await fetchJson<VersionManifest>(VANILLA_VERSION_MANIFEST_URL, isVersionManifest)
   const version = manifest.versions.find((v) => v.id === minecraftVersion && v.type === 'release')
@@ -105,11 +115,14 @@ function isVersionManifestVersion(value: unknown): value is VersionManifestVersi
 }
 
 function isVersionMetadata(value: unknown): value is VersionMetadata {
-  if (!isRecord(value) || !isRecord(value.downloads)) {
+  if (!isRecord(value) || !isRecord(value.javaVersion) || !isRecord(value.downloads)) {
     return false
   }
 
-  return value.downloads.server === undefined || isServerDownloadMetadata(value.downloads.server)
+  return (
+    isPositiveInteger(value.javaVersion.majorVersion) &&
+    (value.downloads.server === undefined || isServerDownloadMetadata(value.downloads.server))
+  )
 }
 
 function isServerDownloadMetadata(value: unknown): value is ServerDownloadMetadata {

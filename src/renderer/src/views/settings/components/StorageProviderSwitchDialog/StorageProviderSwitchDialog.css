@@ -6,7 +6,8 @@
   line-height: var(--line-height-copy);
 }
 
-.settings-provider-switch-dialog .chunk-dialog-content span {
+.settings-provider-switch-message span,
+.settings-provider-switch-summary > span {
   color: var(--color-text-secondary);
   display: block;
   font-size: var(--font-size-caption);

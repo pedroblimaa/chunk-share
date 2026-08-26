@@ -16,7 +16,11 @@ import {
   resetServerLock
 } from '../../../src/main/storage/core/storage-service'
 import { getSelectedWorldContext, getWorldContext } from '../../../src/main/storage/core/world-context'
-import { readWorld, selectWorld } from '../../../src/main/storage/persistence/local-state-store'
+import {
+  readWorld,
+  saveWorldJavaConfig,
+  selectWorld
+} from '../../../src/main/storage/persistence/local-state-store'
 import { TEST_WORLD_NAME, TEST_WORLD_PORT, createLocalTestWorld } from '../support/world-test-data'
 import {
   TEST_MINECRAFT_METADATA_URL,
@@ -35,7 +39,11 @@ vi.mock('child_process', async () => {
   const actual = await vi.importActual<typeof import('child_process')>('child_process')
   const processMock = await import('../support/minecraft/minecraft-process-mock')
 
-  return { ...actual, spawn: processMock.spawnMinecraftProcess }
+  return {
+    ...actual,
+    execFile: processMock.inspectJavaProcess,
+    spawn: processMock.spawnMinecraftProcess
+  }
 })
 
 vi.mock(
@@ -199,18 +207,27 @@ describe('multi-world runtime', () => {
     await selectWorld(worldAId)
     await startAndWaitForRunning()
     await selectWorld(worldBId)
+    await saveWorldJavaConfig(worldBId, {
+      mode: 'custom',
+      executablePath: 'C:\\Java\\bin\\java.exe'
+    })
 
     const displayState = await getServerDisplayState()
 
     expect(displayState).toMatchObject({
       selectedWorldId: worldBId,
       runningWorldId: worldAId,
+      javaConfig: { mode: 'custom', executablePath: 'C:\\Java\\bin\\java.exe' },
       serverStatus: 'stopped'
     })
     expect(displayState.worlds).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ worldId: worldAId, serverStatus: 'running' }),
-        expect.objectContaining({ worldId: worldBId, serverStatus: 'stopped' })
+        expect.objectContaining({
+          worldId: worldBId,
+          javaConfig: { mode: 'custom', executablePath: 'C:\\Java\\bin\\java.exe' },
+          serverStatus: 'stopped'
+        })
       ])
     )
 
@@ -318,6 +335,7 @@ function setupTestWorld(): ReturnType<typeof setupVanillaServer> {
     minecraftVersion: TEST_MINECRAFT_VERSION,
     minecraftVersionMetadataUrl: TEST_MINECRAFT_METADATA_URL,
     name: TEST_WORLD_NAME,
-    port: TEST_WORLD_PORT
+    port: TEST_WORLD_PORT,
+    javaConfig: { mode: 'system', executablePath: null }
   })
 }

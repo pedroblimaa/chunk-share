@@ -7,6 +7,7 @@ import type {
 } from './cloud-storage.model'
 import type { ServerDisplayState } from './dashboard'
 import type { ServerConfig, ServerStorageSnapshot } from './domain'
+import type { JavaRuntimeRequest, JavaRuntimeStatus, SaveJavaConfigRequest } from './java-runtime'
 import type {
   GoogleDriveInviteResult,
   GoogleDriveRevokeResult,
@@ -59,6 +60,10 @@ export const SERVER_RUNTIME_SNAPSHOT_CHANNEL = 'serverRuntime:get-snapshot'
 export const SERVER_RUNTIME_START_CHANNEL = 'serverRuntime:start'
 export const SERVER_RUNTIME_STOP_CHANNEL = 'serverRuntime:stop'
 export const SERVER_RUNTIME_EVENTS_CHANNEL = 'serverRuntime:events'
+export const JAVA_RUNTIME_GET_STATUS_CHANNEL = 'javaRuntime:get-status'
+export const JAVA_RUNTIME_GET_WORLD_STATUS_CHANNEL = 'javaRuntime:get-world-status'
+export const JAVA_RUNTIME_SAVE_CONFIG_CHANNEL = 'javaRuntime:save-config'
+export const JAVA_RUNTIME_BROWSE_CHANNEL = 'javaRuntime:browse'
 
 export interface IpcInvokeContract {
   [AUTH_GET_SESSION_CHANNEL]: IpcOperation<[], ServerDisplayState>
@@ -101,6 +106,13 @@ export interface IpcInvokeContract {
   [SERVER_RUNTIME_SNAPSHOT_CHANNEL]: IpcOperation<[], ServerRuntimeSnapshot>
   [SERVER_RUNTIME_START_CHANNEL]: IpcOperation<[], ServerRuntimeSnapshot>
   [SERVER_RUNTIME_STOP_CHANNEL]: IpcOperation<[], ServerRuntimeSnapshot>
+  [JAVA_RUNTIME_GET_STATUS_CHANNEL]: IpcOperation<[request: JavaRuntimeRequest], JavaRuntimeStatus>
+  [JAVA_RUNTIME_GET_WORLD_STATUS_CHANNEL]: IpcOperation<
+    [worldId: string, minecraftVersion?: string],
+    JavaRuntimeStatus
+  >
+  [JAVA_RUNTIME_SAVE_CONFIG_CHANNEL]: IpcOperation<[request: SaveJavaConfigRequest], void>
+  [JAVA_RUNTIME_BROWSE_CHANNEL]: IpcOperation<[], string | null>
 }
 
 export interface IpcEventContract {

@@ -199,12 +199,11 @@ export function isJavaConfig(value: unknown): value is JavaConfig {
     return false
   }
 
-  return (
-    (value.mode === 'system' || value.mode === 'custom') &&
-    isNullableString(value.executablePath) &&
-    isNullableString(value.detectedVersion) &&
-    typeof value.isValidated === 'boolean'
-  )
+  if (value.mode === 'system') {
+    return value.executablePath === null
+  }
+
+  return value.mode === 'custom' && isString(value.executablePath) && Boolean(value.executablePath.trim())
 }
 
 export function isLatestSave(value: unknown): value is LatestSave {

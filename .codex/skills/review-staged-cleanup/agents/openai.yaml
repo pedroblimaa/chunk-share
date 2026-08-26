@@ -1,4 +1,0 @@
-interface:
-  display_name: 'Review Staged Cleanup'
-  short_description: 'Find bloat and cleanup opportunities in staged changes'
-  default_prompt: 'Use $review-staged-cleanup to review my staged changes for unnecessary bloat and cleanup opportunities.'

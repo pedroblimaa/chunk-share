@@ -28,6 +28,8 @@ The selected world is mutable UI state. Long-running, runtime, storage, and dest
 
 Storage provider selection is global, not per world. Switching providers reconciles the visible catalog: installed-only worlds remain visible as local-only, provider-only worlds remain available to download, worlds present in both follow the normal latest-version flow, and worlds present in neither are omitted.
 
+Java runtime selection is local and world-scoped. Each world defaults to automatic discovery on every device, with an optional custom executable path. Java preferences and executable paths must never enter `control.json` or shared saves. Resolve Mojang's required Java major and validate the selected runtime before any hosting preparation or Minecraft process launch.
+
 Key concepts: no live world sync while the server is running, world-scoped `control.json` for save metadata and lock/session state, stable `world.zip` storage, `sessionId` to prevent stale writes, heartbeat checks for current host liveness, and persisted world ownership. Every `control.json` includes its stable `worldId`. Local state includes a `dirty` field for future unsafe-shutdown handling, but the runtime does not currently mark worlds dirty.
 
 Google Drive setup and provider status are global, while folder and stable file associations are world-scoped. Drive folder names are not persisted because IDs are authoritative. Google Drive-backed worlds keep stable `control.json` and `world.zip` file IDs. Validate both files' metadata, folder membership, and the control file's `worldId` together before reads, mutations, or deletion. `world.zip` is updated in place and Drive revisions provide cloud recovery. Keep the `drive.file` OAuth scope. Folder permission grants a Google account access, while Google Picker authorization grants ChunkShare API access to the two stable files. Join links identify the folder and files only; they must never contain OAuth tokens or credentials.
@@ -50,7 +52,8 @@ Keep renderer work UI-only. Filesystem, Java validation, Minecraft server proces
 - `pnpm test`: run all Vitest unit and integration tests.
 - `pnpm test:watch`: run Vitest in watch mode.
 - `pnpm exec vitest run <test-file> --project unit`: run one focused unit test file; use `--project integration` for an integration test.
-- `pnpm e2e`: run Playwright Electron E2E tests against the existing build.
+- `pnpm e2e`: run Playwright Electron E2E tests with visible app windows against the existing build.
+- `pnpm e2e:headless`: run Playwright Electron E2E tests without visible app windows. Agents must use this command for E2E runs.
 - `pnpm e2e:parallel`: run the E2E suite fully parallel with three workers.
 - `pnpm e2e:slow <test-file>`: run E2E tests with optional pacing after user actions.
 - `pnpm test:e2e`: build the app and run the complete E2E suite.
@@ -58,7 +61,7 @@ Keep renderer work UI-only. Filesystem, Java validation, Minecraft server proces
 - `pnpm build`: typecheck and build the app.
 - `pnpm verify`: check formatting, lint, run unit/integration tests, typecheck, and build.
 - `pnpm verify:ui`: run CSS linting, UI token validation, and shared-component contract tests.
-- `pnpm verify:full`: run `pnpm verify` and the complete Electron E2E suite.
+- `pnpm verify:full`: run `pnpm verify` and the complete headless Electron E2E suite.
 - `pnpm build:win`, `pnpm build:mac`, `pnpm build:linux`: create platform packages with electron-builder.
 
 ## Coding Style & Naming Conventions
@@ -113,59 +116,26 @@ Run the narrowest relevant test first. Run broader suites after focused validati
 
 Recent commits use short imperative subjects, for example `Removed unused assets` and `Add sign in and dashboard mock screens`. Keep messages concise and focused on one change.
 
-## Code Review Guidelines
-
-When reviewing code changes, report only actionable findings. Do not list passed checks.
-
-Check changes against the repository structure, coding conventions, Electron process boundaries, and product rules described above.
-
-Focus especially on:
-
-- Bugs, broken flows, data loss risk, or unsafe behavior
-- Renderer/main boundary violations
-- Missing validation at IPC, config, file path, server address, or external-response boundaries
-- Sensitive data stored insecurely instead of using Electron `safeStorage` when appropriate
-- Resource leaks in timers, sockets, streams, servers, subscriptions, or child processes
-- Over-engineering, speculative abstractions, large files, long functions, hidden side effects, duplicated logic, or unclear state ownership
-- High-risk changes without a clear validation path
-
-Classify findings as **Must fix**, **Should fix**, or **Nit**.
-
-For each finding, include the affected file, the problem, why it matters, and a concrete recommendation.
-
-## Agent Collaboration Guidelines
-
-Act as a senior pair-programming assistant.
-
-For new tasks, inspect relevant files first, explain what you found, propose a concrete plan, and wait for approval before coding.
-
-Keep messages concise: summarize findings, decisions, changes, and next steps in a few bullets when useful.
+## Agent Guidelines
 
 Do not use em dashes in user-facing messages. Prefer commas, colons, parentheses, or separate sentences.
 
-Proceed in focused implementation steps. Ask for approval before broad architectural, data, security, dependency, or project-structure changes.
-
 Write maintainable code: clear names, small focused functions, explicit types, isolated side effects, predictable error handling, and validation at system boundaries.
-
-Prefer KISS and YAGNI. Avoid clever code, speculative abstractions, large components/services, hidden side effects, and unnecessary duplication.
+Think as you were a senior engineer, avoid code that seems made by AI, prefer human like code.
 
 Before adding UI components, loading states, or CSS, search for existing components and styles that can be reused or made common.
 
-Keep implementations limited to the requested flow. Do not add speculative fallback behavior, invitation emails, compatibility for unreleased formats, or abstractions without a current use.
-
-Do not introduce background polling of external APIs without an explicit product need and consideration of request volume.
-
-Prefer explicit sequential lifecycle operations when ordering protects shared state. Do not add queues to compensate for a design that should prevent concurrent operations.
-
-Persist important domain facts, such as world ownership, instead of inferring them through remote requests.
+Keep implementations limited to the requested flow. Do not add speculative fallback behavior, compatibility for unreleased formats.
 
 Remove temporary diagnostic logging before handoff.
 
-When removing or changing non-obvious behavior, briefly explain the reason to the user. Do not add source comments only to preserve discussion context.
+Do not add source comments only to preserve discussion context.
 
-When the user requests implementation in reviewable steps, complete only the approved step and wait before continuing.
+ALWAYS check your entire changed code after a code change, the main goals are these three:
 
-Do not rewrite unrelated files, introduce dependencies, silently change behavior, or leave fake/placeholder code that appears complete.
+1. Code as clean as possible, no messy functions or components.
+2. Code seems like written by a human senior, no AI like code or junior code.
+3. No obvious bugs.
 
 Keep the app buildable when practical. After implementation, summarize changed files as:
 

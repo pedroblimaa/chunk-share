@@ -1,4 +1,5 @@
 import type { ServerDisplayState } from '../../../shared/dashboard'
+import type { JavaConfig } from '../../../shared/domain'
 import {
   isServerActiveStatus,
   type ServerConnectionAddress,
@@ -22,6 +23,7 @@ export function createOpeningServerDisplayState(
   return {
     ...serverDisplayState,
     selectedWorldId: worldId,
+    javaConfig: world.javaConfig,
     serverAvailability: world.serverAvailability,
     serverName: world.serverName,
     serverStatus: 'updating',
@@ -40,6 +42,20 @@ export function createOpeningServerDisplayState(
     consoleLogs: [],
     allowedPlayers: []
   }
+}
+
+export function applyJavaConfigToServerDisplayState(
+  serverDisplayState: ServerDisplayState,
+  worldId: WorldId,
+  javaConfig: JavaConfig
+): ServerDisplayState {
+  const worlds = serverDisplayState.worlds.map((world) =>
+    world.worldId === worldId ? { ...world, javaConfig } : world
+  )
+
+  return serverDisplayState.selectedWorldId === worldId
+    ? { ...serverDisplayState, javaConfig, worlds }
+    : { ...serverDisplayState, worlds }
 }
 
 export function applyRuntimeSnapshotToServerDisplayState(

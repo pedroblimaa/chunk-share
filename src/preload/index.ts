@@ -5,6 +5,7 @@ import type {
   StorageProviderCopyProgress
 } from '../shared/cloud-storage.model'
 import type { ServerConfig } from '../shared/domain'
+import type { JavaRuntimeRequest, SaveJavaConfigRequest } from '../shared/java-runtime'
 import {
   AUTH_GET_SESSION_CHANNEL,
   AUTH_SIGN_IN_WITH_GOOGLE_CHANNEL,
@@ -17,6 +18,10 @@ import {
   DRIVE_SHARING_GET_AVAILABILITY_CHANNEL,
   DRIVE_SHARING_INVITE_MEMBER_CHANNEL,
   DRIVE_SHARING_REVOKE_MEMBER_CHANNEL,
+  JAVA_RUNTIME_BROWSE_CHANNEL,
+  JAVA_RUNTIME_GET_STATUS_CHANNEL,
+  JAVA_RUNTIME_GET_WORLD_STATUS_CHANNEL,
+  JAVA_RUNTIME_SAVE_CONFIG_CHANNEL,
   SERVER_RUNTIME_EVENTS_CHANNEL,
   SERVER_RUNTIME_DOWNLOAD_SHARED_SAVE_CHANNEL,
   SERVER_RUNTIME_SNAPSHOT_CHANNEL,
@@ -77,6 +82,13 @@ const chunkShareApi = {
     stop: () => invokeIpc(SERVER_RUNTIME_STOP_CHANNEL),
     onEvent: (listener: (event: ServerRuntimeEvent) => void): (() => void) =>
       subscribeToIpcEvent(SERVER_RUNTIME_EVENTS_CHANNEL, listener)
+  },
+  javaRuntime: {
+    getStatus: (request: JavaRuntimeRequest) => invokeIpc(JAVA_RUNTIME_GET_STATUS_CHANNEL, request),
+    getWorldStatus: (worldId: string, minecraftVersion?: string) =>
+      invokeIpc(JAVA_RUNTIME_GET_WORLD_STATUS_CHANNEL, worldId, minecraftVersion),
+    saveConfig: (request: SaveJavaConfigRequest) => invokeIpc(JAVA_RUNTIME_SAVE_CONFIG_CHANNEL, request),
+    browse: () => invokeIpc(JAVA_RUNTIME_BROWSE_CHANNEL)
   },
   storage: {
     getSnapshot: () => invokeIpc(STORAGE_SNAPSHOT_CHANNEL),

@@ -107,6 +107,17 @@
   color: var(--color-text-primary);
 }
 
+.chunk-button-minimal {
+  background: transparent;
+  border: 1px solid var(--color-border-subtle);
+  color: var(--color-text-primary);
+}
+
+.chunk-button-minimal:hover:not(:disabled) {
+  border-color: var(--color-border-accent-muted);
+  color: var(--color-accent);
+}
+
 .chunk-button-danger {
   background: var(--color-danger-surface);
   border: 1px solid var(--color-danger-border);

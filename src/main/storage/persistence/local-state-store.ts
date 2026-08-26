@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto'
 import type { CloudStorageSettings, GoogleDriveWorldState } from '../../../shared/cloud-storage.model'
-import type { LocalState, Player, ServerConfig, ServerSetupState } from '../../../shared/domain'
+import type { JavaConfig, LocalState, Player, ServerConfig, ServerSetupState } from '../../../shared/domain'
 import type { AppState, LocalWorldState, WorldId } from '../../../shared/world'
 import {
   DEFAULT_APP_STATE,
@@ -13,7 +13,10 @@ import { isAppState, isCloudStorageSettings, isServerConfig } from '../core/supp
 import { readOrCreateJsonFile, writeJsonFile } from './json-file-store'
 
 type WorldStateChanges = Partial<
-  Pick<LocalWorldState, 'activeSessionId' | 'dirty' | 'localSaveVersion' | 'serverConfig' | 'serverSetup'>
+  Pick<
+    LocalWorldState,
+    'activeSessionId' | 'dirty' | 'javaConfig' | 'localSaveVersion' | 'serverConfig' | 'serverSetup'
+  >
 >
 
 export interface LocalStateSnapshot {
@@ -167,6 +170,10 @@ export async function saveServerConfig(serverConfig: ServerConfig): Promise<Loca
 
   // TODO(multiple-worlds/catalog-ui): Update server settings by explicit world ID.
   return saveSelectedWorldChanges({ serverConfig })
+}
+
+export async function saveWorldJavaConfig(worldId: WorldId, javaConfig: JavaConfig): Promise<LocalState> {
+  return saveWorldChanges(worldId, { javaConfig })
 }
 
 export async function saveWorldServerSetupResult(

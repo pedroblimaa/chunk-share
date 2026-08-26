@@ -31,6 +31,8 @@ import {
 } from '../storage/core/world-operation-context'
 import { ServerSetupError } from './server-setup-error'
 import { resolveVanillaServerDownload } from './vanilla-version-resolver'
+import { validateJavaRuntime } from '../java-runtime/java-runtime-service'
+import { saveWorldJavaConfig } from '../storage/persistence/local-state-store'
 
 const DEFAULT_LEVEL_NAME = 'world'
 const DEFAULT_MOTD = 'ChunkShare Minecraft Server'
@@ -61,7 +63,11 @@ function runVanillaServerSetupOperation(
   return runExclusiveStorageOperation(
     ExclusiveStorageOperation.ServerSetup,
     new ServerSetupError('Cannot set up a server while another storage operation is in progress.'),
-    async () => runVanillaServerSetup(input, onProgress, getOperationContext)
+    async () => {
+      assertNoWorldIsRunning()
+      await validateJavaRuntime(input.javaConfig, input.minecraftVersion, input.minecraftVersionMetadataUrl)
+      return runVanillaServerSetup(input, onProgress, getOperationContext)
+    }
   )
 }
 
@@ -70,8 +76,9 @@ async function runVanillaServerSetup(
   onProgress: ServerSetupProgressListener | undefined,
   getOperationContext: () => Promise<WorldOperationContext>
 ): Promise<LocalState> {
-  assertNoWorldIsRunning()
   const operationContext = await getOperationContext()
+
+  await saveWorldJavaConfig(operationContext.worldId, input.javaConfig)
 
   await markSetupDownloading(operationContext.worldId)
 
@@ -105,20 +112,21 @@ export async function downloadSharedServer(input: DownloadSharedServerInput): Pr
 }
 
 async function runSharedServerDownload(operationContext: WorldOperationContext): Promise<LocalState> {
+  const storageSnapshot = await getServerSyncSnapshot(operationContext)
+  const latestSave = storageSnapshot.latestSave
+
+  if (!latestSave) {
+    throw new ServerSetupError('The active storage provider does not contain a shared server save.')
+  }
+
+  if (latestSave.serverType !== 'vanilla') {
+    throw new ServerSetupError('Only shared Vanilla servers can be downloaded in this version.')
+  }
+
+  await validateJavaRuntime(operationContext.world.javaConfig, latestSave.minecraftVersion)
   await markSetupDownloading(operationContext.worldId)
 
   try {
-    const storageSnapshot = await getServerSyncSnapshot(operationContext)
-    const latestSave = storageSnapshot.latestSave
-
-    if (!latestSave) {
-      throw new ServerSetupError('The active storage provider does not contain a shared server save.')
-    }
-
-    if (latestSave.serverType !== 'vanilla') {
-      throw new ServerSetupError('Only shared Vanilla servers can be downloaded in this version.')
-    }
-
     await restoreLatestServerSave(operationContext, storageSnapshot)
     await assertRestoredServerJarExists(operationContext.paths.serverJarFile)
     await writeAcceptedEula(operationContext.paths.serverEulaFile)
@@ -203,6 +211,13 @@ function validateSetupInput(input: SetupVanillaServerInput): void {
 
   if (!Number.isSafeInteger(input.port) || input.port < 1 || input.port > 65535) {
     throw new ServerSetupError('Server port must be between 1 and 65535.')
+  }
+
+  if (
+    (input.javaConfig.mode === 'custom' && !input.javaConfig.executablePath?.trim()) ||
+    (input.javaConfig.mode === 'system' && input.javaConfig.executablePath !== null)
+  ) {
+    throw new ServerSetupError('Invalid Java selection.')
   }
 }
 

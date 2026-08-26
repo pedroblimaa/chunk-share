@@ -1,3 +1,5 @@
+import type { JavaConfig } from './domain'
+
 export interface VanillaMinecraftVersion {
   id: string
   metadataUrl: string
@@ -9,6 +11,7 @@ export interface SetupVanillaServerInput {
   minecraftVersionMetadataUrl?: string
   port: number
   eulaAccepted: boolean
+  javaConfig: JavaConfig
 }
 
 export interface DownloadSharedServerInput {

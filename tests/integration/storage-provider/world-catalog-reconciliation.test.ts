@@ -50,7 +50,11 @@ vi.mock('child_process', async () => {
   const actual = await vi.importActual<typeof import('child_process')>('child_process')
   const processMock = await import('../support/minecraft/minecraft-process-mock')
 
-  return { ...actual, spawn: processMock.spawnMinecraftProcess }
+  return {
+    ...actual,
+    execFile: processMock.inspectJavaProcess,
+    spawn: processMock.spawnMinecraftProcess
+  }
 })
 
 vi.mock(
@@ -224,7 +228,8 @@ async function installSelectedWorld(): Promise<void> {
     minecraftVersion: TEST_MINECRAFT_VERSION,
     minecraftVersionMetadataUrl: TEST_MINECRAFT_METADATA_URL,
     name: TEST_WORLD_NAME,
-    port: TEST_WORLD_PORT
+    port: TEST_WORLD_PORT,
+    javaConfig: { mode: 'system', executablePath: null }
   })
 
   const worldFolderPath = join((await getSelectedWorldContext()).paths.serverFolder, 'world')

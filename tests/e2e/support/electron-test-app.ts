@@ -23,6 +23,7 @@ const VERSION_MANIFEST_URL = 'https://piston-meta.mojang.com/mc/game/version_man
 const VERSION_METADATA_URL = 'https://minecraft.e2e/version.json'
 const SERVER_JAR_URL = 'https://minecraft.e2e/server.jar'
 const SERVER_JAR_CONTENT = Buffer.from('chunkshare-e2e-server')
+const E2E_SHARED_MINECRAFT_VERSION = '1.21.8'
 
 export const E2E_MINECRAFT_VERSION = '1.21.8-e2e'
 export const E2E_SERVER_NAME = 'E2E Survival'
@@ -71,6 +72,7 @@ export interface ChunkShareE2EApp {
   electronApp: ElectronApplication
   page: Page
   paths: ElectronE2EPaths
+  setJavaInspectionDelay: (delayMs: number) => Promise<void>
   user: E2EUser
   close: (options?: CloseChunkShareE2EAppOptions) => Promise<void>
 }
@@ -119,6 +121,7 @@ export async function launchChunkShareE2EApp(
       electronApp,
       page,
       paths,
+      setJavaInspectionDelay: (delayMs) => setJavaInspectionDelay(electronApp, delayMs),
       user: new E2EUser(page),
       close: createCloseApp(electronApp, paths.root)
     }
@@ -161,6 +164,16 @@ async function crashMinecraftServer(electronApp: ElectronApplication): Promise<v
 
     testGlobal.chunkShareE2EServerProcess.emit('close', 1)
   })
+}
+
+async function setJavaInspectionDelay(electronApp: ElectronApplication, delayMs: number): Promise<void> {
+  await electronApp.evaluate((_electronModule, value) => {
+    const testGlobal = globalThis as typeof globalThis & {
+      chunkShareE2EJavaInspectionDelayMs?: number
+    }
+
+    testGlobal.chunkShareE2EJavaInspectionDelayMs = value
+  }, delayMs)
 }
 
 export function createElectronE2EPaths(): ElectronE2EPaths {
@@ -245,6 +258,7 @@ async function installMainProcessMocks(electronApp: ElectronApplication): Promis
       const stream = process.getBuiltinModule('node:stream')
       const googleFetch = globalThis.fetch
       const testGlobal = globalThis as typeof globalThis & {
+        chunkShareE2EJavaInspectionDelayMs?: number
         chunkShareE2EServerProcess?: { emit: (event: string, exitCode: number) => void }
         chunkShareE2EServerMockDiagnostics?: MinecraftServerMockDiagnostics
       }
@@ -263,18 +277,17 @@ async function installMainProcessMocks(electronApp: ElectronApplication): Promis
 
         if (requestUrl === fixture.versionManifestUrl) {
           return Response.json({
-            versions: [
-              {
-                id: fixture.minecraftVersion,
-                type: 'release',
-                url: fixture.versionMetadataUrl
-              }
-            ]
+            versions: fixture.minecraftVersions.map((id) => ({
+              id,
+              type: 'release',
+              url: fixture.versionMetadataUrl
+            }))
           })
         }
 
         if (requestUrl === fixture.versionMetadataUrl) {
           return Response.json({
+            javaVersion: { majorVersion: 21 },
             downloads: {
               server: {
                 sha1: fixture.serverJarSha1,
@@ -360,9 +373,23 @@ async function installMainProcessMocks(electronApp: ElectronApplication): Promis
           return serverProcess
         }
       })
+      Object.defineProperty(childProcess, 'execFile', {
+        configurable: true,
+        value: (
+          _command: string,
+          _args: readonly string[],
+          _options: unknown,
+          callback: (error: null, stdout: string, stderr: string) => void
+        ) => {
+          setTimeout(
+            () => callback(null, '', 'openjdk version "21.0.1"'),
+            testGlobal.chunkShareE2EJavaInspectionDelayMs ?? 0
+          )
+        }
+      })
     },
     {
-      minecraftVersion: E2E_MINECRAFT_VERSION,
+      minecraftVersions: [E2E_MINECRAFT_VERSION, E2E_SHARED_MINECRAFT_VERSION],
       serverJarBase64: SERVER_JAR_CONTENT.toString('base64'),
       serverJarSha1: createHash('sha1').update(SERVER_JAR_CONTENT).digest('hex'),
       serverJarSize: SERVER_JAR_CONTENT.length,

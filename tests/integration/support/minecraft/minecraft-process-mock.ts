@@ -60,6 +60,19 @@ export function spawnMinecraftProcess(
   return activeProcess as unknown as ChildProcessWithoutNullStreams
 }
 
+export function inspectJavaProcess(
+  _command: string,
+  _args: readonly string[],
+  _options: unknown,
+  callback: (error: Error | null, stdout: string, stderr: string) => void
+): void {
+  if (_command.includes('invalid-java')) {
+    callback(new Error('Java not found'), '', '')
+    return
+  }
+  callback(null, '', 'openjdk version "21.0.1"')
+}
+
 export function getMinecraftSpawnInvocation(): MinecraftSpawnInvocation {
   if (!lastSpawnInvocation) {
     throw new Error('Minecraft process has not been spawned.')

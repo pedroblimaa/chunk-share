@@ -11,6 +11,7 @@ import { registerIpcHandlers } from './ipc/register-ipc-handlers'
 import { sendIpcEvent } from './ipc/typed-ipc'
 
 const CHUNKSHARE_PROTOCOL = 'chunkshare'
+const runsHeadless = process.env.CHUNKSHARE_HEADLESS === '1'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -21,8 +22,10 @@ function createWindow(): void {
     height: 670,
     show: false,
     autoHideMenuBar: true,
+    ...(runsHeadless ? { focusable: false, opacity: 0, skipTaskbar: true } : {}),
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
+      backgroundThrottling: !runsHeadless,
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
       nodeIntegration: false,
@@ -38,6 +41,12 @@ function createWindow(): void {
   })
 
   window.on('ready-to-show', () => {
+    if (runsHeadless) {
+      window.showInactive()
+      window.setIgnoreMouseEvents(true)
+      return
+    }
+
     window.show()
   })
 
@@ -90,12 +99,14 @@ function openJoinLink(joinLink: string | null): void {
 
   sendIpcEvent(mainWindow.webContents, DRIVE_JOIN_LINK_AVAILABLE_CHANNEL)
 
-  if (mainWindow.isMinimized()) {
-    mainWindow.restore()
-  }
+  if (!runsHeadless) {
+    if (mainWindow.isMinimized()) {
+      mainWindow.restore()
+    }
 
-  mainWindow.show()
-  mainWindow.focus()
+    mainWindow.show()
+    mainWindow.focus()
+  }
 }
 
 if (!app.requestSingleInstanceLock()) {

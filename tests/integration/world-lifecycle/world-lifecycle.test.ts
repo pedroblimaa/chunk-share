@@ -19,7 +19,8 @@ import { getSelectedWorldContext } from '../../../src/main/storage/core/world-co
 import {
   readAppState,
   readLocalState,
-  savePlayer
+  savePlayer,
+  updateWorld
 } from '../../../src/main/storage/persistence/local-state-store'
 import {
   TEST_WORLD_DATA,
@@ -49,12 +50,17 @@ import {
 } from '../../../src/main/storage/persistence/local-state-store'
 
 const INTEGRATION_WAIT_TIMEOUT_MS = 5_000
+const SYSTEM_JAVA_EXECUTABLE = process.platform === 'win32' ? 'java.exe' : 'java'
 
 vi.mock('child_process', async () => {
   const actual = await vi.importActual<typeof import('child_process')>('child_process')
   const processMock = await import('../support/minecraft/minecraft-process-mock')
 
-  return { ...actual, spawn: processMock.spawnMinecraftProcess }
+  return {
+    ...actual,
+    execFile: processMock.inspectJavaProcess,
+    spawn: processMock.spawnMinecraftProcess
+  }
 })
 
 vi.mock(
@@ -75,7 +81,8 @@ describe('world lifecycle', () => {
         minecraftVersion: TEST_MINECRAFT_VERSION,
         minecraftVersionMetadataUrl: TEST_MINECRAFT_METADATA_URL,
         name: TEST_WORLD_NAME,
-        port: TEST_WORLD_PORT
+        port: TEST_WORLD_PORT,
+        javaConfig: { mode: 'system', executablePath: null }
       },
       ({ step }) => progressSteps.push(step)
     )
@@ -102,6 +109,22 @@ describe('world lifecycle', () => {
     )
   })
 
+  it('does not create local world state when setup Java validation fails', async () => {
+    await expect(
+      setupVanillaServer({
+        eulaAccepted: true,
+        minecraftVersion: TEST_MINECRAFT_VERSION,
+        minecraftVersionMetadataUrl: TEST_MINECRAFT_METADATA_URL,
+        name: TEST_WORLD_NAME,
+        port: TEST_WORLD_PORT,
+        javaConfig: { mode: 'custom', executablePath: 'invalid-java.exe' }
+      })
+    ).rejects.toThrow('could not be validated')
+
+    await expect(readAppState()).resolves.toMatchObject({ selectedWorldId: null, worlds: [] })
+    expect(() => getMinecraftSpawnInvocation()).toThrow('has not been spawned')
+  })
+
   it('starts, stops, and publishes the world', async () => {
     await createLocalTestWorld()
     const worldContext = await getSelectedWorldContext()
@@ -112,7 +135,7 @@ describe('world lifecycle', () => {
     })
     expect(getMinecraftSpawnInvocation()).toEqual({
       args: ['-Xmx4G', '-Xms2G', '-jar', 'server.jar', 'nogui'],
-      command: 'java',
+      command: SYSTEM_JAVA_EXECUTABLE,
       options: {
         cwd: worldContext.paths.serverFolder,
         windowsHide: true
@@ -188,6 +211,20 @@ describe('world lifecycle', () => {
       },
       { timeout: INTEGRATION_WAIT_TIMEOUT_MS }
     )
+  })
+
+  it('does not lock storage or launch Minecraft when Java validation fails', async () => {
+    await createLocalTestWorld()
+    const worldContext = await getSelectedWorldContext()
+    const storageAdapter = createLocalStorageAdapter(worldContext)
+    await updateWorld(worldContext.worldId, (world) => ({
+      ...world,
+      javaConfig: { mode: 'custom', executablePath: 'invalid-java.exe' }
+    }))
+
+    await expect(startMinecraftServer()).rejects.toThrow('could not be validated')
+    await expect(storageAdapter.readServerLock()).resolves.toEqual({ status: ServerLockStatus.Unlocked })
+    expect(() => getMinecraftSpawnInvocation()).toThrow('has not been spawned')
   })
 
   it('deletes a local world and keeps its server-folder backup', async () => {
