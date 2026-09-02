@@ -119,7 +119,10 @@ function getSyncBlocksStart(dashboardSnapshot: ServerDisplayState): boolean {
 }
 
 function getServerNeedsLocalDownload(dashboardSnapshot: ServerDisplayState): boolean {
-  return dashboardSnapshot.serverAvailability === ServerAvailability.RemoteAvailable
+  return (
+    dashboardSnapshot.serverAvailability === ServerAvailability.RemoteAvailable ||
+    dashboardSnapshot.syncStatus.status === ServerSyncStatus.Incompatible
+  )
 }
 
 function getServerNeedsSaveDownload(dashboardSnapshot: ServerDisplayState): boolean {

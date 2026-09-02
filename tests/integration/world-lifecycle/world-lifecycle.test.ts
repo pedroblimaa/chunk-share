@@ -161,6 +161,12 @@ describe('world lifecycle', () => {
 
     expect(getMinecraftProcessMock().commands.slice(-2)).toEqual(['save-all flush\n', 'stop\n'])
     await expect(readPublishedWorldData()).resolves.toBe(TEST_WORLD_DATA)
+    await expect(stat(join(integrationTestDataPath, 'published-world', 'server.jar'))).rejects.toMatchObject({
+      code: 'ENOENT'
+    })
+    await expect(
+      stat(join(integrationTestDataPath, 'published-world', 'server.properties'))
+    ).rejects.toMatchObject({ code: 'ENOENT' })
     await expect((await getLocalStorageAdapter()).readLatestSave()).resolves.toMatchObject({
       minecraftVersion: TEST_MINECRAFT_VERSION,
       saveVersion: 1,
@@ -317,7 +323,7 @@ async function readPublishedWorldData(): Promise<string> {
   await mkdir(extractedWorldPath, { recursive: true })
   await extractZip(worldFilePath, { dir: extractedWorldPath })
 
-  return readFile(join(extractedWorldPath, 'world', 'level.dat'), 'utf8')
+  return readFile(join(extractedWorldPath, 'level.dat'), 'utf8')
 }
 
 function configureOwnedGoogleDriveWorld(): Promise<void> {

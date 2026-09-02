@@ -54,9 +54,7 @@ async function expectPublishedWorld(root: string, worldFile: string): Promise<vo
   await mkdir(extractedWorldFolder, { recursive: true })
   await extractZip(worldFile, { dir: extractedWorldFolder })
 
-  await expect(readFile(join(extractedWorldFolder, 'world', 'level.dat'), 'utf8')).resolves.toBe(
-    E2E_WORLD_DATA
-  )
+  await expect(readFile(join(extractedWorldFolder, 'level.dat'), 'utf8')).resolves.toBe(E2E_WORLD_DATA)
 }
 
 async function expectPublishedControl(controlFile: string): Promise<void> {

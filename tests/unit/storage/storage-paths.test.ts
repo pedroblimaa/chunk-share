@@ -9,6 +9,7 @@ describe('world storage paths', () => {
   it('resolves server, storage, and backup paths under the world ID', () => {
     expect(getWorldPaths(WORLD_ID)).toEqual({
       serverFolder: join(PROJECT_ROOT, '.servers', WORLD_ID),
+      serverWorldFolder: join(PROJECT_ROOT, '.servers', WORLD_ID, 'world'),
       serverJarFile: join(PROJECT_ROOT, '.servers', WORLD_ID, 'server.jar'),
       serverPropertiesFile: join(PROJECT_ROOT, '.servers', WORLD_ID, 'server.properties'),
       serverEulaFile: join(PROJECT_ROOT, '.servers', WORLD_ID, 'eula.txt'),

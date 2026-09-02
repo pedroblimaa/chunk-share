@@ -160,6 +160,8 @@ class ServerRuntime {
 
     await this.runStartPreparation(() => assertFolderExists(serverFolderPath))
     await this.runStartPreparation(() => assertFileExists(operationContext.paths.serverJarFile))
+    await this.runStartPreparation(() => assertFileExists(operationContext.paths.serverPropertiesFile))
+    await this.runStartPreparation(() => assertFileExists(operationContext.paths.serverEulaFile))
 
     const connectionAddresses = getConnectionAddresses(localState.serverConfig.port)
     const maxPlayers = await this.runStartPreparation(() => readMaxPlayers(serverFolderPath))

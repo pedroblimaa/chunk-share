@@ -14,11 +14,25 @@ export class E2EUser {
   }
 
   public check(locator: Locator): Promise<void> {
-    return this.run(() => locator.check())
+    return this.run(() => this.setChecked(locator, true))
   }
 
   public uncheck(locator: Locator): Promise<void> {
-    return this.run(() => locator.uncheck())
+    return this.run(() => this.setChecked(locator, false))
+  }
+
+  private async setChecked(locator: Locator, checked: boolean): Promise<void> {
+    const update = (): Promise<void> => (checked ? locator.check() : locator.uncheck())
+
+    try {
+      await update()
+    } catch {
+      if ((await locator.isChecked()) === checked) {
+        return
+      }
+
+      await update()
+    }
   }
 
   private async run(action: () => Promise<void>): Promise<void> {

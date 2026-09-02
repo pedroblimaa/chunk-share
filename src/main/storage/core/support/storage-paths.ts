@@ -17,6 +17,7 @@ const worldBackupsRootPath = join(DATA_ROOT, SERVER_BACKUPS_FOLDER_NAME)
 
 export interface WorldPaths {
   serverFolder: string
+  serverWorldFolder: string
   serverJarFile: string
   serverPropertiesFile: string
   serverEulaFile: string
@@ -36,6 +37,7 @@ export function getWorldPaths(worldId: WorldId): WorldPaths {
 
   return {
     serverFolder,
+    serverWorldFolder: join(serverFolder, 'world'),
     serverJarFile: join(serverFolder, 'server.jar'),
     serverPropertiesFile: join(serverFolder, 'server.properties'),
     serverEulaFile: join(serverFolder, 'eula.txt'),
