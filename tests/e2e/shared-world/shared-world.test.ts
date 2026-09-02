@@ -47,7 +47,22 @@ test('owner invites a friend who joins and downloads the shared world', async ()
     const joinLink = await inviteFriend(ownerApp)
 
     friendApp = await launchChunkShareE2EApp({ accountName: 'friend', driveMock })
-    await joinAndDownloadSharedWorld(friendApp, joinLink)
+    await joinSharedWorld(friendApp, joinLink)
+    await openSharedWorldDashboard(friendApp)
+    driveMock.delayRequest({
+      delayMs: 1_500,
+      method: 'GET',
+      pathname: `/drive/v3/files/${GOOGLE_TEST_IDS.worldFile}`
+    })
+
+    await friendApp.user.check(friendApp.page.getByLabel('I agree to the Minecraft EULA'))
+    await friendApp.user.click(friendApp.page.getByRole('button', { name: 'Download shared server' }))
+    await expect(friendApp.page.getByRole('status')).toContainText('Preparing server...')
+    await expect(friendApp.page.getByRole('button', { name: 'Download Server' })).toHaveAttribute(
+      'aria-busy',
+      'true'
+    )
+    await expect(friendApp.page.getByRole('button', { name: 'Start Server', exact: true })).toBeVisible()
 
     expect(driveMock.drive.getLastPickerFileIds()).toEqual([
       GOOGLE_TEST_IDS.controlFile,

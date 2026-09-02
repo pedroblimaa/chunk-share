@@ -82,6 +82,7 @@ function DashboardView({
   const [errorCopyStatus, setErrorCopyStatus] = useState<CopyStatus>('idle')
   const [addressCopyStatus, setAddressCopyStatus] = useState<CopyStatus>('idle')
   const [isServerToggleAnimating, setIsServerToggleAnimating] = useState(false)
+  const [isServerDownloadRunning, setIsServerDownloadRunning] = useState(false)
   const [connectionDetailsOpen, setConnectionDetailsOpen] = useState(false)
   const [downloadEulaAccepted, setDownloadEulaAccepted] = useState(false)
   const [isInitialSnapshotRefreshing, setIsInitialSnapshotRefreshing] = useState(true)
@@ -329,7 +330,7 @@ function DashboardView({
 
   async function downloadServer(): Promise<void> {
     setRuntimeErrorMessage(null)
-    setIsServerToggleAnimating(true)
+    setIsServerDownloadRunning(true)
 
     try {
       await window.chunkShare.serverSetup.downloadSharedServer({
@@ -341,7 +342,7 @@ function DashboardView({
     } catch (error: unknown) {
       setRuntimeErrorMessage(getErrorMessage(error, 'Unable to download server.'))
     } finally {
-      setIsServerToggleAnimating(false)
+      setIsServerDownloadRunning(false)
     }
   }
 
@@ -460,10 +461,13 @@ function DashboardView({
     (primaryActionView.kind === 'toggle-server' && dashboardSnapshot.serverStatus !== 'running')
   const primaryActionIsDisabled =
     isInitialSnapshotRefreshing ||
+    isServerDownloadRunning ||
     primaryActionView.isDisabled ||
     (javaBlocksPrimaryAction && (!currentJavaStatus?.selectedRuntime || javaConfigIsDirty))
   const isDashboardLoading =
-    isInitialSnapshotRefreshing || (dashboardSnapshot.selectedWorldId !== null && !savedJavaStatusIsCurrent)
+    isInitialSnapshotRefreshing ||
+    isServerDownloadRunning ||
+    (dashboardSnapshot.selectedWorldId !== null && !savedJavaStatusIsCurrent)
   const javaActionTooltip = javaBlocksPrimaryAction
     ? (currentJavaStatus?.errorMessage ??
       (isDraftJavaStatusLoading
@@ -562,7 +566,7 @@ function DashboardView({
             primaryAction={{
               disabled: primaryActionIsDisabled,
               icon: primaryActionView.icon,
-              isAnimating: isServerToggleAnimating,
+              isAnimating: isServerToggleAnimating || isServerDownloadRunning,
               label: primaryActionView.label,
               tone: primaryActionView.tone,
               tooltip: javaActionTooltip ?? primaryActionView.tooltip,
