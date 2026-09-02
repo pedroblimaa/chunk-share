@@ -13,7 +13,7 @@ export async function restoreLatestServerSave(
 ): Promise<void> {
   const { latestSave, localState } = storageSnapshot
   const { storageAdapter, worldId, paths } = operationContext
-  const { serverFolder, backupsFolder } = paths
+  const { serverFolder, serverWorldFolder, backupsFolder } = paths
 
   if (!latestSave) {
     throw new StorageError('Cannot restore server save because no shared save exists.')
@@ -26,7 +26,7 @@ export async function restoreLatestServerSave(
   const zipFilePath = getTempZipFilePath(serverFolder, latestSave.saveVersion)
   const tempExtractFolderPath = getTempExtractFolderPath(serverFolder, latestSave.saveVersion)
   let backupFolderPath: string | null = null
-  let restoredServerWasInstalled = false
+  let restoredWorldWasInstalled = false
 
   try {
     await cleanupTemporaryRestorePaths(zipFilePath, tempExtractFolderPath)
@@ -35,17 +35,23 @@ export async function restoreLatestServerSave(
     await assertZipFileExists(zipFilePath)
     await mkdir(tempExtractFolderPath, { recursive: true })
     await extractZip(zipFilePath, { dir: tempExtractFolderPath })
+    await assertWorldSaveExists(tempExtractFolderPath)
 
-    if (await folderExists(serverFolder)) {
-      backupFolderPath = await moveCurrentServerToBackup(serverFolder, backupsFolder, latestSave.saveVersion)
+    await mkdir(serverFolder, { recursive: true })
+    if (await folderExists(serverWorldFolder)) {
+      backupFolderPath = await moveCurrentWorldToBackup(
+        serverWorldFolder,
+        backupsFolder,
+        latestSave.saveVersion
+      )
     }
 
-    await renameWithRetry(tempExtractFolderPath, serverFolder)
-    restoredServerWasInstalled = true
+    await renameWithRetry(tempExtractFolderPath, serverWorldFolder)
+    restoredWorldWasInstalled = true
     await saveWorldLocalSaveVersion(worldId, latestSave.saveVersion)
   } catch (error) {
     try {
-      await rollbackFailedRestore(serverFolder, backupFolderPath, restoredServerWasInstalled)
+      await rollbackFailedRestore(serverWorldFolder, backupFolderPath, restoredWorldWasInstalled)
     } catch (rollbackError) {
       throw new StorageError(
         `Server save restore failed: ${getErrorMessage(error)} The previous local server could not be recovered: ${getErrorMessage(rollbackError)}`
@@ -59,16 +65,16 @@ export async function restoreLatestServerSave(
 }
 
 async function rollbackFailedRestore(
-  serverFolderPath: string,
+  worldFolderPath: string,
   backupFolderPath: string | null,
-  restoredServerWasInstalled: boolean
+  restoredWorldWasInstalled: boolean
 ): Promise<void> {
-  if (restoredServerWasInstalled) {
-    await rm(serverFolderPath, { recursive: true, force: true })
+  if (restoredWorldWasInstalled) {
+    await rm(worldFolderPath, { recursive: true, force: true })
   }
 
-  if (backupFolderPath && !(await folderExists(serverFolderPath))) {
-    await renameWithRetry(backupFolderPath, serverFolderPath)
+  if (backupFolderPath && !(await folderExists(worldFolderPath))) {
+    await renameWithRetry(backupFolderPath, worldFolderPath)
   }
 }
 
@@ -82,16 +88,16 @@ async function cleanupTemporaryRestorePaths(
   ])
 }
 
-async function moveCurrentServerToBackup(
-  serverFolderPath: string,
+async function moveCurrentWorldToBackup(
+  worldFolderPath: string,
   backupsFolderPath: string,
   saveVersion: number
 ): Promise<string> {
   await mkdir(backupsFolderPath, { recursive: true })
-  const backupServerName = `${basename(serverFolderPath)}-before-v${saveVersion.toString().padStart(3, '0')}-${Date.now()}`
-  const backupFolderPath = join(backupsFolderPath, backupServerName)
+  const backupWorldName = `${basename(worldFolderPath)}-before-v${saveVersion.toString().padStart(3, '0')}-${Date.now()}`
+  const backupFolderPath = join(backupsFolderPath, backupWorldName)
 
-  await renameWithRetry(serverFolderPath, backupFolderPath)
+  await renameWithRetry(worldFolderPath, backupFolderPath)
 
   return backupFolderPath
 }
@@ -121,6 +127,16 @@ async function assertZipFileExists(filePath: string): Promise<void> {
 
   if (!fileStats.isFile()) {
     throw new StorageError(`Cannot restore server save because ${filePath} is not a file.`)
+  }
+}
+
+async function assertWorldSaveExists(folderPath: string): Promise<void> {
+  const levelFileStats = await stat(join(folderPath, 'level.dat')).catch(() => {
+    throw new StorageError('The shared world save does not contain level.dat.')
+  })
+
+  if (!levelFileStats.isFile()) {
+    throw new StorageError('The shared world save does not contain level.dat.')
   }
 }
 

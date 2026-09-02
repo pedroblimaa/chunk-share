@@ -160,6 +160,22 @@ describe('server display runtime attribution', () => {
       getDashboardPrimaryActionView({ dashboardSnapshot: serverDisplayState, downloadEulaAccepted: false })
     ).toMatchObject({ kind: 'none', isDisabled: true })
   })
+
+  it('offers to rebuild an incompatible local runtime after EULA acceptance', () => {
+    const serverDisplayState = createServerDisplayState()
+    serverDisplayState.syncStatus = {
+      ...serverDisplayState.syncStatus,
+      status: ServerSyncStatus.Incompatible,
+      isStartAllowed: false
+    }
+
+    expect(
+      getDashboardPrimaryActionView({ dashboardSnapshot: serverDisplayState, downloadEulaAccepted: false })
+    ).toMatchObject({ kind: 'download-server', isDisabled: true })
+    expect(
+      getDashboardPrimaryActionView({ dashboardSnapshot: serverDisplayState, downloadEulaAccepted: true })
+    ).toMatchObject({ kind: 'download-server', isDisabled: false })
+  })
 })
 
 function createServerDisplayState(): ServerDisplayState {

@@ -42,13 +42,13 @@ export async function publishServerSave(
   )
   const nextSaveVersion = (latestSave?.saveVersion ?? 0) + 1
   const localState = await readWorldLocalState(worldId)
-  const serverFolderPath = paths.serverFolder
-  const zipFilePath = getTempServerSaveZipPath(serverFolderPath)
+  const worldFolderPath = paths.serverWorldFolder
+  const zipFilePath = getTempWorldSaveZipPath(paths.serverFolder)
 
-  await assertServerFolderExists(serverFolderPath)
+  await assertWorldFolderExists(worldFolderPath)
 
   try {
-    await runPublishPhase('compressing', onProgress, () => zipFolder(serverFolderPath, zipFilePath))
+    await runPublishPhase('compressing', onProgress, () => zipFolder(worldFolderPath, zipFilePath))
     const result = await publishWorldUpdate(
       storageAdapter,
       zipFilePath,
@@ -116,11 +116,12 @@ async function runPublishPhase<Result>(
   return operation()
 }
 
-async function assertServerFolderExists(serverFolderPath: string): Promise<void> {
+async function assertWorldFolderExists(worldFolderPath: string): Promise<void> {
   try {
-    const serverFolderStats = await stat(serverFolderPath)
+    const worldFolderStats = await stat(worldFolderPath)
+    const levelFileStats = await stat(join(worldFolderPath, 'level.dat'))
 
-    if (serverFolderStats.isDirectory()) {
+    if (worldFolderStats.isDirectory() && levelFileStats.isFile()) {
       return
     }
   } catch (error) {
@@ -129,7 +130,7 @@ async function assertServerFolderExists(serverFolderPath: string): Promise<void>
     }
   }
 
-  throw new StorageError(`Cannot publish save because the server folder was not found.`)
+  throw new StorageError(`Cannot publish save because the world folder is invalid.`)
 }
 
 async function zipFolder(sourceFolderPath: string, destinationFilePath: string): Promise<void> {
@@ -159,7 +160,7 @@ async function zipFolder(sourceFolderPath: string, destinationFilePath: string):
   }
 }
 
-function getTempServerSaveZipPath(serverFolderPath: string): string {
+function getTempWorldSaveZipPath(serverFolderPath: string): string {
   return join(
     dirname(serverFolderPath),
     `${basename(WORLD_FILE_NAME, '.zip')}.${process.pid}.${Date.now()}.tmp.zip`

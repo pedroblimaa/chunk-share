@@ -100,7 +100,10 @@ function buildWorldDisplayData(
   const { localState, serverSync } = storageSnapshot
   const serverAvailability = getServerAvailability(storageSnapshot, isInstalled)
   const remoteSave =
-    serverAvailability === ServerAvailability.RemoteAvailable ? storageSnapshot.latestSave : null
+    serverAvailability === ServerAvailability.RemoteAvailable ||
+    serverSync.status === ServerSyncStatus.Incompatible
+      ? storageSnapshot.latestSave
+      : null
   const runtimeAppliesToWorld = getRuntimeAppliesToWorld(
     worldId,
     selectedWorldId,

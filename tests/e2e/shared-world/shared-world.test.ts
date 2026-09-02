@@ -372,7 +372,7 @@ async function prepareSharedWorld(
 ): Promise<void> {
   await Promise.all([
     saveOwnerDriveSettings(ownerPaths),
-    createSharedServerZip().then((worldZip) => {
+    createSharedWorldZip().then((worldZip) => {
       const uploaded = driveMock.drive.uploadFile('owner', GOOGLE_TEST_IDS.worldFile, worldZip, true)
 
       expect(uploaded).toBe(true)
@@ -481,7 +481,7 @@ async function saveOwnerDriveSettings(paths: ElectronE2EPaths): Promise<void> {
   await writeFile(paths.localStateFile, JSON.stringify(appState, null, 2))
 }
 
-async function createSharedServerZip(): Promise<Uint8Array> {
+async function createSharedWorldZip(): Promise<Uint8Array> {
   const archive = new ZipArchive({ zlib: { level: 6 } })
   const output = new PassThrough()
   const chunks: Buffer[] = []
@@ -494,9 +494,7 @@ async function createSharedServerZip(): Promise<Uint8Array> {
   })
 
   archive.pipe(output)
-  archive.append('chunkshare-e2e-server', { name: 'server.jar' })
-  archive.append('server-port=25565\n', { name: 'server.properties' })
-  archive.append(E2E_WORLD_DATA, { name: 'world/level.dat' })
+  archive.append(E2E_WORLD_DATA, { name: 'level.dat' })
 
   await archive.finalize()
   await completed

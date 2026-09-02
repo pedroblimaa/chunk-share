@@ -95,7 +95,16 @@ async function isWorldInstalled(context: WorldContext): Promise<boolean> {
   }
 
   try {
-    return (await stat(context.paths.serverFolder)).isDirectory()
+    const [serverFolder, serverJar, serverProperties, serverEula] = await Promise.all([
+      stat(context.paths.serverFolder),
+      stat(context.paths.serverJarFile),
+      stat(context.paths.serverPropertiesFile),
+      stat(context.paths.serverEulaFile)
+    ])
+
+    return (
+      serverFolder.isDirectory() && serverJar.isFile() && serverProperties.isFile() && serverEula.isFile()
+    )
   } catch (error) {
     if (isMissingPathError(error)) {
       return false
