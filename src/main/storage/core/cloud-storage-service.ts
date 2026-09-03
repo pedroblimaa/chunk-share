@@ -252,6 +252,10 @@ async function ensureAndSaveGoogleDriveFolder(
     const validatedFolder = await validateConfiguredGoogleDriveFolder(folder)
     return saveValidGoogleDriveFolder(settings, validatedFolder)
   } catch (error) {
+    if (error instanceof AuthError && error.code === AuthErrorCode.CancelledByUser) {
+      throw error
+    }
+
     return saveGoogleDriveFolderFailure(settings, error)
   }
 }
@@ -491,6 +495,7 @@ function isGoogleDriveAuthError(error: unknown): boolean {
 
   return (
     error.code === AuthErrorCode.Cancelled ||
+    error.code === AuthErrorCode.CancelledByUser ||
     error.code === AuthErrorCode.ExpiredSession ||
     error.code === AuthErrorCode.InvalidCallback ||
     error.code === AuthErrorCode.InvalidStoredSession ||

@@ -46,7 +46,7 @@ function GoogleDriveStoragePanel({ onActivate }: GoogleDriveStoragePanelProps): 
 
       {state.errorMessage && <p className="settings-drive-error">{state.errorMessage}</p>}
 
-      <div className="settings-storage-actions">
+      <div className={`settings-storage-actions${state.googleSignInIsRunning ? ' is-cancellable' : ''}`}>
         {disconnectIsPending ? (
           <GoogleDriveDisconnectChoice onCancel={() => setDisconnectIsPending(false)} />
         ) : (
@@ -61,6 +61,12 @@ function GoogleDriveStoragePanel({ onActivate }: GoogleDriveStoragePanelProps): 
             >
               {state.primaryAction.label}
             </Button>
+
+            {state.googleSignInIsRunning && (
+              <Button icon="close" variant="ghost" onClick={storage.cancelGoogleDriveSetup}>
+                Cancel
+              </Button>
+            )}
 
             {state.hasFolder && (
               <Button

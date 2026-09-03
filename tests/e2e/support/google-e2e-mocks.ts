@@ -8,6 +8,7 @@ const E2E_AUTHORIZATION_CODE = 'e2e-authorization-code'
 
 interface InstallGoogleE2EMocksInput {
   accountName: GoogleTestAccountName | null
+  completeAuthorization: boolean
   driveMockUrl: string | null
   player: Player
   tokens: GoogleAuthTokens
@@ -105,6 +106,9 @@ function installGoogleOAuthClientMock(
     const module = process.getBuiltinModule('node:module')
     const path = process.getBuiltinModule('node:path')
     const stream = process.getBuiltinModule('node:stream')
+    const testGlobal = globalThis as typeof globalThis & {
+      chunkShareE2EGoogleRequestedScopes?: string[]
+    }
     const requireFromApp = module.createRequire(path.join(process.cwd(), 'package.json'))
     const { OAuth2Client } = requireFromApp('google-auth-library')
 
@@ -115,7 +119,7 @@ function installGoogleOAuthClientMock(
           access_token: fixture.accessToken,
           expiry_date: Date.parse(fixture.expiresAt),
           refresh_token: fixture.refreshToken,
-          scope: fixture.scope
+          scope: testGlobal.chunkShareE2EGoogleRequestedScopes?.join(' ') ?? fixture.scope
         }
       })
     })
@@ -211,11 +215,26 @@ function installGoogleAuthorizationMock(
   return electronApp.evaluate(
     async ({ shell }, fixture) => {
       const http = process.getBuiltinModule('node:http')
+      const testGlobal = globalThis as typeof globalThis & {
+        chunkShareE2EGoogleAuthorizationUrls?: string[]
+        chunkShareE2EGoogleRequestedScopes?: string[]
+      }
+      testGlobal.chunkShareE2EGoogleAuthorizationUrls = []
 
       Object.defineProperty(shell, 'openExternal', {
         configurable: true,
-        value: completeAuthorization
+        value: handleAuthorization
       })
+
+      async function handleAuthorization(authorizationUrl: string): Promise<void> {
+        testGlobal.chunkShareE2EGoogleAuthorizationUrls?.push(authorizationUrl)
+        testGlobal.chunkShareE2EGoogleRequestedScopes =
+          new URL(authorizationUrl).searchParams.get('scope')?.split(' ').filter(Boolean) ?? []
+
+        if (fixture.completeAuthorization) {
+          await completeAuthorization(authorizationUrl)
+        }
+      }
 
       async function completeAuthorization(authorizationUrl: string): Promise<void> {
         const googleAuthorizationUrl = new URL(authorizationUrl)
@@ -276,6 +295,7 @@ function installGoogleAuthorizationMock(
     {
       accountName: input.accountName,
       authorizationCode: E2E_AUTHORIZATION_CODE,
+      completeAuthorization: input.completeAuthorization,
       driveMockUrl: input.driveMockUrl
     }
   )

@@ -79,7 +79,7 @@ function App(): React.JSX.Element {
     onRepairKept: setErrorMessage
   })
 
-  const { isLoadingSession, isSigningIn, signInWithGoogle, signOut } = useAuthSession({
+  const { cancelGoogleSignIn, isLoadingSession, isSigningIn, signInWithGoogle, signOut } = useAuthSession({
     handleStorageError,
     onAuthStateChange: setServerDisplayState,
     onSignInComplete: showServersView,
@@ -104,7 +104,9 @@ function App(): React.JSX.Element {
       return (
         <AuthView
           errorMessage={errorMessage}
-          isSigningIn={isLoadingSession || isSigningIn}
+          isLoadingSession={isLoadingSession}
+          isSigningIn={isSigningIn}
+          onCancelSignIn={cancelGoogleSignIn}
           onSignIn={signInWithGoogle}
         />
       )

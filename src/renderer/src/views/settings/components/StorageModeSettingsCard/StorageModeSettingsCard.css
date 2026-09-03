@@ -104,6 +104,10 @@
   margin-top: 16px;
 }
 
+.settings-storage-actions.is-cancellable {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
 .settings-storage-button-loading .material-symbols-outlined {
   animation: settings-storage-button-spin 900ms linear infinite;
 }

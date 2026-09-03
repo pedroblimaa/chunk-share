@@ -25,35 +25,59 @@ import {
 export async function createGoogleAuthorizationServer({
   expectedState
 }: GoogleAuthorizationServerInput): Promise<GoogleAuthorizationServer> {
-  const { callbackServer, waitForCode } = createCallbackServer(expectedState)
+  const { callbackServer, cancelWaitForCode, waitForCode } = createCallbackServer(expectedState)
 
   await startCallbackServer(callbackServer.server)
 
   return {
     redirectUri: getRedirectUri(callbackServer),
     waitForCode,
+    cancel: async () => {
+      cancelWaitForCode()
+      await closeCallbackServer(callbackServer)
+    },
     close: () => closeCallbackServer(callbackServer)
   }
 }
 
 function createCallbackServer(expectedState: string): {
   callbackServer: GoogleCallbackServer
+  cancelWaitForCode: () => void
   waitForCode: Promise<GoogleAuthorizationCodeResult>
 } {
   let callbackServer: GoogleCallbackServer
+  let cancelWaitForCode: () => void
 
   const waitForCode = new Promise<GoogleAuthorizationCodeResult>((resolve, reject) => {
-    const timeout = createCallbackTimeout(reject)
+    let isSettled = false
+    const resolveOnce = (result: GoogleAuthorizationCodeResult): void => {
+      if (isSettled) {
+        return
+      }
+
+      isSettled = true
+      clearTimeout(timeout)
+      resolve(result)
+    }
+    const rejectOnce = (error: Error): void => {
+      if (isSettled) {
+        return
+      }
+
+      isSettled = true
+      clearTimeout(timeout)
+      reject(error)
+    }
+    const timeout = createCallbackTimeout(rejectOnce)
 
     const server = createServer((request, response) => {
       handleGoogleCallbackRequest({
         callbackServer,
         expectedState,
-        reject,
+        reject: rejectOnce,
         request,
-        resolve,
-        response,
-        timeout
+        resolve: resolveOnce,
+        response
       })
     })
     const sockets = new Set<Socket>()
@@ -67,10 +91,14 @@ function createCallbackServer(expectedState: string): {
       server,
       sockets
     }
+    cancelWaitForCode = () => {
+      rejectOnce(new AuthError('Google sign-in was cancelled.', AuthErrorCode.CancelledByUser))
+    }
   })
 
   return {
     callbackServer: callbackServer!,
+    cancelWaitForCode: cancelWaitForCode!,
     waitForCode
   }
 }
@@ -83,6 +111,11 @@ function startCallbackServer(callbackServer: Server): Promise<void> {
 }
 
 function closeCallbackServer(callbackServer: GoogleCallbackServer): Promise<void> {
+  if (!callbackServer.server.listening) {
+    destroyCallbackServerSockets(callbackServer)
+    return Promise.resolve()
+  }
+
   return new Promise((resolve, reject) => {
     const closeTimeout = setTimeout(() => {
       destroyCallbackServerSockets(callbackServer)
@@ -131,8 +164,6 @@ function handleGoogleCallbackRequest(input: GoogleCallbackRequestHandlerInput): 
     respondNotFound(input.response)
     return
   }
-
-  clearTimeout(input.timeout)
 
   if (callbackResult.type === 'failure') {
     respondWithCallbackPage(input.response, callbackResult.pageTitle, callbackResult.pageMessage)

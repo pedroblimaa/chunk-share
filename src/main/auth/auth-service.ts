@@ -1,13 +1,25 @@
 import { shell } from 'electron'
 import type { Player } from '../../shared/domain'
-import { clearPlayer, readLocalState, savePlayer } from '../storage/persistence/local-state-store'
+import { GoogleDriveSetupStatus } from '../../shared/cloud-storage.model'
+import {
+  clearPlayer,
+  readAppState,
+  readLocalState,
+  savePlayer
+} from '../storage/persistence/local-state-store'
 import { AuthError } from './auth-error'
 import {
   clearStoredGoogleAuthTokens,
   readStoredGoogleAuthTokens,
   writeStoredGoogleAuthTokens
 } from './auth-token-store'
-import { AuthErrorCode, type AuthSession, type GoogleAuthTokens, type GoogleUserProfile } from './auth-model'
+import {
+  AuthErrorCode,
+  type AuthSession,
+  type GoogleAuthorizationServer,
+  type GoogleAuthTokens,
+  type GoogleUserProfile
+} from './auth-model'
 import {
   createGoogleAuthorizationUrl,
   exchangeAuthorizationCode,
@@ -25,8 +37,28 @@ import {
   TOKEN_REFRESH_WINDOW_MS
 } from './auth-constants'
 
+let activeGoogleAuthorizationServer: GoogleAuthorizationServer | null = null
+
 export async function signInWithGoogle(): Promise<AuthSession> {
-  return signInWithGoogleScopes(GOOGLE_OAUTH_SCOPES, null, false)
+  const appState = await readAppState()
+  const scopes =
+    appState.googleDrive.status === GoogleDriveSetupStatus.NotConfigured
+      ? GOOGLE_OAUTH_SCOPES
+      : GOOGLE_DRIVE_OAUTH_SCOPES
+
+  return signInWithGoogleScopes(scopes, null, false)
+}
+
+export async function cancelGoogleSignIn(): Promise<boolean> {
+  const authorizationServer = activeGoogleAuthorizationServer
+
+  if (!authorizationServer) {
+    return false
+  }
+
+  activeGoogleAuthorizationServer = null
+  await authorizationServer.cancel()
+  return true
 }
 
 export async function ensureGoogleDriveAuthSession(): Promise<AuthSession> {
@@ -48,16 +80,17 @@ export async function authorizeGoogleDriveFiles(expectedFileIds: string[]): Prom
 
   const state = createOAuthState()
   const authorizationServer = await createGoogleAuthorizationServer({ expectedState: state })
-  const { authorizationUrl, codeVerifier } = await createGoogleAuthorizationUrl({
-    includeGrantedScopes: false,
-    loginHint: currentSession.player.email,
-    pickerFileIds: expectedFileIds,
-    redirectUri: authorizationServer.redirectUri,
-    scopes: [GOOGLE_DRIVE_SCOPE],
-    state
-  })
+  activeGoogleAuthorizationServer = authorizationServer
 
   try {
+    const { authorizationUrl, codeVerifier } = await createGoogleAuthorizationUrl({
+      includeGrantedScopes: false,
+      loginHint: currentSession.player.email,
+      pickerFileIds: expectedFileIds,
+      redirectUri: authorizationServer.redirectUri,
+      scopes: [GOOGLE_DRIVE_SCOPE],
+      state
+    })
     await shell.openExternal(authorizationUrl)
 
     const authorizationCode = await authorizationServer.waitForCode
@@ -85,6 +118,7 @@ export async function authorizeGoogleDriveFiles(expectedFileIds: string[]): Prom
 
     throw error
   } finally {
+    clearActiveGoogleAuthorizationServer(authorizationServer)
     await authorizationServer.close().catch(() => undefined)
   }
 }
@@ -130,14 +164,15 @@ async function signInWithGoogleScopes(
 ): Promise<AuthSession> {
   const state = createOAuthState()
   const authorizationServer = await createGoogleAuthorizationServer({ expectedState: state })
-  const { authorizationUrl, codeVerifier } = await createGoogleAuthorizationUrl({
-    includeGrantedScopes,
-    redirectUri: authorizationServer.redirectUri,
-    scopes,
-    state
-  })
+  activeGoogleAuthorizationServer = authorizationServer
 
   try {
+    const { authorizationUrl, codeVerifier } = await createGoogleAuthorizationUrl({
+      includeGrantedScopes,
+      redirectUri: authorizationServer.redirectUri,
+      scopes,
+      state
+    })
     await shell.openExternal(authorizationUrl)
 
     const authorizationCode = await authorizationServer.waitForCode
@@ -152,7 +187,14 @@ async function signInWithGoogleScopes(
 
     return saveAuthSession(tokens, profile)
   } finally {
+    clearActiveGoogleAuthorizationServer(authorizationServer)
     await authorizationServer.close().catch(() => undefined)
+  }
+}
+
+function clearActiveGoogleAuthorizationServer(authorizationServer: GoogleAuthorizationServer): void {
+  if (activeGoogleAuthorizationServer === authorizationServer) {
+    activeGoogleAuthorizationServer = null
   }
 }
 

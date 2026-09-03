@@ -23,6 +23,7 @@ import type {
 import type { StorageOperationSnapshot } from './storage-operation'
 
 export const AUTH_GET_SESSION_CHANNEL = 'auth:get-session'
+export const AUTH_CANCEL_GOOGLE_SIGN_IN_CHANNEL = 'auth:cancel-google-sign-in'
 export const AUTH_SIGN_IN_WITH_GOOGLE_CHANNEL = 'auth:sign-in-with-google'
 export const AUTH_SIGN_OUT_CHANNEL = 'auth:sign-out'
 
@@ -66,6 +67,7 @@ export const JAVA_RUNTIME_SAVE_CONFIG_CHANNEL = 'javaRuntime:save-config'
 export const JAVA_RUNTIME_BROWSE_CHANNEL = 'javaRuntime:browse'
 
 export interface IpcInvokeContract {
+  [AUTH_CANCEL_GOOGLE_SIGN_IN_CHANNEL]: IpcOperation<[], boolean>
   [AUTH_GET_SESSION_CHANNEL]: IpcOperation<[], ServerDisplayState>
   [AUTH_SIGN_IN_WITH_GOOGLE_CHANNEL]: IpcOperation<[], ServerDisplayState>
   [AUTH_SIGN_OUT_CHANNEL]: IpcOperation<[], ServerDisplayState>

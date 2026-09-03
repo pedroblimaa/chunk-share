@@ -40,6 +40,7 @@ export interface StorageProviderSettingsController {
   storageProviderSwitchPreview: CloudStorageProviderSwitchPreview | null
   activeStorageProvider: CloudStorageProvider | null
   operationState: StorageProviderOperationState
+  cancelGoogleDriveSetup: () => Promise<boolean>
   dismissStorageError: () => void
   requestGoogleDriveDisconnect: () => Promise<boolean>
   requestGoogleDriveSetup: () => void

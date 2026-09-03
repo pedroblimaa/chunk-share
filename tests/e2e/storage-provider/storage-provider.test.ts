@@ -76,6 +76,24 @@ test('copies a local world to Google Drive through Settings', async () => {
   }
 })
 
+test('cancels Google Drive setup while sign-in is pending', async () => {
+  const app = await launchChunkShareE2EApp({ completeGoogleAuthorization: false })
+
+  try {
+    await app.user.click(app.page.getByRole('button', { name: 'Settings', exact: true }).first())
+    await app.user.click(app.page.getByRole('button', { name: /Google Drive/ }))
+    await app.user.click(app.page.getByRole('button', { name: 'Set up Drive folder' }))
+
+    await expect(app.page.getByRole('button', { name: 'Working...' })).toBeVisible()
+    await app.user.click(app.page.getByRole('button', { name: 'Cancel', exact: true }))
+
+    await expect(app.page.getByRole('button', { name: 'Set up Drive folder' })).toBeEnabled()
+    await expect(app.page.locator('.settings-drive-error')).toHaveCount(0)
+  } finally {
+    await app.close()
+  }
+})
+
 async function saveLocalStorageWithDriveTarget(localStateFile: string): Promise<void> {
   const now = '2026-07-25T12:00:00.000Z'
   const appState = JSON.parse(await readFile(localStateFile, 'utf8')) as AppState

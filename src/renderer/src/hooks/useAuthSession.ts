@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { getErrorMessage } from '../utils/error-message'
 import type { AuthSessionActions, UseAuthSessionInput } from './auth.model'
 
@@ -11,6 +11,7 @@ export function useAuthSession({
 }: UseAuthSessionInput): AuthSessionActions {
   const [isLoadingSession, setIsLoadingSession] = useState(true)
   const [isSigningIn, setIsSigningIn] = useState(false)
+  const signInCancellationWasRequested = useRef(false)
 
   useEffect(() => {
     window.chunkShare.auth
@@ -29,6 +30,7 @@ export function useAuthSession({
   }, [handleStorageError, onAuthStateChange, setErrorMessage])
 
   const signInWithGoogle = useCallback(async (): Promise<void> => {
+    signInCancellationWasRequested.current = false
     setIsSigningIn(true)
     setErrorMessage(null)
 
@@ -37,15 +39,34 @@ export function useAuthSession({
       onAuthStateChange(nextServerDisplayState)
       onSignInComplete()
     } catch (error: unknown) {
+      if (signInCancellationWasRequested.current) {
+        return
+      }
+
       if (handleStorageError(error)) {
         return
       }
 
       setErrorMessage(getErrorMessage(error, 'Unable to sign in with Google.'))
     } finally {
+      signInCancellationWasRequested.current = false
       setIsSigningIn(false)
     }
   }, [handleStorageError, onAuthStateChange, onSignInComplete, setErrorMessage])
+
+  const cancelGoogleSignIn = useCallback(async (): Promise<void> => {
+    signInCancellationWasRequested.current = true
+
+    try {
+      const didCancel = await window.chunkShare.auth.cancelGoogleSignIn()
+      if (!didCancel) {
+        signInCancellationWasRequested.current = false
+      }
+    } catch (error: unknown) {
+      signInCancellationWasRequested.current = false
+      setErrorMessage(getErrorMessage(error, 'Unable to cancel Google sign-in.'))
+    }
+  }, [setErrorMessage])
 
   const signOut = useCallback(async (): Promise<void> => {
     setErrorMessage(null)
@@ -64,6 +85,7 @@ export function useAuthSession({
   }, [handleStorageError, onAuthStateChange, onSignOutComplete, setErrorMessage])
 
   return {
+    cancelGoogleSignIn,
     isLoadingSession,
     isSigningIn,
     signInWithGoogle,

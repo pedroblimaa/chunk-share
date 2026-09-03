@@ -7,6 +7,7 @@ import type {
 import type { ServerConfig } from '../shared/domain'
 import type { JavaRuntimeRequest, SaveJavaConfigRequest } from '../shared/java-runtime'
 import {
+  AUTH_CANCEL_GOOGLE_SIGN_IN_CHANNEL,
   AUTH_GET_SESSION_CHANNEL,
   AUTH_SIGN_IN_WITH_GOOGLE_CHANNEL,
   AUTH_SIGN_OUT_CHANNEL,
@@ -56,6 +57,7 @@ import { invokeIpc, subscribeToIpcEvent } from './typed-ipc'
 
 const chunkShareApi = {
   auth: {
+    cancelGoogleSignIn: () => invokeIpc(AUTH_CANCEL_GOOGLE_SIGN_IN_CHANNEL),
     getSession: () => invokeIpc(AUTH_GET_SESSION_CHANNEL),
     signInWithGoogle: () => invokeIpc(AUTH_SIGN_IN_WITH_GOOGLE_CHANNEL),
     signOut: () => invokeIpc(AUTH_SIGN_OUT_CHANNEL)
