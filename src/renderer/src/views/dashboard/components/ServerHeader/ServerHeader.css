@@ -23,6 +23,12 @@
   gap: 12px;
 }
 
+.connection-control {
+  align-items: center;
+  display: inline-flex;
+  gap: 2px;
+}
+
 .connection-menu-button {
   align-items: center;
   background: var(--color-surface);
@@ -62,64 +68,88 @@
 }
 
 .connection-popover {
-  align-items: center;
   backdrop-filter: var(--blur-overlay);
   background: var(--color-surface-overlay);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-overlay);
   box-shadow: var(--shadow-modal);
   color: var(--color-text-secondary);
-  display: flex;
-  gap: 12px;
-  min-width: min(420px, calc(100vw - 64px));
-  padding: 12px;
+  min-width: min(360px, calc(100vw - 64px));
+  padding: 14px;
 }
 
-.connection-popover p {
-  flex: 1;
+.connection-address-list {
+  display: grid;
+  gap: 10px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.connection-address-row {
+  align-items: center;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(124px, 1fr) auto;
+  min-height: 28px;
+}
+
+.connection-address-label {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-caption);
+}
+
+.connection-address-value {
+  color: var(--color-text-primary);
+  font-family: var(--font-family-mono);
   font-size: var(--font-size-small);
-  overflow-wrap: anywhere;
+  white-space: nowrap;
 }
 
-.connection-popover-copy {
+.connection-copy-button {
   align-items: center;
   background: transparent;
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-notice);
-  color: var(--color-text-secondary);
+  border: 0;
+  border-radius: var(--radius-pill);
+  color: var(--color-text-muted);
+  cursor: pointer;
   display: inline-flex;
-  flex: 0 0 auto;
   height: var(--size-control-compact);
   justify-content: center;
+  padding: 0;
   transition:
     background-color 140ms ease,
-    border-color 140ms ease,
+    color 140ms ease,
     transform 140ms ease;
   width: var(--size-control-compact);
 }
 
-.connection-popover-copy .material-symbols-outlined {
-  font-size: var(--font-size-icon-sm);
-}
-
-.connection-popover-copy:hover,
-.connection-popover-copy:focus-visible,
-.connection-popover-copy.is-copied {
+.connection-copy-button:hover,
+.connection-copy-button:focus-visible,
+.connection-copy-button.is-copied {
   background: var(--color-accent-glow);
-  border-color: var(--color-border-accent);
   color: var(--color-accent);
   outline: 0;
 }
 
-.connection-popover-copy:active {
-  transform: scale(0.98);
+.connection-copy-button:active {
+  transform: scale(0.94);
 }
 
-.connection-popover-copy.is-copied {
+.connection-copy-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.connection-copy-button .material-symbols-outlined {
+  font-size: var(--font-size-icon-sm);
+}
+
+.connection-copy-button.is-copied {
   animation: server-connection-copy-pop 320ms ease-out;
 }
 
-.connection-popover-copy.is-failed {
+.connection-copy-button.is-failed {
   animation: server-connection-copy-shake 260ms ease-out;
 }
 
@@ -273,8 +303,8 @@
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-overlay);
   box-shadow: var(--shadow-popover);
-  min-width: 180px;
-  padding: 8px;
+  min-width: 128px;
+  padding: 4px;
 }
 
 .server-actions-popover .tooltip {
@@ -290,8 +320,10 @@
   cursor: pointer;
   display: flex;
   font: inherit;
-  gap: 8px;
-  padding: 10px;
+  font-size: var(--font-size-caption);
+  gap: 6px;
+  padding: 8px;
+  white-space: nowrap;
   width: 100%;
   transition:
     background-color 140ms ease,

@@ -365,7 +365,12 @@ function DashboardView({
       return
     }
 
-    await navigator.clipboard.writeText(dashboardSnapshot.connectionAddress)
+    try {
+      await navigator.clipboard.writeText(dashboardSnapshot.connectionAddress)
+      setAddressCopyStatus('copied')
+    } catch {
+      setAddressCopyStatus('failed')
+    }
   }
 
   async function copyRuntimeError(): Promise<void> {
@@ -378,19 +383,6 @@ function DashboardView({
       setErrorCopyStatus('copied')
     } catch {
       setErrorCopyStatus('failed')
-    }
-  }
-
-  async function copyConnectionAddressDetails(): Promise<void> {
-    if (!dashboardSnapshot.connectionAddress) {
-      return
-    }
-
-    try {
-      await navigator.clipboard.writeText(dashboardSnapshot.connectionAddress)
-      setAddressCopyStatus('copied')
-    } catch {
-      setAddressCopyStatus('failed')
     }
   }
 
@@ -482,12 +474,13 @@ function DashboardView({
   const createServerDisabledReason = createServerIsDisabled
     ? 'Stop the running server before creating another one.'
     : undefined
-  const connectionAddressDetails = dashboardSnapshot.connectionAddresses
-    .map((connectionAddress) => `${connectionAddress.label}: ${connectionAddress.address}`)
-    .join(', ')
-
   const errorCopyButtonLabel = COPY_STATUS_LABELS[errorCopyStatus]
-  const addressCopyButtonLabel = COPY_STATUS_LABELS[addressCopyStatus]
+  const addressCopyButtonLabel =
+    addressCopyStatus === 'copied'
+      ? 'Address copied'
+      : addressCopyStatus === 'failed'
+        ? 'Copy failed'
+        : 'Copy address'
   const addressCopyButtonStateClass = addressCopyStatus === 'idle' ? '' : ` is-${addressCopyStatus}`
   const latestSaveLabel = formatLatestSaveLabel(dashboardSnapshot.syncStatus.latestSave)
   const lastActiveLabel = isServerActiveStatus(dashboardSnapshot.serverStatus)
@@ -554,12 +547,11 @@ function DashboardView({
             }}
             connection={{
               connectionAddress: dashboardSnapshot.connectionAddress,
-              connectionAddressDetails,
+              connectionAddresses: dashboardSnapshot.connectionAddresses,
               connectionDetailsOpen,
-              copyConnectionDetailsLabel: addressCopyButtonLabel,
-              copyConnectionDetailsStateClass: addressCopyButtonStateClass,
+              copyConnectionAddressLabel: addressCopyButtonLabel,
+              copyConnectionAddressStateClass: addressCopyButtonStateClass,
               onCopyConnectionAddress: copyConnectionAddress,
-              onCopyConnectionAddressDetails: copyConnectionAddressDetails,
               onCloseConnectionDetails: closeConnectionDetails,
               onToggleConnectionDetails: toggleConnectionDetails
             }}

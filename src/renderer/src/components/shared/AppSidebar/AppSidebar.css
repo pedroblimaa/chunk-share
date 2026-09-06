@@ -23,13 +23,17 @@
 
 .dashboard-brand-mark {
   align-items: center;
-  background: var(--color-accent-brand);
-  border-radius: var(--radius-control);
-  color: var(--color-accent-brand-mark);
   display: flex;
   height: var(--size-control-default);
   justify-content: center;
   width: var(--size-control-default);
+}
+
+.dashboard-brand-mark img {
+  display: block;
+  height: 100%;
+  object-fit: contain;
+  width: 100%;
 }
 
 .dashboard-brand h1 {

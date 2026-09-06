@@ -70,8 +70,13 @@ function ServerHeader({
   const toggleButtonLabel = primaryAction.label ?? getToggleButtonLabel(server.status)
   const toggleButtonIcon = primaryAction.icon ?? getToggleButtonIcon(server.status)
   const toggleButtonTone = primaryAction.tone ?? 'default'
-  const copyConnectionDetailsLabel = connection.copyConnectionDetailsLabel ?? 'Copy Connection'
-  const copyConnectionDetailsStateClass = connection.copyConnectionDetailsStateClass ?? ''
+  const copyConnectionAddressLabel = connection.copyConnectionAddressLabel ?? 'Copy address'
+  const copyConnectionAddressStateClass = connection.copyConnectionAddressStateClass ?? ''
+  const copyConnectionAddressIcon = copyConnectionAddressStateClass.includes('is-copied')
+    ? 'check'
+    : copyConnectionAddressStateClass.includes('is-failed')
+      ? 'error_outline'
+      : 'content_copy'
 
   function inviteMember(): void {
     setActionsMenuOpen(false)
@@ -80,17 +85,17 @@ function ServerHeader({
 
   const getPopOverContent = (): React.JSX.Element => {
     return (
-      <>
-        <p>{connection.connectionAddressDetails}</p>
-        <Button
-          aria-label={copyConnectionDetailsLabel}
-          className={`connection-popover-copy${copyConnectionDetailsStateClass}`}
-          icon="content_copy"
-          size="square-compact"
-          variant="icon"
-          onClick={connection.onCopyConnectionAddressDetails ?? connection.onCopyConnectionAddress}
-        />
-      </>
+      <ul className="connection-address-list">
+        {connection.connectionAddresses.map((connectionAddress) => (
+          <li
+            className="connection-address-row"
+            key={`${connectionAddress.label}-${connectionAddress.address}`}
+          >
+            <span className="connection-address-label">{connectionAddress.label}</span>
+            <span className="connection-address-value">{connectionAddress.address}</span>
+          </li>
+        ))}
+      </ul>
     )
   }
 
@@ -128,27 +133,39 @@ function ServerHeader({
             {formatStatus(server.status)}
           </Badge>
 
-          <Popover
-            ariaLabel="Connection addresses"
-            className="connection-menu"
-            contentClassName="connection-popover is-left"
-            isOpen={connection.connectionDetailsOpen === true && Boolean(connection.connectionAddressDetails)}
-            onClose={() => connection.onCloseConnectionDetails?.()}
-            content={getPopOverContent()}
-          >
-            <button
-              className="connection-menu-button"
-              type="button"
-              aria-expanded={connection.connectionDetailsOpen}
-              aria-label="Show connection addresses"
-              disabled={!connection.connectionAddress}
-              onClick={connection.onToggleConnectionDetails}
+          <div className="connection-control">
+            <Popover
+              ariaLabel="Connection addresses"
+              contentClassName="connection-popover is-left"
+              isOpen={connection.connectionDetailsOpen === true && connection.connectionAddresses.length > 0}
+              onClose={() => connection.onCloseConnectionDetails?.()}
+              content={getPopOverContent()}
             >
-              <MaterialIcon name="lan" />
-              <span>{connection.connectionAddress ?? 'Connection unavailable'}</span>
-              <MaterialIcon name="content_copy" />
-            </button>
-          </Popover>
+              <button
+                className="connection-menu-button"
+                type="button"
+                aria-expanded={connection.connectionDetailsOpen}
+                aria-label="Show connection addresses"
+                disabled={!connection.connectionAddress}
+                onClick={connection.onToggleConnectionDetails}
+              >
+                <MaterialIcon name="lan" />
+                <span>{connection.connectionAddress ?? 'Connection unavailable'}</span>
+                <MaterialIcon name="expand_more" />
+              </button>
+            </Popover>
+            <Tooltip content={copyConnectionAddressLabel} placement="top">
+              <button
+                aria-label={copyConnectionAddressLabel}
+                className={`connection-copy-button${copyConnectionAddressStateClass}`}
+                disabled={!connection.connectionAddress}
+                type="button"
+                onClick={connection.onCopyConnectionAddress}
+              >
+                <MaterialIcon name={copyConnectionAddressIcon} />
+              </button>
+            </Tooltip>
+          </div>
         </div>
       </div>
 

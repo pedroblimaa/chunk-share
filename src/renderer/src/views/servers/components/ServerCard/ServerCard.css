@@ -49,13 +49,19 @@
 }
 
 .server-card-visual::before {
-  background: url('../../../../assets/server-card-environment.png') center / cover no-repeat;
+  background: url('../../../../assets/server-card-environment.jpg') center / cover no-repeat;
   content: '';
   inset: 0;
   mix-blend-mode: luminosity;
   opacity: 0.6;
   position: absolute;
+  transition: opacity 220ms ease;
   z-index: -2;
+}
+
+.server-card-running .server-card-visual::before {
+  mix-blend-mode: normal;
+  opacity: 0.8;
 }
 
 .server-card-visual::after {

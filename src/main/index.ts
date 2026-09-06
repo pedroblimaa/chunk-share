@@ -1,7 +1,7 @@
 import { app, shell, BrowserWindow } from 'electron'
 import { join, resolve } from 'path'
-import { electronApp, optimizer, is } from '@electron-toolkit/utils'
-import icon from '../../resources/icon.png?asset'
+import { optimizer, is } from '@electron-toolkit/utils'
+import icon from '../../resources/icon.png?asset&asarUnpack'
 import { DRIVE_JOIN_LINK_AVAILABLE_CHANNEL } from '../shared/ipc-channels'
 import {
   findGoogleDriveJoinLink,
@@ -11,6 +11,7 @@ import { registerIpcHandlers } from './ipc/register-ipc-handlers'
 import { sendIpcEvent } from './ipc/typed-ipc'
 
 const CHUNKSHARE_PROTOCOL = 'chunkshare'
+const CHUNKSHARE_APP_ID = 'com.chunkshare.app'
 const runsHeadless = process.env.CHUNKSHARE_HEADLESS === '1'
 
 let mainWindow: BrowserWindow | null = null
@@ -23,7 +24,7 @@ function createWindow(): void {
     show: false,
     autoHideMenuBar: true,
     ...(runsHeadless ? { focusable: false, opacity: 0, skipTaskbar: true } : {}),
-    ...(process.platform === 'linux' ? { icon } : {}),
+    icon,
     webPreferences: {
       backgroundThrottling: !runsHeadless,
       preload: join(__dirname, '../preload/index.js'),
@@ -116,7 +117,14 @@ if (!app.requestSingleInstanceLock()) {
   openJoinLink(findGoogleDriveJoinLink(process.argv))
 
   app.whenReady().then(() => {
-    electronApp.setAppUserModelId('com.electron')
+    if (process.platform === 'win32') {
+      app.setAppUserModelId(CHUNKSHARE_APP_ID)
+    }
+
+    if (process.platform === 'darwin') {
+      app.dock?.setIcon(icon)
+    }
+
     registerProtocolClient()
 
     app.on('browser-window-created', (_, window) => {
