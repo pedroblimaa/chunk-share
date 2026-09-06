@@ -180,10 +180,11 @@ function ServerHeader({
                 onChange={(event) => downloadEula.onChange(event.target.checked)}
               />
               <span>
-                I agree to the{' '}
+                I have read and accept the{' '}
                 <a href="https://www.minecraft.net/en-us/eula" rel="noreferrer" target="_blank">
                   Minecraft EULA
                 </a>
+                .
               </span>
             </label>
           )}

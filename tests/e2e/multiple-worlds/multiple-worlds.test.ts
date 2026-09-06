@@ -151,7 +151,7 @@ async function createWorld(app: ChunkShareE2EApp, name: string, port: number): P
   await expect(app.page.getByRole('heading', { name: 'Create New Server' })).toBeVisible()
   await app.user.fill(app.page.getByLabel('Server Name'), name)
   await app.user.fill(app.page.getByLabel('Server Port'), String(port))
-  await app.user.check(app.page.getByLabel('I agree to the Minecraft EULA'))
+  await app.user.check(app.page.getByLabel('I have read and accept the Minecraft EULA.'))
   await app.user.click(app.page.getByRole('button', { name: 'Create Server', exact: true }))
   await expect(app.page.getByText('Server setup completed.')).toBeVisible()
   await app.user.click(app.page.getByRole('button', { name: 'Open Dashboard', exact: true }))

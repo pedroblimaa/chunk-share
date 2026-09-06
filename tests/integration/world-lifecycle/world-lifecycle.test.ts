@@ -1,5 +1,5 @@
 import extractZip from 'extract-zip'
-import { mkdir, readdir, readFile, stat } from 'fs/promises'
+import { mkdir, readdir, readFile, stat, writeFile } from 'fs/promises'
 import { join } from 'path'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ServerHostingStatus, ServerLockStatus } from '../../../src/shared/domain'
@@ -122,6 +122,30 @@ describe('world lifecycle', () => {
     ).rejects.toThrow('could not be validated')
 
     await expect(readAppState()).resolves.toMatchObject({ selectedWorldId: null, worlds: [] })
+    expect(() => getMinecraftSpawnInvocation()).toThrow('has not been spawned')
+  })
+
+  it('rejects server setup without explicit EULA acceptance', async () => {
+    await expect(
+      setupVanillaServer({
+        eulaAccepted: false,
+        minecraftVersion: TEST_MINECRAFT_VERSION,
+        minecraftVersionMetadataUrl: TEST_MINECRAFT_METADATA_URL,
+        name: TEST_WORLD_NAME,
+        port: TEST_WORLD_PORT,
+        javaConfig: { mode: 'system', executablePath: null }
+      })
+    ).rejects.toThrow('Minecraft EULA must be accepted')
+
+    await expect(readAppState()).resolves.toMatchObject({ selectedWorldId: null, worlds: [] })
+  })
+
+  it('requires an explicitly accepted EULA before starting Minecraft', async () => {
+    await createLocalTestWorld()
+    const worldContext = await getSelectedWorldContext()
+    await writeFile(worldContext.paths.serverEulaFile, 'eula=false\n', 'utf8')
+
+    await expect(startMinecraftServer()).rejects.toThrow('Minecraft EULA must be accepted')
     expect(() => getMinecraftSpawnInvocation()).toThrow('has not been spawned')
   })
 

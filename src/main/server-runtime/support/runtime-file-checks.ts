@@ -1,4 +1,4 @@
-import { stat } from 'fs/promises'
+import { readFile, stat } from 'fs/promises'
 import { ServerRuntimeError } from './runtime-error'
 
 export async function assertFolderExists(folderPath: string): Promise<void> {
@@ -26,6 +26,20 @@ export async function assertFileExists(filePath: string): Promise<void> {
 
   if (!fileStats.isFile()) {
     throw new ServerRuntimeError(`server.jar path is not a file: ${filePath}`)
+  }
+}
+
+export async function assertEulaAccepted(filePath: string): Promise<void> {
+  const eulaContents = await readFile(filePath, 'utf8').catch((error: unknown) => {
+    if (isMissingFileError(error)) {
+      throw new ServerRuntimeError(`Minecraft EULA file was not found at ${filePath}`)
+    }
+
+    throw error
+  })
+
+  if (!eulaContents.split(/\r?\n/).some((line) => line.trim() === 'eula=true')) {
+    throw new ServerRuntimeError('Minecraft EULA must be accepted before starting the server.')
   }
 }
 
