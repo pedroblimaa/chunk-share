@@ -25,7 +25,14 @@ test('creates, starts, stops, and publishes a local world', async () => {
     await expect(minecraftVersion).toHaveValue(E2E_MINECRAFT_VERSION)
     await user.fill(page.getByLabel('Server Name'), E2E_SERVER_NAME)
     await user.fill(page.getByLabel('Server Port'), '25570')
-    await user.check(page.getByLabel('I agree to the Minecraft EULA'))
+    const eulaCheckbox = page.getByLabel('I have read and accept the Minecraft EULA.')
+    await expect(page.getByRole('button', { name: 'Create Server', exact: true })).toBeDisabled()
+    await expect(page.getByRole('link', { name: 'Minecraft EULA', exact: true })).toHaveAttribute(
+      'href',
+      'https://www.minecraft.net/en-us/eula'
+    )
+    await user.check(eulaCheckbox)
+    await expect(page.getByRole('button', { name: 'Create Server', exact: true })).toBeEnabled()
     await user.click(page.getByRole('button', { name: 'Create Server', exact: true }))
 
     await expect(page.getByText('Server setup completed.')).toBeVisible()

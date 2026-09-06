@@ -12,7 +12,7 @@ export async function createLocalWorld(app: ChunkShareE2EApp): Promise<void> {
   await user.click(page.getByRole('button', { name: 'Create Server', exact: true }).first())
   await user.fill(page.getByLabel('Server Name'), E2E_SERVER_NAME)
   await user.fill(page.getByLabel('Server Port'), '25570')
-  await user.check(page.getByLabel('I agree to the Minecraft EULA'))
+  await user.check(page.getByLabel('I have read and accept the Minecraft EULA.'))
   await user.click(page.getByRole('button', { name: 'Create Server', exact: true }))
 
   await expect(page.getByText('Server setup completed.')).toBeVisible()

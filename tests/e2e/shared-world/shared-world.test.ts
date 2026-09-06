@@ -55,7 +55,7 @@ test('owner invites a friend who joins and downloads the shared world', async ()
       pathname: `/drive/v3/files/${GOOGLE_TEST_IDS.worldFile}`
     })
 
-    await friendApp.user.check(friendApp.page.getByLabel('I agree to the Minecraft EULA'))
+    await friendApp.user.check(friendApp.page.getByLabel('I have read and accept the Minecraft EULA.'))
     await friendApp.user.click(friendApp.page.getByRole('button', { name: 'Download shared server' }))
     await expect(friendApp.page.getByRole('status')).toContainText('Preparing server...')
     await expect(friendApp.page.getByRole('button', { name: 'Download Server' })).toHaveAttribute(
@@ -441,7 +441,7 @@ async function joinSharedWorld(friendApp: ChunkShareE2EApp, joinLink: string): P
 async function downloadSharedServer(app: ChunkShareE2EApp): Promise<void> {
   const { page, user } = app
 
-  await user.check(page.getByLabel('I agree to the Minecraft EULA'))
+  await user.check(page.getByLabel('I have read and accept the Minecraft EULA.'))
   await user.click(page.getByRole('button', { name: 'Download shared server' }))
   await expect(page.getByRole('button', { name: 'Start Server', exact: true })).toBeVisible()
 }

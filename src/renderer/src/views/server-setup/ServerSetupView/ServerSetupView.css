@@ -119,6 +119,14 @@
   width: 20px;
 }
 
+.setup-checkbox-field a {
+  color: var(--color-accent);
+}
+
+.setup-checkbox-field a:hover {
+  color: var(--color-accent-strong);
+}
+
 .setup-form-actions {
   border-top: 1px solid var(--color-border-subtle);
   display: flex;

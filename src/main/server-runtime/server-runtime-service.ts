@@ -42,7 +42,12 @@ import { parseMinecraftOutput, type MinecraftOutputEvent } from './support/minec
 import { getConnectionAddresses } from './support/network-addresses'
 import { ServerRuntimeError } from './support/runtime-error'
 import { validateJavaRuntime } from '../java-runtime/java-runtime-service'
-import { assertFileExists, assertFolderExists, isMissingFileError } from './support/runtime-file-checks'
+import {
+  assertEulaAccepted,
+  assertFileExists,
+  assertFolderExists,
+  isMissingFileError
+} from './support/runtime-file-checks'
 
 type ServerRuntimeListener = (event: ServerRuntimeEvent) => void
 type RuntimeLogTone = ServerRuntimeLogLine['tone']
@@ -161,7 +166,7 @@ class ServerRuntime {
     await this.runStartPreparation(() => assertFolderExists(serverFolderPath))
     await this.runStartPreparation(() => assertFileExists(operationContext.paths.serverJarFile))
     await this.runStartPreparation(() => assertFileExists(operationContext.paths.serverPropertiesFile))
-    await this.runStartPreparation(() => assertFileExists(operationContext.paths.serverEulaFile))
+    await this.runStartPreparation(() => assertEulaAccepted(operationContext.paths.serverEulaFile))
 
     const connectionAddresses = getConnectionAddresses(localState.serverConfig.port)
     const maxPlayers = await this.runStartPreparation(() => readMaxPlayers(serverFolderPath))

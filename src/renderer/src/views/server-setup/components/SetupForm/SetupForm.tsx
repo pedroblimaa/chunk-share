@@ -219,7 +219,13 @@ function SetupForm({
           onBlur={() => markFieldTouched('eulaAccepted')}
           onChange={(event) => updateField('eulaAccepted', event.target.checked)}
         />
-        <span>I agree to the Minecraft EULA</span>
+        <span>
+          I have read and accept the{' '}
+          <a href="https://www.minecraft.net/en-us/eula" rel="noreferrer" target="_blank">
+            Minecraft EULA
+          </a>
+          .
+        </span>
       </label>
       {renderFieldError('eulaAccepted')}
 
