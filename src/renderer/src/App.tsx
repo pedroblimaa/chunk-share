@@ -136,11 +136,7 @@ function App(): React.JSX.Element {
             snapshot={serverDisplayState}
             onCancel={() => setAppView('servers')}
             onCloseSidebar={closeSidebar}
-            onOpenDashboard={() => {
-              if (serverDisplayState.selectedWorldId) {
-                void openServerDashboard(serverDisplayState.selectedWorldId)
-              }
-            }}
+            onOpenDashboard={(worldId) => void openServerDashboard(worldId)}
             onOpenSettings={openSettings}
             onSignOut={signOut}
             onSetupComplete={completeServerSetup}

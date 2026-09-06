@@ -1,4 +1,4 @@
-import { readFile, writeFile } from 'node:fs/promises'
+import { readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { expect, test } from '@playwright/test'
 import { CloudStorageProvider, GoogleDriveSetupStatus } from '../../../src/shared/cloud-storage.model'
 import type { AppState } from '../../../src/shared/world'
@@ -6,7 +6,11 @@ import {
   GOOGLE_TEST_ACCOUNTS,
   GOOGLE_TEST_IDS
 } from '../../support/google-drive/google-drive-test-environment'
-import { createElectronE2EPaths, launchChunkShareE2EApp } from '../support/electron-test-app'
+import {
+  createElectronE2EPaths,
+  launchChunkShareE2EApp,
+  type ChunkShareE2EApp
+} from '../support/electron-test-app'
 import { GoogleDriveE2EMock } from '../support/google-drive-e2e-mock'
 import {
   createLocalWorld,
@@ -25,7 +29,7 @@ test('copies a local world to Google Drive through Settings', async () => {
   try {
     driveMock.drive.deleteFile('owner', GOOGLE_TEST_IDS.controlFile)
     driveMock.drive.deleteFile('owner', GOOGLE_TEST_IDS.worldFile)
-    const app = await launchChunkShareE2EApp({
+    let app: ChunkShareE2EApp | null = await launchChunkShareE2EApp({
       accountName: 'owner',
       driveMock,
       paths
@@ -33,46 +37,63 @@ test('copies a local world to Google Drive through Settings', async () => {
 
     try {
       await createLocalWorld(app)
-      await saveLocalStorageWithDriveTarget(paths.localStateFile)
       await publishLocalWorld(app)
-      await app.user.click(app.page.getByRole('button', { name: 'Settings', exact: true }).first())
-      await app.user.click(app.page.getByRole('button', { name: /Google Drive/ }))
-      await app.user.click(app.page.getByRole('button', { name: 'Activate Google Drive' }))
+      await app.close({ preserveData: true })
+      app = null
+      await saveLocalStorageWithDriveTarget(paths.localStateFile)
+      app = await launchChunkShareE2EApp({
+        accountName: 'owner',
+        driveMock,
+        paths
+      })
 
-      await expect(app.page.getByRole('heading', { name: 'Switch Storage Mode' })).toBeVisible()
-      await app.user.click(
-        app.page.getByRole('button', {
+      const relaunchedApp = app
+      await relaunchedApp.user.click(
+        relaunchedApp.page.getByRole('button', { name: 'Settings', exact: true }).first()
+      )
+      await relaunchedApp.user.click(relaunchedApp.page.getByRole('button', { name: /Google Drive/ }))
+      await relaunchedApp.user.click(
+        relaunchedApp.page.getByRole('button', { name: 'Activate Google Drive' })
+      )
+
+      await expect(relaunchedApp.page.getByRole('heading', { name: 'Switch Storage Mode' })).toBeVisible()
+      await relaunchedApp.user.click(
+        relaunchedApp.page.getByRole('button', {
           name: 'Copy save and activate Google Drive (Recommended)'
         })
       )
 
       await expect(
-        app.page.locator('.settings-storage-panel.is-active').filter({ hasText: 'Google Drive' })
+        relaunchedApp.page.locator('.settings-storage-panel.is-active').filter({ hasText: 'Google Drive' })
       ).toBeVisible()
       expect(driveMock.drive.getFileContentByName('control.json')).not.toBeNull()
       expect(driveMock.drive.getFileContentByName('world.zip')).not.toBeNull()
 
-      await navigateToServers(app)
-      await openServerDashboard(app)
+      await navigateToServers(relaunchedApp)
+      await openServerDashboard(relaunchedApp)
 
-      const downloadUpdate = app.page
+      const downloadUpdate = relaunchedApp.page
         .getByRole('button', { name: 'Download Update' })
         .filter({ hasText: 'Download Update' })
-      const startServerButton = app.page.getByRole('button', { name: 'Start Server', exact: true })
+      const startServerButton = relaunchedApp.page.getByRole('button', { name: 'Start Server', exact: true })
       await expect(downloadUpdate.or(startServerButton)).toBeVisible()
 
       if (await downloadUpdate.isVisible()) {
-        await app.user.click(downloadUpdate)
+        await relaunchedApp.user.click(downloadUpdate)
         await expect(startServerButton).toBeVisible()
       }
 
-      await startServer(app)
-      await stopServer(app, 2)
+      await startServer(relaunchedApp)
+      await stopServer(relaunchedApp, 2)
     } finally {
-      await app.close()
+      await app?.close()
     }
   } finally {
-    await driveMock.close()
+    try {
+      await driveMock.close()
+    } finally {
+      await rm(paths.root, { force: true, recursive: true })
+    }
   }
 })
 
@@ -126,5 +147,7 @@ async function saveLocalStorageWithDriveTarget(localStateFile: string): Promise<
     )
   }
 
-  await writeFile(localStateFile, JSON.stringify(nextState, null, 2))
+  const temporaryFile = `${localStateFile}.tmp`
+  await writeFile(temporaryFile, JSON.stringify(nextState, null, 2))
+  await rename(temporaryFile, localStateFile)
 }

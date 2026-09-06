@@ -17,6 +17,7 @@ import type { ServerRuntimeEvent, ServerRuntimeSnapshot } from './server-runtime
 import type {
   DownloadSharedServerInput,
   ServerSetupProgressEvent,
+  SetupVanillaServerResult,
   SetupVanillaServerInput,
   VanillaMinecraftVersion
 } from './server-setup'
@@ -102,7 +103,7 @@ export interface IpcInvokeContract {
   >
   [SERVER_SETUP_SETUP_VANILLA_SERVER_CHANNEL]: IpcOperation<
     [input: SetupVanillaServerInput],
-    ServerStorageSnapshot
+    SetupVanillaServerResult
   >
   [SERVER_RUNTIME_DOWNLOAD_SHARED_SAVE_CHANNEL]: IpcOperation<[], ServerRuntimeSnapshot>
   [SERVER_RUNTIME_SNAPSHOT_CHANNEL]: IpcOperation<[], ServerRuntimeSnapshot>
