@@ -1,5 +1,5 @@
-appId: com.electron.app
-productName: chunk-share
+appId: com.chunkshare.app
+productName: ChunkShare
 protocols:
   - name: ChunkShare join link
     schemes:
@@ -37,7 +37,7 @@ linux:
     - AppImage
     - snap
     - deb
-  maintainer: electronjs.org
+  maintainer: ChunkShare
   category: Utility
 appImage:
   artifactName: ${name}-${version}.${ext}

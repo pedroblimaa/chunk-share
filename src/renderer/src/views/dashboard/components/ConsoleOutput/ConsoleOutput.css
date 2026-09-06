@@ -27,29 +27,21 @@
   gap: 8px;
 }
 
-.console-panel button {
-  background: transparent;
-  color: var(--color-accent);
-  font-size: var(--font-size-caption);
-  font-weight: var(--font-weight-medium);
-}
-
-.console-actions {
-  align-items: center;
-  display: flex;
-  gap: 12px;
-}
-
 .console-copy-button {
   align-items: center;
-  border: 1px solid var(--color-border-accent-muted);
-  border-radius: var(--radius-control);
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-pill);
+  color: var(--color-text-muted);
+  cursor: pointer;
   display: inline-flex;
   height: var(--size-control-compact);
   justify-content: center;
+  margin-left: 2px;
+  padding: 0;
   transition:
     background-color 140ms ease,
-    border-color 140ms ease,
+    color 140ms ease,
     transform 140ms ease;
   width: var(--size-control-compact);
 }
@@ -58,15 +50,17 @@
   transform: scale(0.98);
 }
 
-.console-copy-button:hover {
+.console-copy-button:hover,
+.console-copy-button:focus-visible {
   background: var(--color-accent-glow);
-  border-color: var(--color-border-accent);
+  color: var(--color-accent);
+  outline: 0;
 }
 
 .console-copy-button.is-copied {
   animation: copy-button-pop 320ms ease-out;
   background: var(--color-accent-glow);
-  border-color: var(--color-border-accent);
+  color: var(--color-accent);
 }
 
 .console-copy-button.is-failed {

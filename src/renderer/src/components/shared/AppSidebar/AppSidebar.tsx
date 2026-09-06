@@ -1,6 +1,7 @@
 import './AppSidebar.css'
 
 import { useEffect, useRef } from 'react'
+import chunkshareMark from '../../../assets/chunkshare-mark.png'
 import MaterialIcon from '../MaterialIcon/MaterialIcon'
 import Tooltip from '../Tooltip/Tooltip'
 import type { AppSidebarItem, AppSidebarProps } from './AppSidebar.model'
@@ -76,7 +77,7 @@ function AppSidebar({
       >
         <div className="dashboard-brand">
           <div className="dashboard-brand-mark">
-            <MaterialIcon name="dns" />
+            <img src={chunkshareMark} alt="" aria-hidden="true" />
           </div>
           <div>
             <h1>ChunkShare</h1>

@@ -57,7 +57,7 @@ function ConsoleOutput({ logs }: ConsoleOutputProps): React.JSX.Element {
   }
 
   const copyButtonLabel =
-    copyStatus === 'copied' ? 'Copied' : copyStatus === 'failed' ? 'Copy Failed' : 'Copy Console'
+    copyStatus === 'copied' ? 'Copied' : copyStatus === 'failed' ? 'Copy failed' : 'Copy logs'
   const copyButtonStateClass = copyStatus === 'idle' ? '' : ` is-${copyStatus}`
 
   return (
@@ -66,11 +66,10 @@ function ConsoleOutput({ logs }: ConsoleOutputProps): React.JSX.Element {
         <h3>
           <MaterialIcon name="terminal" />
           <span>Console Output</span>
-        </h3>
-        <div className="console-actions">
           <button
             aria-label={copyButtonLabel}
             className={`console-copy-button${copyButtonStateClass}`}
+            title={copyButtonLabel}
             type="button"
             onClick={copyConsoleOutput}
           >
@@ -80,8 +79,7 @@ function ConsoleOutput({ logs }: ConsoleOutputProps): React.JSX.Element {
               }
             />
           </button>
-          <button type="button">View Full Logs</button>
-        </div>
+        </h3>
       </header>
 
       <div

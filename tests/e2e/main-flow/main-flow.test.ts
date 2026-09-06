@@ -42,8 +42,20 @@ test('creates, starts, stops, and publishes a local world', async () => {
     await user.click(page.getByRole('button', { name: 'Start Server', exact: true }))
     await expectServerRunning(app)
 
+    await expect(page.getByRole('button', { name: 'Copy address', exact: true })).toBeVisible()
+    await user.click(page.getByRole('button', { name: 'Copy address', exact: true }))
+    await expect(page.getByRole('button', { name: 'Address copied', exact: true })).toBeVisible()
+    await expect(page.getByRole('dialog', { name: 'Connection addresses' })).toHaveCount(0)
+    await user.click(page.getByRole('button', { name: 'Show connection addresses' }))
+    const connectionDialog = page.getByRole('dialog', { name: 'Connection addresses' })
+    await expect(connectionDialog).toBeVisible()
+    expect(await connectionDialog.locator('li').count()).toBeGreaterThan(0)
+    await expect(connectionDialog).toContainText(/:25570/)
+
     await user.click(page.getByRole('button', { name: 'Stop Server', exact: true }))
     await expect(page.getByText('STOPPED', { exact: true })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Copy logs', exact: true })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'View Full Logs', exact: true })).toHaveCount(0)
     await expect(page.getByLabel('Server console output')).toContainText(
       /Server save v1 published in \d+(?:\.\d+)? (?:ms|s)\./
     )

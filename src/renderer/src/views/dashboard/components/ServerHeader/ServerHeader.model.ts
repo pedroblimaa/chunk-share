@@ -1,4 +1,5 @@
 import type { ServerStatus } from '../../../../../../shared/dashboard'
+import type { ServerConnectionAddress } from '../../../../../../shared/server-runtime'
 
 export interface ServerHeaderServer {
   name: string
@@ -7,12 +8,11 @@ export interface ServerHeaderServer {
 
 export interface ServerHeaderConnection {
   connectionAddress: string | null
-  connectionAddressDetails?: string
+  connectionAddresses: ServerConnectionAddress[]
   connectionDetailsOpen?: boolean
-  copyConnectionDetailsLabel?: string
-  copyConnectionDetailsStateClass?: string
+  copyConnectionAddressLabel?: string
+  copyConnectionAddressStateClass?: string
   onCopyConnectionAddress: () => void
-  onCopyConnectionAddressDetails?: () => void
   onCloseConnectionDetails?: () => void
   onToggleConnectionDetails?: () => void
 }

@@ -212,7 +212,11 @@ test('hands hosting from the owner to a friend', async () => {
     await expect(friendApp.page.getByText('Owner Player', { exact: true })).toBeVisible()
     await expect(friendApp.page.getByRole('button', { name: 'Start Server', exact: true })).toHaveCount(0)
     await friendApp.user.click(friendApp.page.getByRole('button', { name: 'Join Server' }))
-    await expect(friendApp.page.getByRole('dialog', { name: 'Connection addresses' })).toContainText(/:25565/)
+    const connectionDialog = friendApp.page.getByRole('dialog', { name: 'Connection addresses' })
+    await expect(connectionDialog).toBeVisible()
+    expect(await connectionDialog.locator('li').count()).toBeGreaterThan(0)
+    await expect(connectionDialog).toContainText(/:25565/)
+    await expect(connectionDialog.getByRole('button')).toHaveCount(0)
 
     await stopServer(ownerApp, 2)
     await refreshServer(friendApp)
@@ -403,6 +407,9 @@ async function inviteFriend(ownerApp: ChunkShareE2EApp): Promise<string> {
   const { page, user } = ownerApp
 
   await user.click(page.getByRole('button', { name: 'More server actions' }))
+  const actionsMenu = page.getByRole('menu', { name: 'Server actions' })
+  await expect(actionsMenu).toHaveClass(/server-actions-popover/)
+  await expect(actionsMenu.getByRole('menuitem', { name: 'Invite' })).toBeVisible()
   await user.click(page.getByRole('menuitem', { name: 'Invite' }))
 
   await user.fill(page.getByLabel('Invite via Email'), GOOGLE_TEST_ACCOUNTS.friend.session.player.email)
