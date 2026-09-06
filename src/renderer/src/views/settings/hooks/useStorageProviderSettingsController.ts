@@ -28,6 +28,7 @@ export function useStorageProviderSettingsController(): StorageProviderSettingsC
     null
   )
   const operationIsRunning = useRef(true)
+  const googleDriveSetupCancellationWasRequested = useRef(false)
   const activeStorageOperation = useRef<ExclusiveStorageOperation | null | undefined>(undefined)
   const storageOperationRevision = useRef(-1)
   const activeStorageProvider = storageProviderSettings?.activeProvider ?? null
@@ -73,7 +74,8 @@ export function useStorageProviderSettingsController(): StorageProviderSettingsC
     operation: StorageSettingsOperation,
     performStorageAction: () => Promise<Result>,
     applyResult: (result: Result) => void,
-    fallbackErrorMessage = 'Unable to update storage.'
+    fallbackErrorMessage = 'Unable to update storage.',
+    shouldIgnoreError: () => boolean = () => false
   ): Promise<boolean> => {
     if (operationIsRunning.current || activeStorageOperation.current !== null) {
       return false
@@ -88,6 +90,10 @@ export function useStorageProviderSettingsController(): StorageProviderSettingsC
       applyResult(result)
       return true
     } catch (error: unknown) {
+      if (shouldIgnoreError()) {
+        return false
+      }
+
       const message = getErrorMessage(error, fallbackErrorMessage)
 
       await synchronizeStorageProviderSettings().catch(() => undefined)
@@ -141,11 +147,33 @@ export function useStorageProviderSettingsController(): StorageProviderSettingsC
   }, [])
 
   const requestGoogleDriveSetup = (): void => {
+    googleDriveSetupCancellationWasRequested.current = false
     runStorageOperation(
       StorageSettingsOperation.SetupGoogleDriveFolder,
       () => window.chunkShare.storage.setupGoogleDriveFolder(),
-      setStorageProviderSettings
-    )
+      setStorageProviderSettings,
+      'Unable to configure Google Drive storage.',
+      () => googleDriveSetupCancellationWasRequested.current
+    ).finally(() => {
+      googleDriveSetupCancellationWasRequested.current = false
+    })
+  }
+
+  const cancelGoogleDriveSetup = async (): Promise<boolean> => {
+    googleDriveSetupCancellationWasRequested.current = true
+
+    try {
+      const didCancel = await window.chunkShare.auth.cancelGoogleSignIn()
+      if (!didCancel) {
+        googleDriveSetupCancellationWasRequested.current = false
+      }
+
+      return didCancel
+    } catch (error: unknown) {
+      googleDriveSetupCancellationWasRequested.current = false
+      setErrorMessage(getErrorMessage(error, 'Unable to cancel Google sign-in.'))
+      return false
+    }
   }
 
   const requestGoogleDriveDisconnect = (): Promise<boolean> => {
@@ -235,6 +263,7 @@ export function useStorageProviderSettingsController(): StorageProviderSettingsC
     storageProviderSwitchPreview,
     activeStorageProvider,
     operationState,
+    cancelGoogleDriveSetup,
     dismissStorageError,
     requestGoogleDriveDisconnect,
     requestGoogleDriveSetup,

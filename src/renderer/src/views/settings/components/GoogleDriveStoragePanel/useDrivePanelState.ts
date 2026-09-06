@@ -17,6 +17,8 @@ export function useDrivePanelState(
   const primaryActionIsRunning =
     storage.operationState.operation === StorageSettingsOperation.SetupGoogleDriveFolder ||
     (canBeActivated && activationIsRunning)
+  const googleSignInIsRunning =
+    storage.operationState.operation === StorageSettingsOperation.SetupGoogleDriveFolder
   const hasConfiguredFolder = Boolean(driveState?.folder)
 
   return {
@@ -26,6 +28,7 @@ export function useDrivePanelState(
     validatedAt: driveState?.folder?.validatedAt ?? null,
     errorMessage: driveState?.errorMessage ?? null,
     hasFolder: Boolean(driveState?.folder),
+    googleSignInIsRunning,
     primaryActionIsRunning,
     controlsAreDisabled: storage.operationState.isBusy || storage.storageProviderSettings === null,
     primaryAction: getPrimaryActionButton(primaryActionIsRunning, canBeActivated, hasConfiguredFolder),
@@ -40,6 +43,7 @@ export interface DrivePanelState {
   validatedAt: string | null
   errorMessage: string | null
   hasFolder: boolean
+  googleSignInIsRunning: boolean
   primaryActionIsRunning: boolean
   controlsAreDisabled: boolean
   primaryAction: { icon: string; label: string }

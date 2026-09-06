@@ -9,6 +9,7 @@ export interface UseAuthSessionInput {
 }
 
 export interface AuthSessionActions {
+  cancelGoogleSignIn: () => Promise<void>
   isLoadingSession: boolean
   isSigningIn: boolean
   signInWithGoogle: () => Promise<void>

@@ -4,6 +4,7 @@ import type { Player } from '../../shared/domain'
 
 export enum AuthErrorCode {
   Cancelled = 'cancelled',
+  CancelledByUser = 'cancelled-by-user',
   ExpiredSession = 'expired-session',
   GoogleRequestFailed = 'google-request-failed',
   InvalidCallback = 'invalid-callback',
@@ -91,6 +92,7 @@ export interface GoogleAuthorizationServerInput {
 export interface GoogleAuthorizationServer {
   redirectUri: string
   waitForCode: Promise<GoogleAuthorizationCodeResult>
+  cancel: () => Promise<void>
   close: () => Promise<void>
 }
 
@@ -125,5 +127,4 @@ export interface GoogleCallbackRequestHandlerInput {
   request: IncomingMessage
   resolve: (value: GoogleAuthorizationCodeResult) => void
   response: ServerResponse
-  timeout: NodeJS.Timeout
 }

@@ -66,6 +66,17 @@
   text-align: center;
 }
 
+.login-actions {
+  display: grid;
+  margin-top: 32px;
+  width: 100%;
+}
+
+.login-actions.is-signing-in {
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
 .google-button {
   align-items: center;
   background: var(--color-surface-raised);
@@ -78,7 +89,6 @@
   font-weight: var(--font-weight-medium);
   gap: 12px;
   justify-content: center;
-  margin-top: 32px;
   min-height: var(--size-control-large);
   padding: 12px 16px;
   transition:

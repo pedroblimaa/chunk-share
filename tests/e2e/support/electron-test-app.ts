@@ -59,6 +59,7 @@ export interface ElectronE2EWorldPaths {
 export interface LaunchChunkShareE2EAppOptions {
   accountName?: GoogleTestAccountName
   authenticated?: boolean
+  completeGoogleAuthorization?: boolean
   driveMock?: GoogleDriveE2EMock
   paths?: ElectronE2EPaths
 }
@@ -70,9 +71,11 @@ export interface CloseChunkShareE2EAppOptions {
 export interface ChunkShareE2EApp {
   crashMinecraftServer: () => Promise<void>
   electronApp: ElectronApplication
+  getGoogleAuthorizationUrls: () => Promise<string[]>
   page: Page
   paths: ElectronE2EPaths
   setJavaInspectionDelay: (delayMs: number) => Promise<void>
+  setGoogleAuthTokens: (tokens: GoogleAuthTokens) => Promise<void>
   user: E2EUser
   close: (options?: CloseChunkShareE2EAppOptions) => Promise<void>
 }
@@ -106,6 +109,7 @@ export async function launchChunkShareE2EApp(
     await configureE2ESafeStorage(electronApp)
     await installGoogleE2EMocks(electronApp, {
       accountName: options.accountName ?? null,
+      completeAuthorization: options.completeGoogleAuthorization ?? true,
       driveMockUrl: options.driveMock?.url ?? null,
       ...identity
     })
@@ -119,9 +123,11 @@ export async function launchChunkShareE2EApp(
     return {
       crashMinecraftServer: () => crashMinecraftServer(electronApp),
       electronApp,
+      getGoogleAuthorizationUrls: () => getGoogleAuthorizationUrls(electronApp),
       page,
       paths,
       setJavaInspectionDelay: (delayMs) => setJavaInspectionDelay(electronApp, delayMs),
+      setGoogleAuthTokens: (tokens) => writeGoogleAuthTokens(electronApp, tokens, true),
       user: new E2EUser(page),
       close: createCloseApp(electronApp, paths.root)
     }
@@ -130,6 +136,16 @@ export async function launchChunkShareE2EApp(
     await rm(paths.root, { force: true, recursive: true })
     throw error
   }
+}
+
+function getGoogleAuthorizationUrls(electronApp: ElectronApplication): Promise<string[]> {
+  return electronApp.evaluate(() => {
+    const testGlobal = globalThis as typeof globalThis & {
+      chunkShareE2EGoogleAuthorizationUrls?: string[]
+    }
+
+    return [...(testGlobal.chunkShareE2EGoogleAuthorizationUrls ?? [])]
+  })
 }
 
 export async function expectServerRunning(app: ChunkShareE2EApp): Promise<void> {
@@ -427,6 +443,14 @@ async function seedAuthTokensIfMissing(
   electronApp: ElectronApplication,
   tokens: GoogleAuthTokens
 ): Promise<void> {
+  return writeGoogleAuthTokens(electronApp, tokens, false)
+}
+
+async function writeGoogleAuthTokens(
+  electronApp: ElectronApplication,
+  tokens: GoogleAuthTokens,
+  overwrite: boolean
+): Promise<void> {
   await electronApp.evaluate(
     async ({ app, safeStorage }, fixture) => {
       if (!safeStorage.isEncryptionAvailable()) {
@@ -439,7 +463,9 @@ async function seedAuthTokensIfMissing(
 
       try {
         await fileSystem.promises.access(tokenFilePath)
-        return
+        if (!fixture.overwrite) {
+          return
+        }
       } catch (error) {
         if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) {
           throw error
@@ -453,6 +479,7 @@ async function seedAuthTokensIfMissing(
     },
     {
       tokenFileName: GOOGLE_AUTH_TOKENS_FILE_NAME,
+      overwrite,
       tokens
     }
   )
