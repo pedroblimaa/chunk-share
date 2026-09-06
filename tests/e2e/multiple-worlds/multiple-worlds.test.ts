@@ -63,6 +63,20 @@ test('creates, selects, runs, and independently deletes multiple worlds', async 
   }
 })
 
+test('opens the newly created world from the setup flow', async () => {
+  const app = await launchChunkShareE2EApp()
+
+  try {
+    await createWorld(app, WORLD_A_NAME, 25570)
+    await navigateToServers(app)
+
+    await createWorld(app, WORLD_B_NAME, 25571)
+    await expect(app.page.getByRole('heading', { name: WORLD_B_NAME })).toBeVisible()
+  } finally {
+    await app.close()
+  }
+})
+
 test('reenables world creation in Settings after the running server crashes', async () => {
   const app = await launchChunkShareE2EApp()
 
