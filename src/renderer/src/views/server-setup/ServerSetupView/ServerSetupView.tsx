@@ -2,6 +2,7 @@ import './ServerSetupView.css'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ServerDisplayState } from '../../../../../shared/dashboard'
+import type { WorldId } from '../../../../../shared/world'
 import {
   ServerSetupProgressStep,
   type SetupVanillaServerInput,
@@ -19,7 +20,7 @@ interface ServerSetupViewProps {
   snapshot: ServerDisplayState
   onCancel: () => void
   onCloseSidebar: () => void
-  onOpenDashboard: () => void
+  onOpenDashboard: (worldId: WorldId) => void
   onOpenSettings: () => void
   onSignOut: () => void
   onSetupComplete: () => Promise<void>
@@ -43,6 +44,7 @@ function ServerSetupView({
   const [versions, setVersions] = useState<VanillaMinecraftVersion[]>([])
   const [versionsLoading, setVersionsLoading] = useState(true)
   const [versionsErrorMessage, setVersionsErrorMessage] = useState<string | null>(null)
+  const [completedWorldId, setCompletedWorldId] = useState<WorldId | null>(null)
   const progressSectionRef = useRef<HTMLDivElement | null>(null)
 
   const formIsLocked = deploymentStatus !== 'idle'
@@ -92,7 +94,6 @@ function ServerSetupView({
   useEffect(() => {
     return window.chunkShare.serverSetup.onProgress((progressEvent) => {
       if (progressEvent.step === ServerSetupProgressStep.Ready) {
-        setDeploymentStatus('complete')
         return
       }
 
@@ -115,18 +116,25 @@ function ServerSetupView({
   async function setupServer(input: SetupVanillaServerInput): Promise<void> {
     setDeploymentStatus('running')
     setActiveStep(null)
+    setCompletedWorldId(null)
     setSetupErrorMessage(null)
 
     try {
-      const storageSnapshot = await window.chunkShare.serverSetup.setupVanillaServer(input)
+      const setupResult = await window.chunkShare.serverSetup.setupVanillaServer(input)
+      const { localState, worldId } = setupResult
 
-      if (storageSnapshot.localState.serverSetup.status === 'error') {
+      if (localState.serverSetup.status === 'error') {
         setDeploymentStatus('error')
-        setSetupErrorMessage(storageSnapshot.localState.serverSetup.errorMessage ?? 'Server setup failed.')
+        setSetupErrorMessage(localState.serverSetup.errorMessage ?? 'Server setup failed.')
         return
       }
 
+      if (!worldId) {
+        throw new Error('The newly created server did not return a world ID.')
+      }
+
       await onSetupComplete()
+      setCompletedWorldId(worldId)
       setDeploymentStatus('complete')
     } catch (error: unknown) {
       setDeploymentStatus('error')
@@ -176,7 +184,11 @@ function ServerSetupView({
                 activeStep={activeStep}
                 deploymentStatus={deploymentStatus}
                 errorMessage={setupErrorMessage}
-                onOpenDashboard={onOpenDashboard}
+                onOpenDashboard={() => {
+                  if (completedWorldId) {
+                    onOpenDashboard(completedWorldId)
+                  }
+                }}
               />
             </div>
           )}
