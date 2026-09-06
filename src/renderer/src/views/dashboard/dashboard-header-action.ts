@@ -32,6 +32,7 @@ export function getDashboardPrimaryActionView({
   if (
     dashboardSnapshot.serverStatus === 'starting' ||
     dashboardSnapshot.serverStatus === 'stopping' ||
+    dashboardSnapshot.serverStatus === 'publishing' ||
     dashboardSnapshot.serverStatus === 'updating'
   ) {
     return {

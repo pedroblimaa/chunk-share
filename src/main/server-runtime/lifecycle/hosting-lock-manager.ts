@@ -85,6 +85,17 @@ export async function markHostingLockStopping(
   ])
 }
 
+export async function markHostingLockPublishing(
+  operationContext: WorldOperationContext,
+  sessionId: string
+): Promise<void> {
+  await updateHostingLockStatus(operationContext, sessionId, ServerHostingStatus.Publishing, [
+    ServerHostingStatus.Starting,
+    ServerHostingStatus.Running,
+    ServerHostingStatus.Stopping
+  ])
+}
+
 export async function updateHostingLockSaveVersion(
   operationContext: WorldOperationContext,
   sessionId: string,

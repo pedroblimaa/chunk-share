@@ -8,6 +8,7 @@ import { STALE_LOCK_THRESHOLD_MS } from '../../../src/shared/server-sync'
 import { CloudStorageProvider, GoogleDriveSetupStatus } from '../../../src/shared/cloud-storage.model'
 import {
   getServerRuntimeSnapshot,
+  subscribeToServerRuntime,
   startMinecraftServer,
   stopMinecraftServer
 } from '../../../src/main/server-runtime/server-runtime-service'
@@ -178,10 +179,18 @@ describe('world lifecycle', () => {
       { timeout: INTEGRATION_WAIT_TIMEOUT_MS }
     )
 
+    const runtimeStatuses: string[] = []
+    const unsubscribe = subscribeToServerRuntime(({ snapshot }) => runtimeStatuses.push(snapshot.status))
+
     await expect(stopMinecraftServer()).resolves.toMatchObject({ status: 'stopping' })
     await vi.waitFor(() => expect(getServerRuntimeSnapshot().status).toBe('stopped'), {
       timeout: INTEGRATION_WAIT_TIMEOUT_MS
     })
+    unsubscribe()
+
+    expect(runtimeStatuses.indexOf('stopping')).toBeGreaterThanOrEqual(0)
+    expect(runtimeStatuses.indexOf('publishing')).toBeGreaterThan(runtimeStatuses.indexOf('stopping'))
+    expect(runtimeStatuses.lastIndexOf('stopped')).toBeGreaterThan(runtimeStatuses.indexOf('publishing'))
 
     expect(getMinecraftProcessMock().commands.slice(-2)).toEqual(['save-all flush\n', 'stop\n'])
     await expect(readPublishedWorldData()).resolves.toBe(TEST_WORLD_DATA)

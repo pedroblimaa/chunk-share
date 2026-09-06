@@ -7,6 +7,7 @@ export type ServerStatus =
   | 'starting'
   | 'running'
   | 'stopping'
+  | 'publishing'
   | 'crashed'
   | 'error'
 
@@ -22,7 +23,8 @@ export enum ServerLockStatus {
 export enum ServerHostingStatus {
   Starting = 'starting',
   Running = 'running',
-  Stopping = 'stopping'
+  Stopping = 'stopping',
+  Publishing = 'publishing'
 }
 
 export interface Player {

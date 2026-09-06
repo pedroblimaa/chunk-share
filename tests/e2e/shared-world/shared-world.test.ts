@@ -322,7 +322,13 @@ test('keeps the shared state safe when publishing fails and allows a retry', asy
       pathname: `/upload/drive/v3/files/${GOOGLE_TEST_IDS.worldFile}`,
       status: 503
     })
+    driveMock.delayRequest({
+      delayMs: 500,
+      method: 'PATCH',
+      pathname: `/upload/drive/v3/files/${GOOGLE_TEST_IDS.worldFile}`
+    })
     await ownerApp.user.click(ownerApp.page.getByRole('button', { name: 'Stop Server', exact: true }))
+    await expect(ownerApp.page.getByRole('button', { name: 'Publishing save...', exact: true })).toBeVisible()
 
     await expect(ownerApp.page.getByRole('alert')).toContainText('Unable to publish server save')
     await expect(ownerApp.page.getByLabel('Server console output')).not.toContainText(
@@ -331,7 +337,7 @@ test('keeps the shared state safe when publishing fails and allows a retry', asy
     await expectDriveControl(driveMock, {
       latestSave: { saveVersion: 1 },
       serverLock: {
-        hostingStatus: ServerHostingStatus.Stopping,
+        hostingStatus: ServerHostingStatus.Publishing,
         status: ServerLockStatus.Locked
       }
     })

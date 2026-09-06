@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { CloudStorageProvider } from '../../../src/shared/cloud-storage.model'
+import { ServerHostingStatus, ServerLockStatus } from '../../../src/shared/domain'
 import {
   DEFAULT_APP_STATE,
   createDefaultLocalWorldState,
@@ -63,5 +64,27 @@ describe('multi-world local state', () => {
       storageMutation: null
     })
     expect(control).not.toHaveProperty('javaConfig')
+  })
+
+  it('accepts a publishing hosting lock status', () => {
+    const control = createDefaultStorageControl(WORLD_ID)
+    control.serverLock = {
+      status: ServerLockStatus.Locked,
+      lockedBy: {
+        id: 'player-1',
+        displayName: 'Player One',
+        email: 'player@example.com',
+        avatarUrl: null,
+        avatarInitials: 'PO'
+      },
+      sessionId: 'publishing-session',
+      saveVersion: 1,
+      hostingStatus: ServerHostingStatus.Publishing,
+      startedAt: CREATED_AT,
+      lastHeartbeat: CREATED_AT,
+      connectionAddresses: []
+    }
+
+    expect(isStorageControl(control)).toBe(true)
   })
 })

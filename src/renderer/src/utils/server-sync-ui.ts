@@ -18,9 +18,10 @@ export function getServerSyncView(syncStatus: ServerSyncSnapshot): ServerSyncVie
       syncStatus.serverLock.status === ServerLockStatus.Locked ? syncStatus.serverLock.hostingStatus : null
     const remoteHostIsStarting = hostingStatus === ServerHostingStatus.Starting
     const remoteHostIsStopping = hostingStatus === ServerHostingStatus.Stopping
-    const remoteHostIsTransitioning = remoteHostIsStarting || remoteHostIsStopping
-    const transitionLabel = remoteHostIsStopping ? 'Stopping' : 'Starting'
-    const transitionMessage = getRemoteHostTransitionMessage(remoteHostIsStopping)
+    const remoteHostIsPublishing = hostingStatus === ServerHostingStatus.Publishing
+    const remoteHostIsTransitioning = remoteHostIsStarting || remoteHostIsStopping || remoteHostIsPublishing
+    const transitionLabel = getRemoteHostTransitionLabel(hostingStatus)
+    const transitionMessage = getRemoteHostTransitionMessage(hostingStatus)
 
     return {
       ...view,
@@ -41,9 +42,21 @@ export function getServerSyncView(syncStatus: ServerSyncSnapshot): ServerSyncVie
   return view
 }
 
-function getRemoteHostTransitionMessage(remoteHostIsStopping: boolean): string {
-  if (remoteHostIsStopping) {
-    return 'The host is stopping the server and publishing the latest save.'
+function getRemoteHostTransitionLabel(hostingStatus: ServerHostingStatus | null): string {
+  if (hostingStatus === ServerHostingStatus.Publishing) {
+    return 'Publishing save'
+  }
+
+  return hostingStatus === ServerHostingStatus.Stopping ? 'Stopping' : 'Starting'
+}
+
+function getRemoteHostTransitionMessage(hostingStatus: ServerHostingStatus | null): string {
+  if (hostingStatus === ServerHostingStatus.Publishing) {
+    return 'The host is publishing the latest save. It will be available soon.'
+  }
+
+  if (hostingStatus === ServerHostingStatus.Stopping) {
+    return 'The host is stopping the server. The latest save will be published soon.'
   }
 
   return 'The host is starting the server. Connection will be available soon.'

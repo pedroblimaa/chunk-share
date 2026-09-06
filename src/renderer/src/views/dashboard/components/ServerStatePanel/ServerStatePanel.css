@@ -92,13 +92,15 @@
 }
 
 .server-state-panel-starting .power-indicator,
-.server-state-panel-stopping .power-indicator {
+.server-state-panel-stopping .power-indicator,
+.server-state-panel-publishing .power-indicator {
   border-color: var(--color-warning);
   color: var(--color-warning);
 }
 
 .server-state-panel-starting .power-indicator .material-symbols-outlined,
-.server-state-panel-stopping .power-indicator .material-symbols-outlined {
+.server-state-panel-stopping .power-indicator .material-symbols-outlined,
+.server-state-panel-publishing .power-indicator .material-symbols-outlined {
   animation: server-state-icon-spin 900ms linear infinite;
 }
 

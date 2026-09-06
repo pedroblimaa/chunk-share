@@ -11,6 +11,10 @@ import Tooltip from '../../../../components/shared/Tooltip/Tooltip'
 import type { ServerHeaderProps } from './ServerHeader.model'
 
 function formatStatus(status: ServerStatus): string {
+  if (status === 'publishing') {
+    return 'PUBLISHING SAVE'
+  }
+
   return status.replace('-', ' ').toUpperCase()
 }
 
@@ -23,7 +27,7 @@ function getStatusTone(status: ServerStatus): BadgeTone {
     return 'active'
   }
 
-  if (status === 'starting' || status === 'stopping' || status === 'updating') {
+  if (status === 'starting' || status === 'stopping' || status === 'publishing' || status === 'updating') {
     return 'warning'
   }
 
@@ -42,6 +46,7 @@ function getToggleButtonLabel(status: ServerStatus): string {
   const labelByStatus: Partial<Record<ServerStatus, string>> = {
     starting: 'Starting...',
     stopping: 'Stopping...',
+    publishing: 'Publishing save...',
     updating: 'Updating...'
   }
 
@@ -49,7 +54,7 @@ function getToggleButtonLabel(status: ServerStatus): string {
 }
 
 function getToggleButtonIcon(status: ServerStatus): string {
-  if (['starting', 'stopping', 'updating'].includes(status)) {
+  if (['starting', 'stopping', 'publishing', 'updating'].includes(status)) {
     return 'sync'
   }
 
@@ -66,7 +71,10 @@ function ServerHeader({
   const [actionsMenuOpen, setActionsMenuOpen] = useState(false)
   const serverIsRunning = isServerRunning(server.status)
   const serverIsBusy =
-    server.status === 'starting' || server.status === 'stopping' || server.status === 'updating'
+    server.status === 'starting' ||
+    server.status === 'stopping' ||
+    server.status === 'publishing' ||
+    server.status === 'updating'
   const toggleButtonLabel = primaryAction.label ?? getToggleButtonLabel(server.status)
   const toggleButtonIcon = primaryAction.icon ?? getToggleButtonIcon(server.status)
   const toggleButtonTone = primaryAction.tone ?? 'default'
