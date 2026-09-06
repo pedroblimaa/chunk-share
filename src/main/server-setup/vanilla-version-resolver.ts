@@ -9,11 +9,15 @@ import {
   type VersionMetadata
 } from './vanilla-version-model'
 
+const UNSUPPORTED_VANILLA_SERVER_VERSION_IDS = new Set(['1.2.4', '1.2.3', '1.2.2', '1.2.1', '1.1', '1.0'])
+
 export async function listVanillaReleaseVersions(): Promise<VanillaMinecraftVersion[]> {
   const manifest = await fetchJson<VersionManifest>(VANILLA_VERSION_MANIFEST_URL, isVersionManifest)
 
   return manifest.versions
-    .filter((version) => version.type === 'release')
+    .filter(
+      (version) => version.type === 'release' && !UNSUPPORTED_VANILLA_SERVER_VERSION_IDS.has(version.id)
+    )
     .map((version) => ({
       id: version.id,
       metadataUrl: version.url

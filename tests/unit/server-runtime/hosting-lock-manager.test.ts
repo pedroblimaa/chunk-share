@@ -13,6 +13,7 @@ import {
   clearHostingLockAfterStartFailure,
   createHostingLock,
   getActiveRuntimeSessionId,
+  markHostingLockPublishing,
   releaseActiveRuntimeSession
 } from '../../../src/main/server-runtime/lifecycle/hosting-lock-manager'
 
@@ -108,6 +109,22 @@ describe('hosting lock runtime ownership', () => {
       createHostingLock(operationContext, createStorageSnapshot(operationContext, 'local-session'), [])
     ).rejects.toThrow('already hosting it')
   })
+
+  it.each([ServerHostingStatus.Starting, ServerHostingStatus.Running, ServerHostingStatus.Stopping])(
+    'marks a %s lock as publishing',
+    async (hostingStatus) => {
+      const sessionId = 'publishing-session'
+      const testStorage = createTestStorageAdapter(createLockedServerLock(sessionId, hostingStatus))
+      const operationContext = createOperationContext(WORLD_A_ID, testStorage.storageAdapter)
+
+      await markHostingLockPublishing(operationContext, sessionId)
+
+      expect(testStorage.getServerLock()).toMatchObject({
+        sessionId,
+        hostingStatus: ServerHostingStatus.Publishing
+      })
+    }
+  )
 })
 
 function createOperationContext(worldId: string, storageAdapter: StorageAdapter): WorldOperationContext {
@@ -163,7 +180,10 @@ function createStorageSnapshot(
   } as ServerStorageSnapshot
 }
 
-function createLockedServerLock(sessionId: string): ServerLock {
+function createLockedServerLock(
+  sessionId: string,
+  hostingStatus: ServerHostingStatus = ServerHostingStatus.Stopping
+): ServerLock {
   const now = new Date().toISOString()
 
   return {
@@ -177,7 +197,7 @@ function createLockedServerLock(sessionId: string): ServerLock {
     },
     sessionId,
     saveVersion: 1,
-    hostingStatus: ServerHostingStatus.Stopping,
+    hostingStatus,
     startedAt: now,
     lastHeartbeat: now,
     connectionAddresses: []

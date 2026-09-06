@@ -21,7 +21,16 @@ test('creates, starts, stops, and publishes a local world', async () => {
     await user.click(page.getByRole('button', { name: 'Create Server', exact: true }).first())
     await expect(page.getByRole('heading', { name: 'Create New Server' })).toBeVisible()
 
-    const minecraftVersion = page.getByLabel('Minecraft Version')
+    const versionInfoButton = page.getByRole('button', {
+      name: 'About supported Minecraft versions',
+      exact: true
+    })
+    await expect(versionInfoButton.locator('..')).toHaveAttribute(
+      'data-tooltip',
+      'Minecraft versions 1.2.4 and older are unavailable because Mojang does not provide server downloads for them.'
+    )
+
+    const minecraftVersion = page.getByLabel('Minecraft Version', { exact: true })
     await expect(minecraftVersion).toHaveValue(E2E_MINECRAFT_VERSION)
     await user.fill(page.getByLabel('Server Name'), E2E_SERVER_NAME)
     await user.fill(page.getByLabel('Server Port'), '25570')

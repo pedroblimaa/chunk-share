@@ -299,7 +299,8 @@ function getRemoteHostingStatus(storageSnapshot: ServerStorageSnapshot): ServerS
   const statusByHostingStatus: Record<ServerHostingStatus, ServerStatus> = {
     [ServerHostingStatus.Starting]: 'starting',
     [ServerHostingStatus.Running]: 'running',
-    [ServerHostingStatus.Stopping]: 'stopping'
+    [ServerHostingStatus.Stopping]: 'stopping',
+    [ServerHostingStatus.Publishing]: 'publishing'
   }
 
   return statusByHostingStatus[storageSnapshot.serverLock.hostingStatus]

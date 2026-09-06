@@ -8,8 +8,8 @@ import {
 } from '../../../../../../shared/cloud-storage.model'
 import Button from '../../../../components/shared/Button/Button'
 import Card from '../../../../components/shared/Card/Card'
+import InfoTooltip from '../../../../components/shared/InfoTooltip/InfoTooltip'
 import MaterialIcon from '../../../../components/shared/MaterialIcon/MaterialIcon'
-import Tooltip from '../../../../components/shared/Tooltip/Tooltip'
 import Toast from '../../../../components/shared/Toast/Toast'
 import { getErrorMessage } from '../../../../utils/error-message'
 import { storageProviderHasData } from '../../settings-helpers'
@@ -127,11 +127,7 @@ function StorageModeSettingsCard({
           <MaterialIcon name="folder" />
           <h2>Storage Mode</h2>
         </div>
-        <Tooltip content={STORAGE_MODE_INFO} placement="left">
-          <button className="settings-info-button" type="button" aria-label="About storage mode">
-            <MaterialIcon name="info" />
-          </button>
-        </Tooltip>
+        <InfoTooltip ariaLabel="About storage mode" content={STORAGE_MODE_INFO} placement="left" />
       </div>
 
       {blockingMessage && (

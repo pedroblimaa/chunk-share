@@ -9,11 +9,12 @@ export type ServerRuntimeStatus =
   | 'starting'
   | 'running'
   | 'stopping'
+  | 'publishing'
   | 'crashed'
   | 'error'
 
 export function isServerActiveStatus(status: ServerRuntimeStatus | ServerStatus): boolean {
-  return status === 'starting' || status === 'running' || status === 'stopping'
+  return status === 'starting' || status === 'running' || status === 'stopping' || status === 'publishing'
 }
 
 export interface ServerRuntimeLogLine {

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import Button from '../../../../components/shared/Button/Button'
 import Card from '../../../../components/shared/Card/Card'
+import InfoTooltip from '../../../../components/shared/InfoTooltip/InfoTooltip'
 import JavaRuntimeSelector from '../../../../components/shared/JavaRuntimeSelector/JavaRuntimeSelector'
 import { useJavaRuntimeStatus } from '../../../../hooks/useJavaRuntimeStatus'
 import {
@@ -149,9 +150,16 @@ function SetupForm({
             </select>
           </label>
 
-          <label className="setup-field">
-            <span>Minecraft Version</span>
+          <div className="setup-field">
+            <span className="setup-field-label">
+              <label htmlFor="minecraft-version">Minecraft Version</label>
+              <InfoTooltip
+                ariaLabel="About supported Minecraft versions"
+                content="Minecraft versions 1.2.4 and older are unavailable because Mojang does not provide server downloads for them."
+              />
+            </span>
             <select
+              id="minecraft-version"
               className="chunk-field-control"
               value={selectedMinecraftVersion}
               disabled={formIsDisabled || versions.length === 0}
@@ -172,7 +180,7 @@ function SetupForm({
                 </Button>
               </div>
             )}
-          </label>
+          </div>
         </div>
       </section>
 

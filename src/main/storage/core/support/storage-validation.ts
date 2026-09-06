@@ -95,7 +95,8 @@ function isServerHostingStatus(value: unknown): value is ServerHostingStatus {
   return (
     value === ServerHostingStatus.Starting ||
     value === ServerHostingStatus.Running ||
-    value === ServerHostingStatus.Stopping
+    value === ServerHostingStatus.Stopping ||
+    value === ServerHostingStatus.Publishing
   )
 }
 

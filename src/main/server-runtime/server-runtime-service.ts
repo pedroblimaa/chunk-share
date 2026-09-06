@@ -33,6 +33,7 @@ import {
   clearHostingLockAfterStartFailure,
   createHostingLock,
   markHostingLockRunning,
+  markHostingLockPublishing,
   markHostingLockStopping,
   releaseActiveRuntimeSession,
   updateHostingLockSaveVersion
@@ -109,6 +110,7 @@ class ServerRuntime {
       this.status === 'starting' ||
       this.status === 'running' ||
       this.status === 'stopping' ||
+      this.status === 'publishing' ||
       this.status === 'updating'
     ) {
       throw new ServerRuntimeError('Minecraft server cannot start while it is active or updating.')
@@ -516,10 +518,15 @@ class ServerRuntime {
     operationContext: WorldOperationContext,
     sessionId: string
   ): Promise<void> {
-    this.addLogLine('ChunkShare', 'Publishing server save.')
+    this.status = 'publishing'
+    this.errorMessage = null
+    this.emitRuntimeEvent()
+
     const publishStartedAt = Date.now()
 
     try {
+      await markHostingLockPublishing(operationContext, sessionId)
+      this.addLogLine('ChunkShare', 'Publishing server save.')
       const publishResult = await publishServerSave(operationContext, (progress) =>
         this.logPublishProgress(progress)
       )

@@ -57,6 +57,7 @@ function getStatusLabel(server: ServerCardSummary): string {
     running: 'Running',
     starting: 'Starting',
     stopping: 'Stopping',
+    publishing: 'Publishing save',
     stopped: 'Stopped',
     updating: 'Updating'
   }
@@ -72,7 +73,8 @@ function getRemoteHostStatusLabel(syncStatus: ServerSyncSnapshot): string {
   const statusLabels: Record<ServerHostingStatus, string> = {
     [ServerHostingStatus.Starting]: 'Starting',
     [ServerHostingStatus.Running]: 'Online',
-    [ServerHostingStatus.Stopping]: 'Stopping'
+    [ServerHostingStatus.Stopping]: 'Stopping',
+    [ServerHostingStatus.Publishing]: 'Publishing save'
   }
 
   return statusLabels[syncStatus.serverLock.hostingStatus]
@@ -102,7 +104,12 @@ function getStatusTone(server: ServerCardSummary): BadgeTone {
     return 'active'
   }
 
-  if (server.status === 'starting' || server.status === 'stopping' || server.status === 'updating') {
+  if (
+    server.status === 'starting' ||
+    server.status === 'stopping' ||
+    server.status === 'publishing' ||
+    server.status === 'updating'
+  ) {
     return 'warning'
   }
 

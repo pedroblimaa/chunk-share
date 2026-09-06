@@ -19,6 +19,10 @@ function formatState(status: ServerDisplayState['serverStatus']): string {
     return 'Not Configured'
   }
 
+  if (status === 'publishing') {
+    return 'Publishing save'
+  }
+
   return status.charAt(0).toUpperCase() + status.slice(1)
 }
 
@@ -30,6 +34,7 @@ function getStateIcon(status: ServerDisplayState['serverStatus']): string {
     starting: 'sync',
     stopped: 'cloud_off',
     stopping: 'sync',
+    publishing: 'sync',
     updating: 'sync'
   }
 
@@ -58,7 +63,11 @@ function ServerStatePanel({
               type="button"
               aria-label={
                 toggleButtonAriaLabel ??
-                (snapshot.serverStatus === 'running' ? 'Stop server' : 'Start server')
+                (snapshot.serverStatus === 'running'
+                  ? 'Stop server'
+                  : snapshot.serverStatus === 'publishing'
+                    ? 'Publishing save'
+                    : 'Start server')
               }
               disabled={toggleDisabled}
               onClick={onToggleServer}
