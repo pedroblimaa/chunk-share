@@ -59,11 +59,6 @@
   padding: 0 14px;
 }
 
-.dashboard-nav > .tooltip {
-  display: flex;
-  width: 100%;
-}
-
 .dashboard-nav-item {
   align-items: center;
   background: transparent;

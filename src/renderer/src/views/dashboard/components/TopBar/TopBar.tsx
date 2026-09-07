@@ -2,6 +2,7 @@ import './TopBar.css'
 
 import { useState } from 'react'
 import type { SignedInUser } from '../../../../../../shared/dashboard'
+import Avatar from '../../../../components/shared/Avatar/Avatar'
 import Button from '../../../../components/shared/Button/Button'
 import MaterialIcon from '../../../../components/shared/MaterialIcon/MaterialIcon'
 import Popover from '../../../../components/shared/Popover/Popover'
@@ -149,18 +150,19 @@ function TopBar({
           }
         >
           <button
-            className={`user-avatar${user?.avatarUrl ? ' has-image' : ''}`}
+            className="user-avatar"
             type="button"
             aria-expanded={accountMenuOpen}
             aria-haspopup="menu"
             aria-label={user ? `Account menu for ${user.name}` : 'Account menu'}
             onClick={toggleAccountMenu}
           >
-            {user?.avatarUrl ? (
-              <img src={user.avatarUrl} alt="" aria-hidden="true" />
-            ) : (
-              (user?.avatarInitials ?? 'CS')
-            )}
+            <Avatar
+              imageUrl={user?.avatarUrl ?? null}
+              initials={user?.avatarInitials ?? 'CS'}
+              interactive
+              isActive={accountMenuOpen}
+            />
           </button>
         </Popover>
       </div>

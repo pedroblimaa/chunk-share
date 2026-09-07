@@ -3,7 +3,6 @@ import './AppSidebar.css'
 import { useEffect, useRef } from 'react'
 import chunkshareMark from '../../../assets/chunkshare-mark.png'
 import MaterialIcon from '../MaterialIcon/MaterialIcon'
-import Tooltip from '../Tooltip/Tooltip'
 import type { AppSidebarItem, AppSidebarProps } from './AppSidebar.model'
 
 function AppSidebar({
@@ -95,12 +94,6 @@ function AppSidebar({
             <MaterialIcon name="dashboard" filled />
             <span>Servers</span>
           </button>
-          <Tooltip content="Backups are coming later.">
-            <button className={getNavItemClassName('backups')} type="button" disabled>
-              <MaterialIcon name="backup" />
-              <span>Backups</span>
-            </button>
-          </Tooltip>
           <button
             className={getNavItemClassName('settings')}
             type="button"

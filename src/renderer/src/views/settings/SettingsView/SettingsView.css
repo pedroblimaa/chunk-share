@@ -47,34 +47,6 @@
   padding: 22px 0;
 }
 
-.settings-account-avatar {
-  align-items: center;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-pill);
-  color: var(--color-accent);
-  display: flex;
-  flex: 0 0 auto;
-  font-family: var(--font-family-mono);
-  font-size: var(--font-size-action);
-  font-weight: var(--font-weight-bold);
-  height: 64px;
-  justify-content: center;
-  overflow: hidden;
-  width: 64px;
-}
-
-.settings-account-avatar.has-image {
-  background: transparent;
-}
-
-.settings-account-avatar img {
-  display: block;
-  height: 100%;
-  object-fit: cover;
-  width: 100%;
-}
-
 .settings-account-summary strong,
 .settings-storage-panel strong {
   color: var(--color-text-primary);
