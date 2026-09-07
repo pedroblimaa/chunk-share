@@ -1,4 +1,5 @@
-import type { JavaConfig } from './domain'
+import type { JavaConfig, LocalState } from './domain'
+import type { WorldId } from './world'
 
 export interface VanillaMinecraftVersion {
   id: string
@@ -12,6 +13,11 @@ export interface SetupVanillaServerInput {
   port: number
   eulaAccepted: boolean
   javaConfig: JavaConfig
+}
+
+export interface SetupVanillaServerResult {
+  worldId: WorldId | null
+  localState: LocalState
 }
 
 export interface DownloadSharedServerInput {

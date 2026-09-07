@@ -42,21 +42,31 @@ export async function setupVanillaServer(
   input: SetupVanillaServerInput,
   onProgress?: ServerSetupProgressListener
 ): Promise<LocalState> {
-  return runVanillaServerSetupOperation(input, onProgress, getOrCreateSelectedWorldOperationContext)
+  const result = await runVanillaServerSetupOperation(
+    input,
+    onProgress,
+    getOrCreateSelectedWorldOperationContext
+  )
+  return result.localState
 }
 
 export async function setupNewVanillaServer(
   input: SetupVanillaServerInput,
   onProgress?: ServerSetupProgressListener
-): Promise<LocalState> {
+): Promise<NewVanillaServerSetupResult> {
   return runVanillaServerSetupOperation(input, onProgress, createNewWorldOperationContext)
+}
+
+export interface NewVanillaServerSetupResult {
+  worldId: WorldId
+  localState: LocalState
 }
 
 function runVanillaServerSetupOperation(
   input: SetupVanillaServerInput,
   onProgress: ServerSetupProgressListener | undefined,
   getOperationContext: () => Promise<WorldOperationContext>
-): Promise<LocalState> {
+): Promise<NewVanillaServerSetupResult> {
   validateSetupInput(input)
 
   return runExclusiveStorageOperation(
@@ -74,7 +84,7 @@ async function runVanillaServerSetup(
   input: SetupVanillaServerInput,
   onProgress: ServerSetupProgressListener | undefined,
   getOperationContext: () => Promise<WorldOperationContext>
-): Promise<LocalState> {
+): Promise<NewVanillaServerSetupResult> {
   const operationContext = await getOperationContext()
 
   await saveWorldJavaConfig(operationContext.worldId, input.javaConfig)
@@ -86,7 +96,7 @@ async function runVanillaServerSetup(
     const localState = await markSetupReady(operationContext.worldId, serverConfig)
     onProgress?.({ step: Step.Ready })
 
-    return localState
+    return { localState, worldId: operationContext.worldId }
   } catch (error) {
     await removeTempServerJar(operationContext.paths.serverJarFile)
     const errorMessage = getErrorMessage(error)

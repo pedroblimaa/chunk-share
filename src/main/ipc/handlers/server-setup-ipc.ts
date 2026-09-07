@@ -1,6 +1,7 @@
 import {
   type DownloadSharedServerInput,
   type ServerSetupProgressEvent,
+  type SetupVanillaServerResult,
   type SetupVanillaServerInput
 } from '../../../shared/server-setup'
 import {
@@ -39,18 +40,21 @@ export function registerServerSetupIpcHandlers(): void {
     }
 
     try {
-      await setupNewVanillaServer(payload, sendProgress)
+      const setupResult = await setupNewVanillaServer(payload, sendProgress)
+
+      return {
+        localState: setupResult.localState,
+        worldId: setupResult.worldId
+      } satisfies SetupVanillaServerResult
     } catch (error) {
       const storageSnapshot = await getStorageSnapshot()
 
       if (storageSnapshot.localState.serverSetup.status === 'error') {
-        return storageSnapshot
+        return { localState: storageSnapshot.localState, worldId: null } satisfies SetupVanillaServerResult
       }
 
       throw error
     }
-
-    return getStorageSnapshot()
   })
 }
 
