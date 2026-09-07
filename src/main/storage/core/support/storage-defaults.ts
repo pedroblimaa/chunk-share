@@ -39,6 +39,7 @@ export const DEFAULT_SERVER_SETUP_STATE: ServerSetupState = {
 export const DEFAULT_CLOUD_STORAGE_SETTINGS: CloudStorageSettings = {
   activeProvider: CloudStorageProvider.Local,
   googleDrive: {
+    rootFolderId: null,
     status: GoogleDriveSetupStatus.NotConfigured,
     folder: null,
     errorMessage: null
@@ -50,6 +51,7 @@ export const DEFAULT_APP_STATE: AppState = {
   selectedWorldId: null,
   activeProvider: CloudStorageProvider.Local,
   googleDrive: {
+    rootFolderId: null,
     status: GoogleDriveSetupStatus.NotConfigured,
     errorMessage: null
   },

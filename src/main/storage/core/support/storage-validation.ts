@@ -166,8 +166,12 @@ export function isGoogleDriveSetupState(value: unknown): value is GoogleDriveSet
     return false
   }
 
+  if (!isNullableString(value.rootFolderId)) {
+    return false
+  }
+
   if (value.status === GoogleDriveSetupStatus.NotConfigured) {
-    return value.errorMessage === null
+    return value.rootFolderId === null && value.errorMessage === null
   }
 
   return isNullableErrorMessage(value.errorMessage)

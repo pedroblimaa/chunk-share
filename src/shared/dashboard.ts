@@ -60,6 +60,7 @@ export interface ServerCatalogEntry {
 
 export interface ServerDisplayState {
   signedInUser: SignedInUser | null
+  canJoinSharedWorld: boolean
   selectedWorldId: WorldId | null
   runningWorldId: WorldId | null
   worlds: ServerCatalogEntry[]

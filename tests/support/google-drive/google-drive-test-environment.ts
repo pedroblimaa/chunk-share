@@ -302,14 +302,22 @@ export class GoogleDriveTestEnvironment {
     accountName: GoogleTestAccountName,
     input: { mimeType: string; name: string; parents?: string[] }
   ): GoogleDriveFileResponse | null {
-    if (accountName !== 'owner') {
+    const parentFolderId = input.parents?.[0] ?? 'root'
+
+    if (
+      accountName !== 'owner' &&
+      (!this.accountCanAccessFile(accountName, parentFolderId) ||
+        this.getAccountRole(accountName) !== 'writer')
+    ) {
       return null
     }
 
     const fileId = `created-drive-file-${this.nextFileNumber}`
     this.nextFileNumber += 1
-    this.files.set(fileId, createDriveFile(fileId, input.name, input.mimeType, '', input.parents ?? []))
-    this.appAuthorizedFileIds.get(accountName)?.add(fileId)
+    this.files.set(fileId, createDriveFile(fileId, input.name, input.mimeType, '', [parentFolderId]))
+    const authorizedFileIds = this.appAuthorizedFileIds.get(accountName) ?? new Set<string>()
+    authorizedFileIds.add(fileId)
+    this.appAuthorizedFileIds.set(accountName, authorizedFileIds)
 
     return this.getFileMetadata(accountName, fileId)
   }
@@ -360,7 +368,7 @@ export class GoogleDriveTestEnvironment {
   }
 
   public deleteFile(accountName: GoogleTestAccountName, fileId: string): boolean {
-    if (accountName !== 'owner') {
+    if (!this.accountCanEditFile(accountName, fileId)) {
       return false
     }
 
@@ -418,6 +426,10 @@ export class GoogleDriveTestEnvironment {
   }
 
   private accountCanAccessFile(accountName: GoogleTestAccountName, fileId: string): boolean {
+    if (fileId === 'root') {
+      return true
+    }
+
     if (!this.accountHasFolderAccess(accountName)) {
       return false
     }

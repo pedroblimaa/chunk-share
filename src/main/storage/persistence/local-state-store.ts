@@ -1,5 +1,9 @@
 import { randomUUID } from 'crypto'
-import type { CloudStorageSettings, GoogleDriveWorldState } from '../../../shared/cloud-storage.model'
+import type {
+  CloudStorageSettings,
+  GoogleDriveSetupState,
+  GoogleDriveWorldState
+} from '../../../shared/cloud-storage.model'
 import type { JavaConfig, LocalState, Player, ServerConfig, ServerSetupState } from '../../../shared/domain'
 import type { AppState, LocalWorldState, WorldId } from '../../../shared/world'
 import {
@@ -9,7 +13,12 @@ import {
 } from '../core/support/storage-defaults'
 import { StorageError } from '../core/support/storage-error'
 import { localStateFilePath } from '../core/support/storage-paths'
-import { isAppState, isCloudStorageSettings, isServerConfig } from '../core/support/storage-validation'
+import {
+  isAppState,
+  isCloudStorageSettings,
+  isGoogleDriveSetupState,
+  isServerConfig
+} from '../core/support/storage-validation'
 import { readOrCreateJsonFile, writeJsonFile } from './json-file-store'
 
 type WorldStateChanges = Partial<
@@ -288,29 +297,47 @@ export async function readCloudStorageSettings(): Promise<CloudStorageSettings> 
 }
 
 export async function writeCloudStorageSettings(settings: CloudStorageSettings): Promise<void> {
+  const appState = await readAppState()
+
+  await writeCloudStorageSettingsForWorld(settings, appState.selectedWorldId)
+}
+
+export async function writeCloudStorageSettingsForWorld(
+  settings: CloudStorageSettings,
+  worldId: WorldId | null
+): Promise<void> {
   if (!isCloudStorageSettings(settings)) {
     throw new StorageError('Invalid cloud storage settings payload.')
   }
 
   const appState = await readAppState()
-  const selectedWorld = getSelectedWorld(appState)
-  const nextWorld = selectedWorld
-    ? {
-        ...selectedWorld,
-        googleDrive: settings.googleDrive.folder
-      }
-    : null
+  const world = worldId ? getWorld(appState, worldId) : null
+  const nextWorld = world ? { ...world, googleDrive: settings.googleDrive.folder } : null
 
   await writeAppState({
     ...appState,
     activeProvider: settings.activeProvider,
     googleDrive: {
+      rootFolderId: settings.googleDrive.rootFolderId,
       status: settings.googleDrive.status,
       errorMessage: settings.googleDrive.errorMessage
     },
     worlds: nextWorld
-      ? appState.worlds.map((world) => (world.id === nextWorld.id ? nextWorld : world))
+      ? appState.worlds.map((currentWorld) => (currentWorld.id === nextWorld.id ? nextWorld : currentWorld))
       : appState.worlds
+  })
+}
+
+export async function writeGoogleDriveSetupState(googleDrive: GoogleDriveSetupState): Promise<void> {
+  if (!isGoogleDriveSetupState(googleDrive)) {
+    throw new StorageError('Invalid Google Drive setup state payload.')
+  }
+
+  const appState = await readAppState()
+
+  await writeAppState({
+    ...appState,
+    googleDrive
   })
 }
 

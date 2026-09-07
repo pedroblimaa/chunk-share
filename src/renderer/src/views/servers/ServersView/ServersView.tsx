@@ -28,6 +28,7 @@ interface ServersViewProps {
 }
 
 const RUNNING_SERVER_DISABLED_REASON = 'Stop the running server before creating another one.'
+const DRIVE_SETUP_REQUIRED_REASON = 'Set up Google Drive in Settings before joining a shared world.'
 type CopyStatus = 'idle' | 'copied' | 'failed'
 
 function createConfiguredServers(
@@ -258,7 +259,13 @@ function ServersView({
                 <Button icon="add" onClick={onCreateServer}>
                   Create Server
                 </Button>
-                <Button icon="link" variant="secondary" onClick={onJoinSharedWorld}>
+                <Button
+                  disabled={!serverDisplayState.canJoinSharedWorld}
+                  icon="link"
+                  title={!serverDisplayState.canJoinSharedWorld ? DRIVE_SETUP_REQUIRED_REASON : undefined}
+                  variant="secondary"
+                  onClick={onJoinSharedWorld}
+                >
                   Join Shared World
                 </Button>
               </div>

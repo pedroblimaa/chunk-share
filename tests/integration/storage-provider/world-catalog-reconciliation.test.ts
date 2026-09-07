@@ -31,6 +31,7 @@ import {
 import { publishServerSave } from '../../../src/main/storage/server-save/server-save-publisher'
 import { DEFAULT_SERVER_SETUP_STATE } from '../../../src/main/storage/core/support/storage-defaults'
 import { saveOwnerGoogleDriveWorld } from '../share-join/share-join-test-data'
+import { GOOGLE_TEST_IDS } from '../../support/google-drive/google-drive-test-environment'
 import {
   TEST_MINECRAFT_METADATA_URL,
   TEST_MINECRAFT_VERSION
@@ -211,6 +212,7 @@ async function configureGoogleDriveAsAvailable(): Promise<void> {
   await writeAppState({
     ...appState,
     googleDrive: {
+      rootFolderId: GOOGLE_TEST_IDS.folder,
       errorMessage: null,
       status: GoogleDriveSetupStatus.Valid
     }

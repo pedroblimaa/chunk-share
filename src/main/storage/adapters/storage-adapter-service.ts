@@ -34,7 +34,17 @@ export async function getOrCreateStorageContext(
     throw new StorageError('Google Drive storage is selected, but Google Drive is not configured or valid.')
   }
 
-  const googleDrive = await createGoogleDriveWorldFolder(context.worldId)
+  const rootFolderId = appState.googleDrive.rootFolderId
+
+  if (!rootFolderId) {
+    throw new StorageError('Google Drive storage is selected, but the ChunkShare folder is not configured.')
+  }
+
+  const googleDrive = await createGoogleDriveWorldFolder(
+    rootFolderId,
+    context.worldId,
+    context.world.serverConfig.name
+  )
   const world = await saveWorldGoogleDriveState(context.worldId, googleDrive)
   const worldContext = createWorldContext(world)
 

@@ -41,6 +41,7 @@ export interface GoogleDriveWorldState {
 }
 
 export interface GoogleDriveSetupState {
+  rootFolderId: string | null
   status: GoogleDriveSetupStatus
   errorMessage: string | null
 }

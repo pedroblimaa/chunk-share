@@ -12,6 +12,7 @@ import {
   type ServerStatus,
   type ServerStorageSnapshot
 } from '../../shared/domain'
+import { GoogleDriveSetupStatus } from '../../shared/cloud-storage.model'
 import {
   isServerActiveStatus,
   type ServerConnectionAddress,
@@ -30,7 +31,7 @@ import { inspectWorldCatalog, isWorldCatalogEntryVisible } from '../world-catalo
 
 type SelectedWorldDisplayData = Omit<
   ServerDisplayState,
-  'signedInUser' | 'selectedWorldId' | 'runningWorldId' | 'worlds'
+  'signedInUser' | 'canJoinSharedWorld' | 'selectedWorldId' | 'runningWorldId' | 'worlds'
 >
 
 interface WorldDisplayData extends SelectedWorldDisplayData {
@@ -69,6 +70,9 @@ export async function getServerDisplayState(): Promise<ServerDisplayState> {
 
   return {
     signedInUser,
+    canJoinSharedWorld:
+      appState.googleDrive.status === GoogleDriveSetupStatus.Valid &&
+      Boolean(appState.googleDrive.rootFolderId),
     selectedWorldId: selectedWorld?.worldId ?? null,
     runningWorldId: runtimeSnapshot.runningWorldId,
     worlds: worlds.map(toServerCatalogEntry),

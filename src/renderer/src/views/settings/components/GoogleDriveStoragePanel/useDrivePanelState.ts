@@ -19,7 +19,7 @@ export function useDrivePanelState(
     (canBeActivated && activationIsRunning)
   const googleSignInIsRunning =
     storage.operationState.operation === StorageSettingsOperation.SetupGoogleDriveFolder
-  const hasConfiguredFolder = Boolean(driveState?.folder)
+  const hasConfiguredFolder = Boolean(driveState?.rootFolderId || driveState?.folder)
 
   return {
     isValid,
@@ -27,7 +27,7 @@ export function useDrivePanelState(
     statusView: GOOGLE_DRIVE_STATUS_VIEW[driveState?.status ?? GoogleDriveSetupStatus.NotConfigured],
     validatedAt: driveState?.folder?.validatedAt ?? null,
     errorMessage: driveState?.errorMessage ?? null,
-    hasFolder: Boolean(driveState?.folder),
+    hasFolder: hasConfiguredFolder,
     googleSignInIsRunning,
     primaryActionIsRunning,
     controlsAreDisabled: storage.operationState.isBusy || storage.storageProviderSettings === null,

@@ -342,9 +342,10 @@ describe('world lifecycle', () => {
     await expect(readCloudStorageSettings()).resolves.toEqual({
       activeProvider: CloudStorageProvider.Local,
       googleDrive: {
+        rootFolderId: GOOGLE_TEST_IDS.folder,
         errorMessage: null,
         folder: null,
-        status: GoogleDriveSetupStatus.NotConfigured
+        status: GoogleDriveSetupStatus.Valid
       }
     })
   })
@@ -365,6 +366,7 @@ function configureOwnedGoogleDriveWorld(): Promise<void> {
   return writeCloudStorageSettings({
     activeProvider: CloudStorageProvider.GoogleDrive,
     googleDrive: {
+      rootFolderId: GOOGLE_TEST_IDS.folder,
       errorMessage: null,
       folder: {
         configuredAt: now,

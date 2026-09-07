@@ -128,6 +128,7 @@ async function saveLocalStorageWithDriveTarget(localStateFile: string): Promise<
     ...appState,
     activeProvider: CloudStorageProvider.Local,
     googleDrive: {
+      rootFolderId: GOOGLE_TEST_IDS.folder,
       errorMessage: null,
       status: GoogleDriveSetupStatus.Valid
     },
