@@ -14,6 +14,7 @@ import TopBar from '../../dashboard/components/TopBar/TopBar'
 import DeploymentProgress from '../components/DeploymentProgress/DeploymentProgress'
 import SetupForm from '../components/SetupForm/SetupForm'
 import type { DeploymentStatus } from '../server-setup-model'
+import { getDeploymentSteps } from '../server-setup-progress'
 
 interface ServerSetupViewProps {
   isSidebarOpen: boolean
@@ -46,6 +47,7 @@ function ServerSetupView({
   const [versionsErrorMessage, setVersionsErrorMessage] = useState<string | null>(null)
   const [completedWorldId, setCompletedWorldId] = useState<WorldId | null>(null)
   const progressSectionRef = useRef<HTMLDivElement | null>(null)
+  const deploymentSteps = getDeploymentSteps(snapshot.activeProvider)
 
   const formIsLocked = deploymentStatus !== 'idle'
 
@@ -115,7 +117,7 @@ function ServerSetupView({
 
   async function setupServer(input: SetupVanillaServerInput): Promise<void> {
     setDeploymentStatus('running')
-    setActiveStep(null)
+    setActiveStep(ServerSetupProgressStep.CreatingFolder)
     setCompletedWorldId(null)
     setSetupErrorMessage(null)
 
@@ -182,6 +184,7 @@ function ServerSetupView({
             <div ref={progressSectionRef}>
               <DeploymentProgress
                 activeStep={activeStep}
+                deploymentSteps={deploymentSteps}
                 deploymentStatus={deploymentStatus}
                 errorMessage={setupErrorMessage}
                 onOpenDashboard={() => {

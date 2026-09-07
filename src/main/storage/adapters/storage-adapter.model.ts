@@ -42,6 +42,7 @@ export interface StorageAdapter {
   readServerLock(): Promise<ServerLock>
   updateServerLock(update: ServerLockUpdate): Promise<boolean>
   resetServerLock(): Promise<void>
+  resetServerState(): Promise<void>
 
   stageServerSavesReplacement(): Promise<ServerSavesReplacement>
 

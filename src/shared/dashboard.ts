@@ -1,3 +1,4 @@
+import type { CloudStorageProvider } from './cloud-storage.model'
 import type { JavaConfig, ServerStatus } from './domain'
 import type { ServerConnectionAddress } from './server-runtime'
 import type { ServerSyncSnapshot } from './server-sync'
@@ -59,6 +60,7 @@ export interface ServerCatalogEntry {
 }
 
 export interface ServerDisplayState {
+  activeProvider: CloudStorageProvider
   signedInUser: SignedInUser | null
   canJoinSharedWorld: boolean
   selectedWorldId: WorldId | null
