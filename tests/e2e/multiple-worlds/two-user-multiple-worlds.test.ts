@@ -190,7 +190,7 @@ async function prepareUserState(
   const appState: AppState = {
     ...DEFAULT_APP_STATE,
     activeProvider: CloudStorageProvider.GoogleDrive,
-    googleDrive: { errorMessage: null, status: GoogleDriveSetupStatus.Valid },
+    googleDrive: { errorMessage: null, rootFolderId: null, status: GoogleDriveSetupStatus.Valid },
     player: GOOGLE_TEST_ACCOUNTS[accountName].session.player,
     selectedWorldId,
     worlds

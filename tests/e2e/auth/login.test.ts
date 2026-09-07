@@ -147,6 +147,7 @@ async function saveExpiredConfiguredDriveSession(paths: ElectronE2EPaths): Promi
     ...DEFAULT_APP_STATE,
     activeProvider: CloudStorageProvider.GoogleDrive,
     googleDrive: {
+      rootFolderId: GOOGLE_TEST_IDS.folder,
       errorMessage: null,
       status: GoogleDriveSetupStatus.Valid
     },

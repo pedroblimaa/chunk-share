@@ -25,7 +25,23 @@ import {
   type ElectronE2EPaths
 } from '../support/electron-test-app'
 import { GoogleDriveE2EMock } from '../support/google-drive-e2e-mock'
-import { openServerDashboard } from '../support/local-world-e2e'
+import { navigateToServers, openServerDashboard } from '../support/local-world-e2e'
+
+test('disables joining until Google Drive is set up', async () => {
+  const app = await launchChunkShareE2EApp()
+
+  try {
+    const joinButton = app.page.getByRole('button', { name: 'Join Shared World' })
+
+    await expect(joinButton).toBeDisabled()
+    await expect(joinButton).toHaveAttribute(
+      'title',
+      'Set up Google Drive in Settings before joining a shared world.'
+    )
+  } finally {
+    await app.close()
+  }
+})
 
 test('owner invites a friend who joins and downloads the shared world', async () => {
   const driveMock = new GoogleDriveE2EMock()
@@ -442,6 +458,13 @@ async function joinAndDownloadSharedWorld(friendApp: ChunkShareE2EApp, joinLink:
 async function joinSharedWorld(friendApp: ChunkShareE2EApp, joinLink: string): Promise<void> {
   const { page, user } = friendApp
 
+  await user.click(page.getByRole('button', { name: 'Settings', exact: true }).first())
+  await user.click(page.getByRole('button', { name: /Google Drive/ }))
+  await user.click(page.getByRole('button', { name: 'Set up Drive folder' }))
+  await expect(page.getByRole('button', { name: 'Activate Google Drive' })).toBeVisible()
+  await navigateToServers(friendApp)
+
+  await expect(page.getByRole('button', { name: 'Join Shared World' })).toBeEnabled()
   await user.click(page.getByRole('button', { name: 'Join Shared World' }))
   await expect(page.getByText(/select both control\.json and world\.zip/i)).toBeVisible()
   await user.fill(page.getByLabel('Join link'), joinLink)
@@ -499,6 +522,7 @@ async function saveOwnerDriveSettings(paths: ElectronE2EPaths): Promise<void> {
     selectedWorldId: world.id,
     activeProvider: CloudStorageProvider.GoogleDrive,
     googleDrive: {
+      rootFolderId: GOOGLE_TEST_IDS.folder,
       errorMessage: null,
       status: GoogleDriveSetupStatus.Valid
     },

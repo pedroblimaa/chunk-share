@@ -121,6 +121,7 @@ export async function deleteGoogleDriveWorldFilesIfOwned(context?: WorldContext)
         deleteDriveFileIfExists(oauthClient, fileId)
       )
     )
+    await deleteDriveFileIfExists(oauthClient, folder.folderId)
     return
   }
 
@@ -139,6 +140,7 @@ export async function deleteGoogleDriveWorldFilesIfOwned(context?: WorldContext)
   const fileIds = [controlFile?.id, worldFile?.id].filter((fileId): fileId is string => Boolean(fileId))
 
   await Promise.all(fileIds.map((fileId) => deleteDriveFileIfExists(oauthClient, fileId)))
+  await deleteDriveFileIfExists(oauthClient, folder.folderId)
 }
 
 export async function validateSharedGoogleDriveWorld(

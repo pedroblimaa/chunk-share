@@ -81,6 +81,7 @@ describe('world deletion isolation', () => {
       ...appState,
       activeProvider: CloudStorageProvider.GoogleDrive,
       googleDrive: {
+        rootFolderId: GOOGLE_TEST_IDS.folder,
         errorMessage: null,
         status: GoogleDriveSetupStatus.Valid
       },

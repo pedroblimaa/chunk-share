@@ -17,8 +17,13 @@ export async function getOrCreateSelectedWorldOperationContext(): Promise<WorldO
   return resolvePublishingWorldOperationContext(createWorldContext(await readOrCreateSelectedWorld()))
 }
 
-export async function createNewWorldOperationContext(): Promise<WorldOperationContext> {
-  return resolvePublishingWorldOperationContext(createWorldContext(await createWorld()))
+export async function createNewWorldOperationContext(worldName?: string): Promise<WorldOperationContext> {
+  const world = await createWorld()
+  const worldContext = createWorldContext(
+    worldName ? { ...world, serverConfig: { ...world.serverConfig, name: worldName } } : world
+  )
+
+  return resolvePublishingWorldOperationContext(worldContext)
 }
 
 export async function resolvePublishingWorldOperationContext(

@@ -8,10 +8,12 @@ import {
 import { ServerLockStatus } from '../../../src/shared/domain'
 import {
   getCloudStorageProviderSwitchPreview,
-  setCloudStorageProvider
+  setCloudStorageProvider,
+  setupGoogleDriveFolder
 } from '../../../src/main/storage/core/cloud-storage-service'
 import { createLocalStorageAdapter } from '../../../src/main/storage/adapters/local-storage-adapter'
 import { createGoogleDriveStorageAdapter } from '../../../src/main/storage/adapters/google-drive-storage-adapter'
+import { createGoogleDriveWorldFolder } from '../../../src/main/cloud-storage/google-drive-service'
 import type { StorageAdapter } from '../../../src/main/storage/adapters/storage-adapter.model'
 import { getSelectedWorldContext } from '../../../src/main/storage/core/world-context'
 import { publishServerSave } from '../../../src/main/storage/server-save/server-save-publisher'
@@ -21,7 +23,7 @@ import {
   writeAppState,
   writeCloudStorageSettings
 } from '../../../src/main/storage/persistence/local-state-store'
-import { saveOwnerGoogleDriveWorld } from '../share-join/share-join-test-data'
+import { saveFreshLocalAccount, saveOwnerGoogleDriveWorld } from '../share-join/share-join-test-data'
 import {
   GOOGLE_TEST_IDS,
   googleDriveTestEnvironment
@@ -88,6 +90,19 @@ describe('storage provider switching', () => {
     })
   })
 
+  it('creates one root folder without assigning it to a world', async () => {
+    await saveFreshLocalAccount('owner')
+
+    const settings = await setupGoogleDriveFolder()
+
+    expect(settings.googleDrive.rootFolderId).toMatch(/^created-drive-file-/)
+    expect(settings.googleDrive.folder).toBeNull()
+    const rootFolders = googleDriveTestEnvironment
+      .listWorldFiles('owner', 'root')
+      ?.filter((file) => file.mimeType === 'application/vnd.google-apps.folder')
+    expect(rootFolders).toEqual([expect.objectContaining({ name: 'ChunkShare' })])
+  })
+
   it('copies the current local world to Google Drive and activates it', async () => {
     await configureLocalSourceWithDriveTarget()
     await createLocalTestWorld()
@@ -126,6 +141,18 @@ describe('storage provider switching', () => {
 
     const context = await getSelectedWorldContext()
     expect(context.world.googleDrive).not.toBeNull()
+    const rootFolderId = (await readCloudStorageSettings()).googleDrive.rootFolderId
+    expect(rootFolderId).toBe(GOOGLE_TEST_IDS.folder)
+    if (!rootFolderId) {
+      throw new Error('Expected the Google Drive root folder to be configured.')
+    }
+    const childFolders = googleDriveTestEnvironment
+      .listWorldFiles('owner', rootFolderId)
+      ?.filter((file) => file.mimeType === 'application/vnd.google-apps.folder')
+    expect(childFolders).toEqual([expect.objectContaining({ name: 'Integration Test World (00000000)' })])
+    await expect(
+      createGoogleDriveWorldFolder(rootFolderId, context.worldId, context.world.serverConfig.name)
+    ).resolves.toMatchObject({ folderId: context.world.googleDrive?.folderId })
     await expect(createGoogleDriveStorageAdapter(context).readLatestSave()).resolves.toMatchObject({
       saveVersion: 1
     })

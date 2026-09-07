@@ -37,6 +37,7 @@ export async function saveOwnerGoogleDriveWorld(): Promise<void> {
     selectedWorldId: world.id,
     activeProvider: CloudStorageProvider.GoogleDrive,
     googleDrive: {
+      rootFolderId: GOOGLE_TEST_IDS.folder,
       errorMessage: null,
       status: GoogleDriveSetupStatus.Valid
     },

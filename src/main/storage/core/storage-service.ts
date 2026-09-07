@@ -129,7 +129,10 @@ async function removeStoredServer(
     ...appState,
     activeProvider: CloudStorageProvider.Local,
     googleDrive: {
-      status: GoogleDriveSetupStatus.NotConfigured,
+      ...appState.googleDrive,
+      status: appState.googleDrive.rootFolderId
+        ? GoogleDriveSetupStatus.Valid
+        : GoogleDriveSetupStatus.NotConfigured,
       errorMessage: null
     }
   })

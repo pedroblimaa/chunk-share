@@ -192,6 +192,7 @@ function createServerDisplayState(): ServerDisplayState {
 
   return {
     signedInUser: null,
+    canJoinSharedWorld: false,
     selectedWorldId: WORLD_B_ID,
     runningWorldId: WORLD_A_ID,
     worlds: [],

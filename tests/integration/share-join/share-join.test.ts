@@ -2,12 +2,17 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ServerAvailability } from '../../../src/shared/dashboard'
 import { CloudStorageProvider, GoogleDriveSetupStatus } from '../../../src/shared/cloud-storage.model'
 import { joinGoogleDriveWorld } from '../../../src/main/cloud-storage/google-drive-join-service'
+import { setupGoogleDriveFolder } from '../../../src/main/storage/core/cloud-storage-service'
 import {
   inviteGoogleDriveMember,
   revokeGoogleDriveMember
 } from '../../../src/main/cloud-storage/google-drive-sharing-service'
-import { readCloudStorageSettings } from '../../../src/main/storage/persistence/local-state-store'
-import { readLocalState } from '../../../src/main/storage/persistence/local-state-store'
+import {
+  readAppState,
+  readCloudStorageSettings,
+  readLocalState,
+  writeAppState
+} from '../../../src/main/storage/persistence/local-state-store'
 import {
   saveConfiguredLocalAccount,
   saveFreshLocalAccount,
@@ -57,6 +62,7 @@ describe('Google Drive sharing and joining', () => {
   it('activates the world from the link generated for an invited friend', async () => {
     const invitation = await inviteGoogleDriveMember(GOOGLE_TEST_ACCOUNTS.friend.session.player.email)
     await saveFreshLocalAccount('friend')
+    await setupGoogleDriveFolder()
 
     const serverDisplayState = await joinGoogleDriveWorld(invitation.joinLink)
 
@@ -93,6 +99,16 @@ describe('Google Drive sharing and joining', () => {
     })
   })
 
+  it('requires Drive setup before joining a shared world', async () => {
+    const invitation = await inviteGoogleDriveMember(GOOGLE_TEST_ACCOUNTS.friend.session.player.email)
+    await saveFreshLocalAccount('friend')
+
+    await expect(joinGoogleDriveWorld(invitation.joinLink)).rejects.toThrow(
+      'Set up Google Drive in Settings before joining a shared world.'
+    )
+    expect(googleDriveTestEnvironment.getLastPickerFileIds()).toBeNull()
+  })
+
   it('keeps a configured local world when joining is attempted', async () => {
     const invitation = await inviteGoogleDriveMember(GOOGLE_TEST_ACCOUNTS.friend.session.player.email)
     await saveConfiguredLocalAccount('friend')
@@ -119,6 +135,7 @@ describe('Google Drive sharing and joining', () => {
   it('rejects the join link for an uninvited account', async () => {
     const invitation = await inviteGoogleDriveMember(GOOGLE_TEST_ACCOUNTS.friend.session.player.email)
     await saveFreshLocalAccount('uninvited')
+    await configureDriveSetupForCurrentAccount()
 
     await expect(joinGoogleDriveWorld(invitation.joinLink)).rejects.toThrow(
       'Make sure you use an invited account.'
@@ -130,7 +147,8 @@ describe('Google Drive sharing and joining', () => {
       googleDrive: {
         errorMessage: null,
         folder: null,
-        status: GoogleDriveSetupStatus.NotConfigured
+        rootFolderId: GOOGLE_TEST_IDS.folder,
+        status: GoogleDriveSetupStatus.Valid
       }
     })
   })
@@ -144,6 +162,7 @@ describe('Google Drive sharing and joining', () => {
     const permissionId = invitedMember.permissionId
 
     await saveFreshLocalAccount('friend')
+    await configureDriveSetupForCurrentAccount()
     await joinGoogleDriveWorld(invitation.joinLink)
 
     await saveOwnerGoogleDriveWorld()
@@ -155,8 +174,22 @@ describe('Google Drive sharing and joining', () => {
     })
 
     await saveFreshLocalAccount('friend')
+    await configureDriveSetupForCurrentAccount()
     await expect(joinGoogleDriveWorld(invitation.joinLink)).rejects.toThrow(
       'Make sure you use an invited account.'
     )
   })
 })
+
+async function configureDriveSetupForCurrentAccount(): Promise<void> {
+  const appState = await readAppState()
+
+  await writeAppState({
+    ...appState,
+    googleDrive: {
+      rootFolderId: GOOGLE_TEST_IDS.folder,
+      status: GoogleDriveSetupStatus.Valid,
+      errorMessage: null
+    }
+  })
+}

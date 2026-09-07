@@ -65,7 +65,7 @@ export interface NewVanillaServerSetupResult {
 function runVanillaServerSetupOperation(
   input: SetupVanillaServerInput,
   onProgress: ServerSetupProgressListener | undefined,
-  getOperationContext: () => Promise<WorldOperationContext>
+  getOperationContext: (worldName?: string) => Promise<WorldOperationContext>
 ): Promise<NewVanillaServerSetupResult> {
   validateSetupInput(input)
 
@@ -83,9 +83,9 @@ function runVanillaServerSetupOperation(
 async function runVanillaServerSetup(
   input: SetupVanillaServerInput,
   onProgress: ServerSetupProgressListener | undefined,
-  getOperationContext: () => Promise<WorldOperationContext>
+  getOperationContext: (worldName?: string) => Promise<WorldOperationContext>
 ): Promise<NewVanillaServerSetupResult> {
-  const operationContext = await getOperationContext()
+  const operationContext = await getOperationContext(input.name)
 
   await saveWorldJavaConfig(operationContext.worldId, input.javaConfig)
 

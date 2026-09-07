@@ -48,7 +48,7 @@ export async function openServerDashboard(
 }
 
 export async function navigateToServers(app: ChunkShareE2EApp): Promise<void> {
-  const createServerButton = app.page.getByRole('button', { name: 'Create Server', exact: true })
+  const createServerButton = app.page.getByRole('button', { name: 'Create Server', exact: true }).first()
   const serversPageBreadcrumb = app.page
     .getByLabel('Breadcrumb')
     .getByRole('strong')
