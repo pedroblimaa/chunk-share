@@ -148,6 +148,7 @@ function ServerCard({
     <Card
       as="article"
       className={`server-card server-card-${server.status}`}
+      hoverShadow="subtle"
       interactive
       padding="none"
       style={{ animationDelay: `${animationDelayMs}ms` }}
@@ -226,7 +227,7 @@ function ServerCard({
             disabled={deleteDisabled}
             icon="delete"
             size="square"
-            variant="icon"
+            variant="danger-ghost"
             onClick={onDelete}
           />
         </Tooltip>

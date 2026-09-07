@@ -1,4 +1,4 @@
-export type AppSidebarItem = 'servers' | 'backups' | 'settings'
+export type AppSidebarItem = 'servers' | 'settings'
 
 export interface AppSidebarProps {
   activeItem: AppSidebarItem

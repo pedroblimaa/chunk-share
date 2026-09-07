@@ -2,6 +2,7 @@ import './SettingsView.css'
 
 import { useEffect, useState } from 'react'
 import AppSidebar from '../../../components/shared/AppSidebar/AppSidebar'
+import Avatar from '../../../components/shared/Avatar/Avatar'
 import Badge from '../../../components/shared/Badge/Badge'
 import Button from '../../../components/shared/Button/Button'
 import Card from '../../../components/shared/Card/Card'
@@ -67,13 +68,11 @@ function SettingsView({
               </div>
 
               <div className="settings-account-summary">
-                <div className={`settings-account-avatar${signedInUser?.avatarUrl ? ' has-image' : ''}`}>
-                  {signedInUser?.avatarUrl ? (
-                    <img src={signedInUser.avatarUrl} alt="" aria-hidden="true" />
-                  ) : (
-                    (signedInUser?.avatarInitials ?? 'CS')
-                  )}
-                </div>
+                <Avatar
+                  imageUrl={signedInUser?.avatarUrl ?? null}
+                  initials={signedInUser?.avatarInitials ?? 'CS'}
+                  size="large"
+                />
                 <div>
                   <strong>{signedInUser?.name ?? 'ChunkShare user'}</strong>
                   <span>{signedInUser?.email ?? 'No Google account connected'}</span>

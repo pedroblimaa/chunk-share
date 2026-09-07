@@ -1,12 +1,14 @@
 import type { FormHTMLAttributes, HTMLAttributes, ReactNode } from 'react'
 
 export type CardElement = 'article' | 'div' | 'form' | 'section'
+export type CardHoverShadow = 'default' | 'none' | 'subtle'
 export type CardPadding = 'none' | 'default' | 'compact' | 'large'
 export type CardTone = 'default' | 'panel' | 'active' | 'danger' | 'dashed'
 export const CARD_PRIVATE_PROP_NAMES = [
   'as',
   'children',
   'className',
+  'hoverShadow',
   'interactive',
   'padding',
   'tone'
@@ -14,6 +16,7 @@ export const CARD_PRIVATE_PROP_NAMES = [
 
 interface BaseCardProps {
   children: ReactNode
+  hoverShadow?: CardHoverShadow
   interactive?: boolean
   padding?: CardPadding
   tone?: CardTone

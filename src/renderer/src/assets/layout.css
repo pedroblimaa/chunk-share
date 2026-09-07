@@ -26,6 +26,7 @@
   --blur-overlay: blur(20px);
 
   --shadow-card-hover: 0 18px 42px rgb(0 0 0 / 20%);
+  --shadow-card-hover-subtle: 0 10px 24px rgb(0 0 0 / 16%);
   --shadow-popover: 0 20px 48px rgb(0 0 0 / 24%);
   --shadow-modal: 0 30px 80px rgb(0 0 0 / 30%);
   --shadow-toast: 0 22px 54px rgb(0 0 0 / 28%);

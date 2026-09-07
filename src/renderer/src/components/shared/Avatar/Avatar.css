@@ -1,0 +1,47 @@
+.chunk-avatar {
+  align-items: center;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-pill);
+  color: var(--color-accent);
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-family: var(--font-family-mono);
+  font-weight: var(--font-weight-bold);
+  justify-content: center;
+  overflow: hidden;
+}
+
+.chunk-avatar-default {
+  font-size: var(--font-size-caption);
+  height: 36px;
+  width: 36px;
+}
+
+.chunk-avatar-large {
+  font-size: var(--font-size-action);
+  height: 64px;
+  width: 64px;
+}
+
+.chunk-avatar.has-image {
+  background: transparent;
+}
+
+.chunk-avatar-interactive:hover,
+.chunk-avatar.is-active {
+  background: var(--color-surface-raised);
+  border-color: var(--color-border-emphasis);
+}
+
+.chunk-avatar-interactive.has-image:hover,
+.chunk-avatar.has-image.is-active {
+  background: transparent;
+}
+
+.chunk-avatar img {
+  display: block;
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}

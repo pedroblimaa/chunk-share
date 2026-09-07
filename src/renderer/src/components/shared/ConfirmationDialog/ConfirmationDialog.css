@@ -1,13 +1,5 @@
 .confirmation-dialog .chunk-dialog-heading > .material-symbols-outlined {
-  align-items: center;
-  background: color-mix(in srgb, var(--color-danger-icon) 12%, transparent);
-  border: 1px solid var(--color-danger-border);
-  border-radius: var(--radius-overlay);
   color: var(--color-danger-icon);
-  display: flex;
-  height: var(--size-control-large);
-  justify-content: center;
-  width: var(--size-control-large);
 }
 
 .confirmation-dialog-description {

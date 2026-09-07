@@ -45,6 +45,15 @@
 .chunk-card-interactive:hover,
 .chunk-card-interactive:focus-within {
   border-color: var(--color-border-accent);
-  box-shadow: var(--shadow-card-hover);
   translate: 0 -1px;
+}
+
+.chunk-card-interactive:not(.chunk-card-no-hover-shadow):hover,
+.chunk-card-interactive:not(.chunk-card-no-hover-shadow):focus-within {
+  box-shadow: var(--shadow-card-hover);
+}
+
+.chunk-card-interactive.chunk-card-subtle-hover-shadow:hover,
+.chunk-card-interactive.chunk-card-subtle-hover-shadow:focus-within {
+  box-shadow: var(--shadow-card-hover-subtle);
 }
