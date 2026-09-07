@@ -4,6 +4,7 @@ import { mkdir, readFile, rename, stat, unlink, writeFile } from 'fs/promises'
 import { Readable } from 'stream'
 import { pipeline } from 'stream/promises'
 import type { ReadableStream as NodeReadableStream } from 'stream/web'
+import { CloudStorageProvider } from '../../shared/cloud-storage.model'
 import type { LocalState, ServerConfig } from '../../shared/domain'
 import type { WorldId } from '../../shared/world'
 import { getServerRuntimeSnapshot } from '../server-runtime/server-runtime-service'
@@ -14,6 +15,7 @@ import {
   type SetupVanillaServerInput
 } from '../../shared/server-setup'
 import {
+  readAppState,
   saveWorldRestoredServerSetupResult,
   saveWorldServerSetupResult,
   saveWorldServerSetupState
@@ -74,7 +76,14 @@ function runVanillaServerSetupOperation(
     new ServerSetupError('Cannot set up a server while another storage operation is in progress.'),
     async () => {
       assertNoWorldIsRunning()
+      onProgress?.({ step: Step.CreatingFolder })
       await validateJavaRuntime(input.javaConfig, input.minecraftVersion, input.minecraftVersionMetadataUrl)
+      const { activeProvider } = await readAppState()
+
+      if (activeProvider === CloudStorageProvider.GoogleDrive) {
+        onProgress?.({ step: Step.SettingUpGoogleDrive })
+      }
+
       return runVanillaServerSetup(input, onProgress, getOperationContext)
     }
   )
@@ -172,12 +181,10 @@ async function prepareVanillaServer(
   input: SetupVanillaServerInput,
   onProgress?: ServerSetupProgressListener
 ): Promise<ServerConfig> {
-  onProgress?.({ step: Step.CreatingFolder })
   const { storageAdapter, paths } = operationContext
 
   await backupServerFolder(paths.serverFolder, paths.backupsFolder, input.name)
-  await storageAdapter.resetServerSaves()
-  await storageAdapter.resetServerLock()
+  await storageAdapter.resetServerState()
 
   await prepareVanillaServerRuntime(operationContext, input, onProgress)
 

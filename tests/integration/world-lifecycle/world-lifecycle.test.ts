@@ -14,6 +14,7 @@ import {
 } from '../../../src/main/server-runtime/server-runtime-service'
 import { setupVanillaServer } from '../../../src/main/server-setup/server-setup-service'
 import { deleteConfiguredServer } from '../../../src/main/storage/core/storage-service'
+import { createGoogleDriveStorageAdapter } from '../../../src/main/storage/adapters/google-drive-storage-adapter'
 import { createLocalStorageAdapter } from '../../../src/main/storage/adapters/local-storage-adapter'
 import type { StorageAdapter } from '../../../src/main/storage/adapters/storage-adapter.model'
 import { getSelectedWorldContext } from '../../../src/main/storage/core/world-context'
@@ -97,7 +98,15 @@ describe('world lifecycle', () => {
       },
       serverSetup: { status: 'ready' }
     })
-    expect(progressSteps).toEqual(Object.values(ServerSetupProgressStep))
+    expect(progressSteps).toEqual([
+      ServerSetupProgressStep.CreatingFolder,
+      ServerSetupProgressStep.ResolvingVersion,
+      ServerSetupProgressStep.DownloadingJar,
+      ServerSetupProgressStep.VerifyingJar,
+      ServerSetupProgressStep.WritingProperties,
+      ServerSetupProgressStep.WritingEula,
+      ServerSetupProgressStep.Ready
+    ])
     await expect(readAppState()).resolves.toMatchObject({
       selectedWorldId: expect.any(String),
       worlds: [{ id: expect.any(String) }]
@@ -108,6 +117,79 @@ describe('world lifecycle', () => {
     await expect(readFile(worldPaths.serverPropertiesFile, 'utf8')).resolves.toContain(
       `server-port=${TEST_WORLD_PORT}`
     )
+  })
+
+  it('reports Google Drive setup before download progress', async () => {
+    const progressSteps: ServerSetupProgressStep[] = []
+    await savePlayer(GOOGLE_TEST_ACCOUNTS.owner.session.player)
+    await configureGoogleDriveForNewWorld()
+
+    await setupVanillaServer(
+      {
+        eulaAccepted: true,
+        minecraftVersion: TEST_MINECRAFT_VERSION,
+        minecraftVersionMetadataUrl: TEST_MINECRAFT_METADATA_URL,
+        name: TEST_WORLD_NAME,
+        port: TEST_WORLD_PORT,
+        javaConfig: { mode: 'system', executablePath: null }
+      },
+      ({ step }) => progressSteps.push(step)
+    )
+
+    expect(progressSteps.slice(0, 3)).toEqual([
+      ServerSetupProgressStep.CreatingFolder,
+      ServerSetupProgressStep.SettingUpGoogleDrive,
+      ServerSetupProgressStep.ResolvingVersion
+    ])
+  })
+
+  it('resets Google Drive server state with one control update', async () => {
+    await createLocalTestWorld(GOOGLE_TEST_IDS.world)
+    await configureOwnedGoogleDriveWorld()
+    const controlContent = googleDriveTestEnvironment.getFileContentByName('control.json')
+
+    if (typeof controlContent !== 'string') {
+      throw new Error('Expected Google Drive control data.')
+    }
+
+    const control = JSON.parse(controlContent) as Record<string, unknown>
+    control.storageMutation = {
+      operationId: 'existing-operation',
+      startedAt: '2026-07-25T12:00:00.000Z'
+    }
+    control.serverLock = {
+      status: ServerLockStatus.Locked,
+      lockedBy: GOOGLE_TEST_ACCOUNTS.owner.session.player,
+      sessionId: 'existing-session',
+      saveVersion: 1,
+      hostingStatus: ServerHostingStatus.Running,
+      startedAt: '2026-07-25T12:00:00.000Z',
+      lastHeartbeat: '2026-07-25T12:00:00.000Z',
+      connectionAddresses: []
+    }
+    expect(
+      googleDriveTestEnvironment.uploadFile(
+        'owner',
+        GOOGLE_TEST_IDS.controlFile,
+        JSON.stringify(control),
+        false
+      )
+    ).toBe(true)
+
+    const adapter = createGoogleDriveStorageAdapter(await getSelectedWorldContext())
+    await adapter.resetServerState()
+
+    const resetContent = googleDriveTestEnvironment.getFileContentByName('control.json')
+    expect(typeof resetContent).toBe('string')
+    expect(JSON.parse(resetContent as string)).toMatchObject({
+      worldId: GOOGLE_TEST_IDS.world,
+      latestSave: null,
+      serverLock: { status: ServerLockStatus.Unlocked },
+      storageMutation: {
+        operationId: 'existing-operation',
+        startedAt: '2026-07-25T12:00:00.000Z'
+      }
+    })
   })
 
   it('does not create local world state when setup Java validation fails', async () => {
@@ -378,6 +460,18 @@ function configureOwnedGoogleDriveWorld(): Promise<void> {
           worldFileId: GOOGLE_TEST_IDS.worldFile
         }
       },
+      status: GoogleDriveSetupStatus.Valid
+    }
+  })
+}
+
+function configureGoogleDriveForNewWorld(): Promise<void> {
+  return writeCloudStorageSettings({
+    activeProvider: CloudStorageProvider.GoogleDrive,
+    googleDrive: {
+      rootFolderId: GOOGLE_TEST_IDS.folder,
+      errorMessage: null,
+      folder: null,
       status: GoogleDriveSetupStatus.Valid
     }
   })

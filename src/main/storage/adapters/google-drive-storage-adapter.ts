@@ -68,6 +68,7 @@ export function createGoogleDriveStorageAdapter(context: WorldContext): StorageA
     readServerSyncData: () => readServerSyncData(storageContext),
     resetServerLock: () => resetServerLock(storageContext),
     resetServerSaves: () => resetServerSaves(storageContext),
+    resetServerState: () => resetServerState(storageContext),
     runExclusiveStorageMutation: (executeMutation) =>
       runExclusiveStorageMutation(storageContext, executeMutation),
     stageServerSavesReplacement: () => stageServerSavesReplacement(storageContext),
@@ -302,6 +303,14 @@ async function resetServerLock(context: DriveStorageContext): Promise<void> {
     `${JSON.stringify({ ...control, serverLock: DEFAULT_SERVER_LOCK }, null, 2)}\n`,
     JSON_MIME_TYPE
   )
+}
+
+async function resetServerState(context: DriveStorageContext): Promise<void> {
+  await updateStorageControl(context, (control) => ({
+    ...control,
+    latestSave: DEFAULT_LATEST_SAVE,
+    serverLock: DEFAULT_SERVER_LOCK
+  }))
 }
 
 async function stageServerSavesReplacement(context: DriveStorageContext): Promise<ServerSavesReplacement> {

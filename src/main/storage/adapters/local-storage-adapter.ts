@@ -97,6 +97,11 @@ export function createLocalStorageAdapter(context: WorldContext): StorageAdapter
     )
   }
 
+  async function resetServerState(): Promise<void> {
+    await resetServerSaves()
+    await resetServerLock()
+  }
+
   async function stageServerSavesReplacement(): Promise<ServerSavesReplacement> {
     await ensureStorage()
 
@@ -234,6 +239,7 @@ export function createLocalStorageAdapter(context: WorldContext): StorageAdapter
     readServerSyncData,
     resetServerLock,
     resetServerSaves,
+    resetServerState,
     runExclusiveStorageMutation,
     stageServerSavesReplacement,
     uploadWorld,

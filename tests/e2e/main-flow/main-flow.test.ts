@@ -42,8 +42,13 @@ test('creates, starts, stops, and publishes a local world', async () => {
     )
     await user.check(eulaCheckbox)
     await expect(page.getByRole('button', { name: 'Create Server', exact: true })).toBeEnabled()
+    await app.setJavaInspectionDelay(500)
     await user.click(page.getByRole('button', { name: 'Create Server', exact: true }))
 
+    await expect(page.getByText('Preparing server files', { exact: true }).locator('..')).toHaveClass(
+      /setup-progress-step-active/
+    )
+    await expect(page.getByText('Setting up Google Drive', { exact: true })).toHaveCount(0)
     await expect(page.getByText('Server setup completed.')).toBeVisible()
     await user.click(page.getByRole('button', { name: 'Open Dashboard', exact: true }))
     await expect(page.getByRole('heading', { name: E2E_SERVER_NAME })).toBeVisible()

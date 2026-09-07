@@ -3,5 +3,6 @@ dist
 .codex
 pnpm-lock.yaml
 LICENSE.md
+playwright-report
 tsconfig.json
 tsconfig.*.json

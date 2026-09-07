@@ -26,6 +26,7 @@ export interface DownloadSharedServerInput {
 
 export enum ServerSetupProgressStep {
   CreatingFolder = 'creating-folder',
+  SettingUpGoogleDrive = 'setting-up-google-drive',
   ResolvingVersion = 'resolving-version',
   DownloadingJar = 'downloading-jar',
   VerifyingJar = 'verifying-jar',

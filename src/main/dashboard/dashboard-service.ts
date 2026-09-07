@@ -31,7 +31,7 @@ import { inspectWorldCatalog, isWorldCatalogEntryVisible } from '../world-catalo
 
 type SelectedWorldDisplayData = Omit<
   ServerDisplayState,
-  'signedInUser' | 'canJoinSharedWorld' | 'selectedWorldId' | 'runningWorldId' | 'worlds'
+  'activeProvider' | 'signedInUser' | 'canJoinSharedWorld' | 'selectedWorldId' | 'runningWorldId' | 'worlds'
 >
 
 interface WorldDisplayData extends SelectedWorldDisplayData {
@@ -69,6 +69,7 @@ export async function getServerDisplayState(): Promise<ServerDisplayState> {
   const selectedDisplay = selectedWorld ?? createEmptyWorldDisplayData()
 
   return {
+    activeProvider: appState.activeProvider,
     signedInUser,
     canJoinSharedWorld:
       appState.googleDrive.status === GoogleDriveSetupStatus.Valid &&

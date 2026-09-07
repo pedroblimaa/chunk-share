@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ChunkShareApi } from '../../../src/preload'
+import { CloudStorageProvider } from '../../../src/shared/cloud-storage.model'
 import { ServerAvailability, type ServerDisplayState } from '../../../src/shared/dashboard'
 import { ServerHostingStatus, ServerLockStatus } from '../../../src/shared/domain'
 import type { ServerRuntimeSnapshot } from '../../../src/shared/server-runtime'
@@ -191,6 +192,7 @@ function createServerDisplayState(): ServerDisplayState {
   }
 
   return {
+    activeProvider: CloudStorageProvider.Local,
     signedInUser: null,
     canJoinSharedWorld: false,
     selectedWorldId: WORLD_B_ID,

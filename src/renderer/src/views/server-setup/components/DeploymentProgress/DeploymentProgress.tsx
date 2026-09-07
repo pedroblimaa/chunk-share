@@ -2,62 +2,15 @@ import Button from '../../../../components/shared/Button/Button'
 import Card from '../../../../components/shared/Card/Card'
 import MaterialIcon from '../../../../components/shared/MaterialIcon/MaterialIcon'
 import { ServerSetupProgressStep } from '../../../../../../shared/server-setup'
-import {
-  DEPLOYMENT_STEPS,
-  type DeploymentStep,
-  type DeploymentStatus,
-  type DeploymentStepStatus
-} from '../../server-setup-model'
+import type { DeploymentStep, DeploymentStatus, DeploymentStepStatus } from '../../server-setup-model'
+import { getDeploymentStepStatus, getProgressPercent } from '../../server-setup-progress'
 
 interface DeploymentProgressProps {
   activeStep: ServerSetupProgressStep | null
+  deploymentSteps: DeploymentStep[]
   deploymentStatus: Exclude<DeploymentStatus, 'idle'>
   errorMessage: string | null
   onOpenDashboard: () => void
-}
-
-function getDeploymentStepStatus(
-  deploymentStatus: DeploymentStatus,
-  activeStep: ServerSetupProgressStep | null,
-  step: DeploymentStep
-): DeploymentStepStatus {
-  if (deploymentStatus === 'complete') {
-    return 'complete'
-  }
-
-  const activeStepIndex = DEPLOYMENT_STEPS.findIndex(
-    (deploymentStep) => activeStep && deploymentStep.progressSteps.includes(activeStep)
-  )
-  const stepIndex = DEPLOYMENT_STEPS.findIndex((deploymentStep) => deploymentStep.id === step.id)
-
-  if (stepIndex >= 0 && activeStepIndex >= 0 && stepIndex < activeStepIndex) {
-    return 'complete'
-  }
-
-  if (deploymentStatus === 'running' && activeStep && step.progressSteps.includes(activeStep)) {
-    return 'active'
-  }
-
-  return 'pending'
-}
-
-function getProgressPercent(
-  deploymentStatus: DeploymentStatus,
-  activeStep: ServerSetupProgressStep | null
-): number {
-  if (deploymentStatus === 'complete') {
-    return 100
-  }
-
-  const activeStepIndex = DEPLOYMENT_STEPS.findIndex(
-    (step) => activeStep && step.progressSteps.includes(activeStep)
-  )
-
-  if (activeStepIndex < 0) {
-    return 0
-  }
-
-  return Math.round(((activeStepIndex + 1) / DEPLOYMENT_STEPS.length) * 100)
 }
 
 function getDeploymentStepIconName(stepStatus: DeploymentStepStatus): string {
@@ -74,11 +27,12 @@ function getDeploymentStepIconName(stepStatus: DeploymentStepStatus): string {
 
 function DeploymentProgress({
   activeStep,
+  deploymentSteps,
   deploymentStatus,
   errorMessage,
   onOpenDashboard
 }: DeploymentProgressProps): React.JSX.Element {
-  const progressPercent = getProgressPercent(deploymentStatus, activeStep)
+  const progressPercent = getProgressPercent(deploymentSteps, deploymentStatus, activeStep)
 
   return (
     <Card className={`setup-progress-card setup-progress-card-${deploymentStatus}`} padding="large">
@@ -92,8 +46,8 @@ function DeploymentProgress({
       </div>
 
       <ol className="setup-progress-steps">
-        {DEPLOYMENT_STEPS.map((step) => {
-          const stepStatus = getDeploymentStepStatus(deploymentStatus, activeStep, step)
+        {deploymentSteps.map((step) => {
+          const stepStatus = getDeploymentStepStatus(deploymentSteps, deploymentStatus, activeStep, step)
 
           return (
             <li className={`setup-progress-step setup-progress-step-${stepStatus}`} key={step.id}>

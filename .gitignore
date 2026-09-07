@@ -11,6 +11,7 @@ out
 .storage/
 .storage-test/
 .test-data/
+playwright-report/
 .server/
 .servers/
 .server-test/
