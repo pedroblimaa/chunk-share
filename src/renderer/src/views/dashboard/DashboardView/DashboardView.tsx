@@ -23,7 +23,10 @@ import {
 } from '../../../utils/server-display-state'
 import { formatLatestSaveLabel } from '../../../utils/server-sync-ui'
 import { getDashboardPrimaryActionView } from '../dashboard-header-action'
-import type { DashboardPrimaryActionKind } from '../dashboard-header-action.model'
+import type {
+  DashboardPendingServerAction,
+  DashboardPrimaryActionKind
+} from '../dashboard-header-action.model'
 import ConsoleOutput from '../components/ConsoleOutput/ConsoleOutput'
 import DashboardStatCard from '../components/DashboardStatCard/DashboardStatCard'
 import DriveSharingDialog from '../components/DriveSharingDialog/DriveSharingDialog'
@@ -81,7 +84,7 @@ function DashboardView({
   const [runtimeErrorMessage, setRuntimeErrorMessage] = useState<string | null>(null)
   const [errorCopyStatus, setErrorCopyStatus] = useState<CopyStatus>('idle')
   const [addressCopyStatus, setAddressCopyStatus] = useState<CopyStatus>('idle')
-  const [isServerToggleAnimating, setIsServerToggleAnimating] = useState(false)
+  const [pendingServerAction, setPendingServerAction] = useState<DashboardPendingServerAction | null>(null)
   const [isServerDownloadRunning, setIsServerDownloadRunning] = useState(false)
   const [connectionDetailsOpen, setConnectionDetailsOpen] = useState(false)
   const [downloadEulaAccepted, setDownloadEulaAccepted] = useState(false)
@@ -98,6 +101,7 @@ function DashboardView({
   const javaRequestIdRef = useRef(0)
   const javaSaveRequestIdRef = useRef(0)
   const javaSaveStartedRequestIdRef = useRef(0)
+  const pendingServerActionRef = useRef<DashboardPendingServerAction | null>(null)
   const validatesDraftJavaConfig = javaConfigIsDirty || javaScanId > 0
   const { isLoading: isDraftJavaStatusLoading, status: draftJavaStatus } = useJavaRuntimeStatus(
     validatesDraftJavaConfig && serverDisplayState.selectedWorldId ? javaConfig : null,
@@ -266,18 +270,6 @@ function DashboardView({
   }, [applyRuntimeSnapshotToDisplayState, refreshServerDisplayState])
 
   useEffect(() => {
-    if (!isServerToggleAnimating) {
-      return undefined
-    }
-
-    const animationTimer = window.setTimeout(() => {
-      setIsServerToggleAnimating(false)
-    }, 520)
-
-    return () => window.clearTimeout(animationTimer)
-  }, [isServerToggleAnimating])
-
-  useEffect(() => {
     if (errorCopyStatus === 'idle') {
       return undefined
     }
@@ -302,9 +294,14 @@ function DashboardView({
   }, [addressCopyStatus])
 
   async function handleServerToggle(): Promise<void> {
-    setRuntimeErrorMessage(null)
-    setIsServerToggleAnimating(true)
     const serverWasRunning = dashboardSnapshot.serverStatus === 'running'
+    const action = serverWasRunning ? 'stopping' : 'starting'
+
+    if (!beginPendingAction(action)) {
+      return
+    }
+
+    setRuntimeErrorMessage(null)
 
     try {
       const nextRuntimeSnapshot = serverWasRunning
@@ -314,6 +311,8 @@ function DashboardView({
       applyRuntimeSnapshotToDisplayState(nextRuntimeSnapshot)
     } catch (error: unknown) {
       setRuntimeErrorMessage(getErrorMessage(error, 'Unable to toggle server.'))
+    } finally {
+      finishPendingAction(action)
     }
   }
 
@@ -347,8 +346,13 @@ function DashboardView({
   }
 
   async function downloadLatestSave(): Promise<void> {
+    const action = 'downloading-save'
+
+    if (!beginPendingAction(action)) {
+      return
+    }
+
     setRuntimeErrorMessage(null)
-    setIsServerToggleAnimating(true)
 
     try {
       await window.chunkShare.serverRuntime.downloadSharedSave()
@@ -356,8 +360,27 @@ function DashboardView({
     } catch (error: unknown) {
       setRuntimeErrorMessage(getErrorMessage(error, 'Unable to download latest save.'))
     } finally {
-      setIsServerToggleAnimating(false)
+      finishPendingAction(action)
     }
+  }
+
+  function beginPendingAction(action: DashboardPendingServerAction): boolean {
+    if (pendingServerActionRef.current) {
+      return false
+    }
+
+    pendingServerActionRef.current = action
+    setPendingServerAction(action)
+    return true
+  }
+
+  function finishPendingAction(action: DashboardPendingServerAction): void {
+    if (pendingServerActionRef.current !== action) {
+      return
+    }
+
+    pendingServerActionRef.current = null
+    setPendingServerAction(null)
   }
 
   async function copyConnectionAddress(): Promise<void> {
@@ -446,7 +469,8 @@ function DashboardView({
   const currentJavaStatus = validatesDraftJavaConfig ? draftJavaStatus : savedJavaStatus
   const primaryActionView = getDashboardPrimaryActionView({
     dashboardSnapshot,
-    downloadEulaAccepted
+    downloadEulaAccepted,
+    pendingServerAction
   })
   const javaBlocksPrimaryAction =
     primaryActionView.kind === 'download-server' ||
@@ -454,6 +478,7 @@ function DashboardView({
   const primaryActionIsDisabled =
     isInitialSnapshotRefreshing ||
     isServerDownloadRunning ||
+    pendingServerAction !== null ||
     primaryActionView.isDisabled ||
     (javaBlocksPrimaryAction && (!currentJavaStatus?.selectedRuntime || javaConfigIsDirty))
   const isDashboardLoading =
@@ -492,7 +517,7 @@ function DashboardView({
   return (
     <div
       className={`dashboard-screen dashboard-screen-${dashboardSnapshot.serverStatus}${
-        isServerToggleAnimating ? ' is-server-toggle-animating' : ''
+        pendingServerAction ? ' is-server-toggle-animating' : ''
       }`}
     >
       <AppSidebar
@@ -558,7 +583,7 @@ function DashboardView({
             primaryAction={{
               disabled: primaryActionIsDisabled,
               icon: primaryActionView.icon,
-              isAnimating: isServerToggleAnimating || isServerDownloadRunning,
+              isAnimating: pendingServerAction !== null || isServerDownloadRunning,
               label: primaryActionView.label,
               tone: primaryActionView.tone,
               tooltip: javaActionTooltip ?? primaryActionView.tooltip,

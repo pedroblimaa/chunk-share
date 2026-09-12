@@ -2,12 +2,23 @@ import { ServerAvailability, type ServerDisplayState } from '../../../../shared/
 import { ServerHostingStatus, ServerLockStatus } from '../../../../shared/domain'
 import { ServerSyncStatus } from '../../../../shared/server-sync'
 import { getServerSyncView } from '../../utils/server-sync-ui'
-import type { DashboardPrimaryActionInput, DashboardPrimaryActionView } from './dashboard-header-action.model'
+import type {
+  DashboardPendingServerAction,
+  DashboardPrimaryActionInput,
+  DashboardPrimaryActionView
+} from './dashboard-header-action.model'
 
 export function getDashboardPrimaryActionView({
   dashboardSnapshot,
-  downloadEulaAccepted
+  downloadEulaAccepted,
+  pendingServerAction
 }: DashboardPrimaryActionInput): DashboardPrimaryActionView {
+  const pendingActionView = getPendingActionView(pendingServerAction, dashboardSnapshot.serverStatus)
+
+  if (pendingActionView) {
+    return pendingActionView
+  }
+
   const serverIsJoinable = getServerIsJoinable(dashboardSnapshot)
   const syncBlocksStart = getSyncBlocksStart(dashboardSnapshot)
   const serverNeedsLocalDownload = getServerNeedsLocalDownload(dashboardSnapshot)
@@ -103,6 +114,46 @@ export function getDashboardPrimaryActionView({
             ? syncView.message
             : undefined
       }
+  }
+}
+
+function getPendingActionView(
+  pendingAction: DashboardPendingServerAction | null,
+  serverStatus: ServerDisplayState['serverStatus']
+): DashboardPrimaryActionView | null {
+  if (!pendingAction) {
+    return null
+  }
+
+  if (pendingAction === 'downloading-save') {
+    return {
+      kind: 'none',
+      isDisabled: true,
+      label: 'Downloading save...',
+      icon: 'sync',
+      tone: 'sync',
+      ariaLabel: 'Downloading save'
+    }
+  }
+
+  const isAwaitingStartStatus =
+    pendingAction === 'starting' && (serverStatus === 'stopped' || serverStatus === 'error')
+  const isAwaitingStopStatus = pendingAction === 'stopping' && serverStatus === 'running'
+
+  if (!isAwaitingStartStatus && !isAwaitingStopStatus) {
+    return null
+  }
+
+  const isStarting = pendingAction === 'starting'
+  const label = isStarting ? 'Starting...' : 'Stopping...'
+
+  return {
+    kind: 'none',
+    isDisabled: true,
+    label,
+    icon: 'sync',
+    tone: 'default',
+    ariaLabel: label
   }
 }
 

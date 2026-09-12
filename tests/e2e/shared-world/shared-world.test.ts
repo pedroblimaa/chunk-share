@@ -162,7 +162,14 @@ test('shows a remote starting state instead of a spinning download action', asyn
       occurrence: 2,
       pathname: `/upload/drive/v3/files/${GOOGLE_TEST_IDS.controlFile}`
     })
+    await ownerApp.setJavaInspectionDelay(500)
     await ownerApp.user.click(ownerApp.page.getByRole('button', { name: 'Start Server', exact: true }))
+
+    const startButton = ownerApp.page.locator('.server-toggle-button')
+    await expect(startButton).toHaveAccessibleName('Starting...')
+    await expect(startButton).toBeDisabled()
+    await expect(ownerApp.page.locator('.power-indicator')).toBeDisabled()
+
     await expectDriveControl(driveMock, {
       serverLock: {
         hostingStatus: ServerHostingStatus.Starting,

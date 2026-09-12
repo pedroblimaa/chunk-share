@@ -9,6 +9,8 @@ export type DashboardPrimaryActionKind =
 
 export type DashboardPrimaryActionTone = 'default' | 'sync'
 
+export type DashboardPendingServerAction = 'starting' | 'stopping' | 'downloading-save'
+
 export interface DashboardPrimaryActionView {
   kind: DashboardPrimaryActionKind
   isDisabled: boolean
@@ -22,4 +24,5 @@ export interface DashboardPrimaryActionView {
 export interface DashboardPrimaryActionInput {
   dashboardSnapshot: ServerDisplayState
   downloadEulaAccepted: boolean
+  pendingServerAction: DashboardPendingServerAction | null
 }
