@@ -7,6 +7,7 @@ import {
   type StorageProviderCopyProgress
 } from '../../../shared/cloud-storage.model'
 import { ServerLockStatus } from '../../../shared/domain'
+import { isServerLockStale } from '../../../shared/server-sync'
 import { getStorageAdapterForProvider } from '../adapters/storage-adapter-service'
 import type { StorageAdapter } from '../adapters/storage-adapter.model'
 import { CopySession } from './provider-copy/copy-session'
@@ -65,7 +66,7 @@ export async function executeStorageProviderCopy(
 async function assertStorageAdapterIsUnlocked(storageAdapter: StorageAdapter): Promise<void> {
   const serverLock = await storageAdapter.readServerLock()
 
-  if (serverLock.status === ServerLockStatus.Locked) {
+  if (serverLock.status === ServerLockStatus.Locked && !isServerLockStale(serverLock.lastHeartbeat)) {
     throw new StorageError(
       `Cannot replace storage data while ${serverLock.lockedBy.displayName} is hosting this server.`
     )
