@@ -583,7 +583,7 @@ function DashboardView({
             primaryAction={{
               disabled: primaryActionIsDisabled,
               icon: primaryActionView.icon,
-              isAnimating: pendingServerAction !== null || isServerDownloadRunning,
+              isPending: pendingServerAction !== null || isServerDownloadRunning,
               label: primaryActionView.label,
               tone: primaryActionView.tone,
               tooltip: javaActionTooltip ?? primaryActionView.tooltip,

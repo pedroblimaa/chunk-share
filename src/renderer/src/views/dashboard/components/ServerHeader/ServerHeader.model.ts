@@ -18,7 +18,7 @@ export interface ServerHeaderConnection {
 }
 
 export interface ServerHeaderPrimaryAction {
-  isAnimating: boolean
+  isPending: boolean
   disabled?: boolean
   tooltip?: string | undefined
   label?: string | undefined

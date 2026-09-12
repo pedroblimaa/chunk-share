@@ -75,6 +75,7 @@ function ServerHeader({
     server.status === 'stopping' ||
     server.status === 'publishing' ||
     server.status === 'updating'
+  const primaryActionIsBusy = primaryAction.isPending || serverIsBusy
   const toggleButtonLabel = primaryAction.label ?? getToggleButtonLabel(server.status)
   const toggleButtonIcon = primaryAction.icon ?? getToggleButtonIcon(server.status)
   const toggleButtonTone = primaryAction.tone ?? 'default'
@@ -182,10 +183,10 @@ function ServerHeader({
           <Tooltip content={primaryAction.tooltip}>
             <Button
               aria-label={toggleButtonLabel}
-              aria-busy={primaryAction.isAnimating || serverIsBusy}
+              aria-busy={primaryActionIsBusy}
               className={`server-toggle-button is-${serverIsRunning ? 'running' : 'stopped'} is-tone-${toggleButtonTone}${
-                primaryAction.isAnimating ? ' is-animating' : ''
-              }${serverIsBusy ? ' is-busy' : ''}`}
+                primaryAction.isPending ? ' is-animating' : ''
+              }${primaryActionIsBusy ? ' is-busy' : ''}`}
               disabled={primaryAction.disabled}
               icon={toggleButtonIcon}
               iconFilled
@@ -200,7 +201,7 @@ function ServerHeader({
             <label className="server-download-eula">
               <input
                 checked={downloadEula.accepted}
-                disabled={primaryAction.isAnimating}
+                disabled={primaryAction.isPending}
                 type="checkbox"
                 onChange={(event) => downloadEula.onChange(event.target.checked)}
               />
