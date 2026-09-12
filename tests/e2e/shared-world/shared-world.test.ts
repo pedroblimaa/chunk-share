@@ -163,11 +163,22 @@ test('shows a remote starting state instead of a spinning download action', asyn
       pathname: `/upload/drive/v3/files/${GOOGLE_TEST_IDS.controlFile}`
     })
     await ownerApp.setJavaInspectionDelay(500)
-    await ownerApp.user.click(ownerApp.page.getByRole('button', { name: 'Start Server', exact: true }))
-
     const startButton = ownerApp.page.locator('.server-toggle-button')
+    const idleBackgroundColor = await startButton.evaluate(
+      (button) => window.getComputedStyle(button).backgroundColor
+    )
+
+    await ownerApp.user.click(ownerApp.page.getByRole('button', { name: 'Start Server', exact: true }))
     await expect(startButton).toHaveAccessibleName('Starting...')
     await expect(startButton).toBeDisabled()
+    await expect(startButton).toHaveClass(/is-busy/)
+    expect(await startButton.evaluate((button) => window.getComputedStyle(button).backgroundColor)).not.toBe(
+      idleBackgroundColor
+    )
+    await expect(startButton.locator('.material-symbols-outlined')).toHaveCSS(
+      'animation-name',
+      'server-toggle-icon-spin'
+    )
     await expect(ownerApp.page.locator('.power-indicator')).toBeDisabled()
 
     await expectDriveControl(driveMock, {
