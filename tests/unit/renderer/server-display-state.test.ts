@@ -158,8 +158,49 @@ describe('server display runtime attribution', () => {
     }
 
     expect(
-      getDashboardPrimaryActionView({ dashboardSnapshot: serverDisplayState, downloadEulaAccepted: false })
+      getDashboardPrimaryActionView({
+        dashboardSnapshot: serverDisplayState,
+        downloadEulaAccepted: false,
+        pendingServerAction: null
+      })
     ).toMatchObject({ kind: 'none', isDisabled: true })
+  })
+
+  it.each([
+    ['starting', 'stopped', 'Starting...'],
+    ['starting', 'error', 'Starting...'],
+    ['stopping', 'running', 'Stopping...']
+  ] as const)('disables the %s server action from %s', (pendingServerAction, serverStatus, label) => {
+    const serverDisplayState = createServerDisplayState()
+    serverDisplayState.serverStatus = serverStatus
+
+    expect(
+      getDashboardPrimaryActionView({
+        dashboardSnapshot: serverDisplayState,
+        downloadEulaAccepted: false,
+        pendingServerAction
+      })
+    ).toEqual({
+      kind: 'none',
+      isDisabled: true,
+      label,
+      icon: 'sync',
+      tone: 'default',
+      ariaLabel: label
+    })
+  })
+
+  it('uses the runtime status after a pending stop reaches publishing', () => {
+    const serverDisplayState = createServerDisplayState()
+    serverDisplayState.serverStatus = 'publishing'
+
+    expect(
+      getDashboardPrimaryActionView({
+        dashboardSnapshot: serverDisplayState,
+        downloadEulaAccepted: false,
+        pendingServerAction: 'stopping'
+      })
+    ).toEqual({ kind: 'none', isDisabled: true, tone: 'default', tooltip: undefined })
   })
 
   it('offers to rebuild an incompatible local runtime after EULA acceptance', () => {
@@ -171,10 +212,18 @@ describe('server display runtime attribution', () => {
     }
 
     expect(
-      getDashboardPrimaryActionView({ dashboardSnapshot: serverDisplayState, downloadEulaAccepted: false })
+      getDashboardPrimaryActionView({
+        dashboardSnapshot: serverDisplayState,
+        downloadEulaAccepted: false,
+        pendingServerAction: null
+      })
     ).toMatchObject({ kind: 'download-server', isDisabled: true })
     expect(
-      getDashboardPrimaryActionView({ dashboardSnapshot: serverDisplayState, downloadEulaAccepted: true })
+      getDashboardPrimaryActionView({
+        dashboardSnapshot: serverDisplayState,
+        downloadEulaAccepted: true,
+        pendingServerAction: null
+      })
     ).toMatchObject({ kind: 'download-server', isDisabled: false })
   })
 })
