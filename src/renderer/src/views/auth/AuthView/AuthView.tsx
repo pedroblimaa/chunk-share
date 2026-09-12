@@ -62,9 +62,13 @@ function AuthView({
         </div>
 
         <nav className="login-links" aria-label="Legal links">
-          <a href="#">Privacy Policy</a>
+          <a href="https://www.pedrobonfilio.com/chunkshare/privacy" target="_blank" rel="noreferrer">
+            Privacy Policy
+          </a>
           <span aria-hidden="true">·</span>
-          <a href="#">Terms</a>
+          <a href="https://www.pedrobonfilio.com/chunkshare/terms" target="_blank" rel="noreferrer">
+            Terms
+          </a>
         </nav>
 
         {errorMessage ? <p className="login-error">{errorMessage}</p> : null}
