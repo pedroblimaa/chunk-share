@@ -5,7 +5,8 @@ import {
   StorageProviderCopyPhase,
   StorageSwitchDataMode
 } from '../../../src/shared/cloud-storage.model'
-import { ServerLockStatus } from '../../../src/shared/domain'
+import { ServerHostingStatus, ServerLockStatus } from '../../../src/shared/domain'
+import { STALE_LOCK_THRESHOLD_MS } from '../../../src/shared/server-sync'
 import {
   getCloudStorageProviderSwitchPreview,
   setCloudStorageProvider,
@@ -25,6 +26,7 @@ import {
 } from '../../../src/main/storage/persistence/local-state-store'
 import { saveFreshLocalAccount, saveOwnerGoogleDriveWorld } from '../share-join/share-join-test-data'
 import {
+  GOOGLE_TEST_ACCOUNTS,
   GOOGLE_TEST_IDS,
   googleDriveTestEnvironment
 } from '../../support/google-drive/google-drive-test-environment'
@@ -87,6 +89,54 @@ describe('storage provider switching', () => {
       completedFiles: 0,
       phase: StorageProviderCopyPhase.Finalizing,
       totalFiles: 0
+    })
+  })
+
+  it('switches from local storage when its hosting lock is stale', async () => {
+    await configureLocalSourceWithDriveTarget()
+    await createLocalTestWorld()
+    await publishServerSave()
+    await setLocalHostingLock(createStaleHeartbeat())
+
+    const settings = await setCloudStorageProvider({
+      dataMode: StorageSwitchDataMode.UseTargetAsIs,
+      provider: CloudStorageProvider.GoogleDrive
+    })
+
+    expect(settings.activeProvider).toBe(CloudStorageProvider.GoogleDrive)
+  })
+
+  it('keeps provider switching blocked while the hosting lock is fresh', async () => {
+    await configureLocalSourceWithDriveTarget()
+    await createLocalTestWorld()
+    await publishServerSave()
+    await setLocalHostingLock(new Date().toISOString())
+
+    await expect(
+      setCloudStorageProvider({
+        dataMode: StorageSwitchDataMode.UseTargetAsIs,
+        provider: CloudStorageProvider.GoogleDrive
+      })
+    ).rejects.toThrow(
+      `Cannot switch storage while ${GOOGLE_TEST_ACCOUNTS.owner.session.player.displayName} is hosting this server.`
+    )
+    await expect(readCloudStorageSettings()).resolves.toMatchObject({
+      activeProvider: CloudStorageProvider.Local
+    })
+  })
+
+  it('replaces target data when its hosting lock is stale and resets the lock', async () => {
+    await setLocalHostingLock(createStaleHeartbeat())
+    const preview = await getCloudStorageProviderSwitchPreview(CloudStorageProvider.Local)
+
+    await setCloudStorageProvider({
+      dataMode: StorageSwitchDataMode.CopyCurrentToTarget,
+      expectedPreview: preview,
+      provider: CloudStorageProvider.Local
+    })
+
+    await expect((await getLocalStorageAdapter()).readServerLock()).resolves.toEqual({
+      status: ServerLockStatus.Unlocked
     })
   })
 
@@ -175,6 +225,25 @@ async function configureLocalSourceWithDriveTarget(): Promise<void> {
         : null
     }
   })
+}
+
+function createStaleHeartbeat(): string {
+  return new Date(Date.now() - STALE_LOCK_THRESHOLD_MS - 1).toISOString()
+}
+
+async function setLocalHostingLock(lastHeartbeat: string): Promise<void> {
+  const storageAdapter = await getLocalStorageAdapter()
+
+  await storageAdapter.updateServerLock(() => ({
+    status: ServerLockStatus.Locked,
+    lockedBy: GOOGLE_TEST_ACCOUNTS.owner.session.player,
+    sessionId: 'provider-switch-session',
+    saveVersion: 1,
+    hostingStatus: ServerHostingStatus.Running,
+    startedAt: lastHeartbeat,
+    lastHeartbeat,
+    connectionAddresses: []
+  }))
 }
 
 function requireDriveFileContent(fileName: string): string | Uint8Array {

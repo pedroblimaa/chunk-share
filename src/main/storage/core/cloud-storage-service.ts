@@ -9,6 +9,7 @@ import {
   type GoogleDriveWorldReference
 } from '../../../shared/cloud-storage.model'
 import { ServerLockStatus } from '../../../shared/domain'
+import { isServerLockStale } from '../../../shared/server-sync'
 import { ExclusiveStorageOperation } from '../../../shared/storage-operation'
 import type { AppState, LocalWorldState } from '../../../shared/world'
 import { AuthError } from '../../auth/auth-error'
@@ -381,7 +382,7 @@ async function assertStorageProviderIsUnlocked(provider: CloudStorageProvider): 
     const storageAdapter = await getStorageAdapterForProvider(provider, createWorldContext(world))
     const serverLock = await storageAdapter.readServerLock()
 
-    if (serverLock.status === ServerLockStatus.Locked) {
+    if (serverLock.status === ServerLockStatus.Locked && !isServerLockStale(serverLock.lastHeartbeat)) {
       throw new StorageError(
         `Cannot switch storage while ${serverLock.lockedBy.displayName} is hosting this server.`
       )
