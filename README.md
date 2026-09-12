@@ -21,7 +21,10 @@ ChunkShare keeps that handoff in one place:
 
 There is no live sync while a server is running. One person hosts at a time, and the save is handed over when that session is finished.
 
-> Note: You still need Hamachi or Radmin to simulate a local network
+> **Notes:**
+
+> - You still need Hamachi or Radmin to simulate a local network.
+> - Only Vanilla Minecraft servers are supported for now.
 
 ## What it can do
 
