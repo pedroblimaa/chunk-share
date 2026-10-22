@@ -1,3 +1,4 @@
+import type { FabricRuntime } from './fabric'
 import type { JavaConfig, LocalState } from './domain'
 import type { WorldId } from './world'
 
@@ -15,7 +16,12 @@ export interface SetupVanillaServerInput {
   javaConfig: JavaConfig
 }
 
-export interface SetupVanillaServerResult {
+export interface SetupServerInput extends SetupVanillaServerInput {
+  serverType: 'vanilla' | 'fabric'
+  fabric?: FabricRuntime
+}
+
+export interface SetupServerResult {
   worldId: WorldId | null
   localState: LocalState
 }
@@ -38,3 +44,5 @@ export enum ServerSetupProgressStep {
 export interface ServerSetupProgressEvent {
   step: ServerSetupProgressStep
 }
+
+export type SetupVanillaServerResult = SetupServerResult

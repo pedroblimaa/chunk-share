@@ -66,7 +66,8 @@ function ServerHeader({
   connection,
   primaryAction,
   downloadEula,
-  sharingAction
+  sharingAction,
+  folderAction
 }: ServerHeaderProps): React.JSX.Element {
   const [actionsMenuOpen, setActionsMenuOpen] = useState(false)
   const serverIsRunning = isServerRunning(server.status)
@@ -108,23 +109,40 @@ function ServerHeader({
   }
 
   const getActionsMenuContent = (): React.JSX.Element | null => {
-    if (!sharingAction) {
-      return null
-    }
-
     return (
-      <Tooltip content={sharingAction.tooltip} placement="left">
-        <button
-          className="server-actions-menu-item"
-          disabled={sharingAction.disabled}
-          role="menuitem"
-          type="button"
-          onClick={inviteMember}
-        >
-          <MaterialIcon name="person_add" />
-          <span>Invite</span>
-        </button>
-      </Tooltip>
+      <>
+        {folderAction && (
+          <Tooltip content={folderAction.tooltip} placement="left">
+            <button
+              className="server-actions-menu-item"
+              disabled={folderAction.disabled}
+              role="menuitem"
+              type="button"
+              onClick={() => {
+                setActionsMenuOpen(false)
+                folderAction.onClick()
+              }}
+            >
+              <MaterialIcon name="folder_open" />
+              <span>Open server folder</span>
+            </button>
+          </Tooltip>
+        )}
+        {sharingAction && (
+          <Tooltip content={sharingAction.tooltip} placement="left">
+            <button
+              className="server-actions-menu-item"
+              disabled={sharingAction.disabled}
+              role="menuitem"
+              type="button"
+              onClick={inviteMember}
+            >
+              <MaterialIcon name="person_add" />
+              <span>Invite</span>
+            </button>
+          </Tooltip>
+        )}
+      </>
     )
   }
 

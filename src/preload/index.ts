@@ -7,6 +7,11 @@ import type {
 import type { ServerConfig } from '../shared/domain'
 import type { JavaRuntimeRequest, SaveJavaConfigRequest } from '../shared/java-runtime'
 import {
+  SERVER_SETUP_LIST_VERSIONS_CHANNEL,
+  SERVER_SETUP_FABRIC_VERSIONS_CHANNEL,
+  SERVER_SETUP_CREATE_CHANNEL,
+  SERVER_SETUP_OPEN_FOLDER_CHANNEL,
+  SERVER_SAVE_CONFIRM_DOWNLOAD_CHANNEL,
   AUTH_CANCEL_GOOGLE_SIGN_IN_CHANNEL,
   AUTH_GET_SESSION_CHANNEL,
   AUTH_SIGN_IN_WITH_GOOGLE_CHANNEL,
@@ -49,6 +54,7 @@ import {
 import type { ServerRuntimeEvent } from '../shared/server-runtime'
 import type { StorageOperationSnapshot } from '../shared/storage-operation'
 import type {
+  SetupServerInput,
   ServerSetupProgressEvent,
   DownloadSharedServerInput,
   SetupVanillaServerInput
@@ -79,6 +85,7 @@ const chunkShareApi = {
   },
   serverRuntime: {
     getSnapshot: () => invokeIpc(SERVER_RUNTIME_SNAPSHOT_CHANNEL),
+    confirmSaveDownload: (token: string) => invokeIpc(SERVER_SAVE_CONFIRM_DOWNLOAD_CHANNEL, token),
     downloadSharedSave: () => invokeIpc(SERVER_RUNTIME_DOWNLOAD_SHARED_SAVE_CHANNEL),
     start: () => invokeIpc(SERVER_RUNTIME_START_CHANNEL),
     stop: () => invokeIpc(SERVER_RUNTIME_STOP_CHANNEL),
@@ -113,6 +120,12 @@ const chunkShareApi = {
       invokeIpc(STORAGE_SAVE_SERVER_CONFIG_CHANNEL, serverConfig)
   },
   serverSetup: {
+    listVersions: (serverType: 'vanilla' | 'fabric') =>
+      invokeIpc(SERVER_SETUP_LIST_VERSIONS_CHANNEL, serverType),
+    getFabricVersions: (minecraftVersion: string) =>
+      invokeIpc(SERVER_SETUP_FABRIC_VERSIONS_CHANNEL, minecraftVersion),
+    create: (input: SetupServerInput) => invokeIpc(SERVER_SETUP_CREATE_CHANNEL, input),
+    openFolder: (worldId: string) => invokeIpc(SERVER_SETUP_OPEN_FOLDER_CHANNEL, worldId),
     listVanillaVersions: () => invokeIpc(SERVER_SETUP_LIST_VANILLA_VERSIONS_CHANNEL),
     downloadSharedServer: (input: DownloadSharedServerInput) =>
       invokeIpc(SERVER_SETUP_DOWNLOAD_SHARED_SERVER_CHANNEL, input),

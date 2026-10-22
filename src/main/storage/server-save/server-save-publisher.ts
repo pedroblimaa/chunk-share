@@ -2,6 +2,8 @@ import { createWriteStream } from 'fs'
 import { mkdir, rm, stat } from 'fs/promises'
 import { basename, dirname, join } from 'path'
 import { ZipArchive } from 'archiver'
+import { createFabricSavePackage } from './fabric-save-package'
+import { saveFabricBaseline } from './fabric-local-files'
 import type { LatestSave, LocalState, Player } from '../../../shared/domain'
 import type { WorldId } from '../../../shared/world'
 import type { StorageAdapter } from '../adapters/storage-adapter.model'
@@ -48,7 +50,13 @@ export async function publishServerSave(
   await assertWorldFolderExists(worldFolderPath)
 
   try {
-    await runPublishPhase('compressing', onProgress, () => zipFolder(worldFolderPath, zipFilePath))
+    const fabricFingerprint = await runPublishPhase('compressing', onProgress, async () => {
+      if (localState.serverConfig.serverType === 'fabric') {
+        return createFabricSavePackage(resolvedContext, localState.serverConfig, zipFilePath)
+      }
+      await zipFolder(worldFolderPath, zipFilePath)
+      return null
+    })
     const result = await publishWorldUpdate(
       storageAdapter,
       zipFilePath,
@@ -58,6 +66,7 @@ export async function publishServerSave(
       onProgress
     )
 
+    if (fabricFingerprint) await saveFabricBaseline(resolvedContext, fabricFingerprint)
     return result
   } finally {
     await rm(zipFilePath, { force: true })
@@ -78,6 +87,7 @@ async function publishWorldUpdate(
     uploadedBy: getUploadedBy(localState),
     serverName: localState.serverConfig.name,
     minecraftVersion: localState.serverConfig.minecraftVersion,
+    ...(localState.serverConfig.fabric ? { fabric: localState.serverConfig.fabric } : {}),
     serverType: localState.serverConfig.serverType
   }
   const replacement = await runPublishPhase('preparing-storage', onProgress, () =>

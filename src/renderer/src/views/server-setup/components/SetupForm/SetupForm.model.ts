@@ -1,11 +1,13 @@
-import type { SetupVanillaServerInput, VanillaMinecraftVersion } from '../../../../../../shared/server-setup'
+import type { SetupServerInput, VanillaMinecraftVersion } from '../../../../../../shared/server-setup'
 import type { JavaConfig } from '../../../../../../shared/domain'
 
 export interface SetupFormProps {
+  serverType: 'vanilla' | 'fabric'
+  onServerTypeChange: (serverType: 'vanilla' | 'fabric') => void
   disabled: boolean
   onCancel: () => void
   onRetryVersions: () => void
-  onSubmit: (input: SetupVanillaServerInput) => void
+  onSubmit: (input: SetupServerInput) => void
   versions: VanillaMinecraftVersion[]
   versionsErrorMessage: string | null
   versionsLoading: boolean
@@ -16,7 +18,7 @@ export interface SetupFormState {
   minecraftVersion: string
   name: string
   port: string
-  serverType: string
+  loaderVersion: string
   javaConfig: JavaConfig
 }
 
@@ -27,6 +29,6 @@ export const DEFAULT_SETUP_FORM_STATE: SetupFormState = {
   minecraftVersion: '',
   name: '',
   port: '25565',
-  serverType: 'Vanilla',
+  loaderVersion: '',
   javaConfig: { mode: 'system', executablePath: null }
 }

@@ -1,7 +1,8 @@
 import './DashboardView.css'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { ServerDisplayState } from '../../../../../shared/dashboard'
+import { ServerAvailability, type ServerDisplayState } from '../../../../../shared/dashboard'
+import type { ServerSaveConflict } from '../../../../../shared/server-save'
 import type { JavaConfig } from '../../../../../shared/domain'
 import type { JavaRuntimeStatus } from '../../../../../shared/java-runtime'
 import type { WorldId } from '../../../../../shared/world'
@@ -12,6 +13,7 @@ import type {
 import { isServerActiveStatus, type ServerRuntimeSnapshot } from '../../../../../shared/server-runtime'
 import AppSidebar from '../../../components/shared/AppSidebar/AppSidebar'
 import Card from '../../../components/shared/Card/Card'
+import ConfirmationDialog from '../../../components/shared/ConfirmationDialog/ConfirmationDialog'
 import MaterialIcon from '../../../components/shared/MaterialIcon/MaterialIcon'
 import JavaRuntimeSelector from '../../../components/shared/JavaRuntimeSelector/JavaRuntimeSelector'
 import Toast from '../../../components/shared/Toast/Toast'
@@ -81,6 +83,11 @@ function DashboardView({
 }: DashboardViewProps): React.JSX.Element {
   const serverDisplayStateRef = useRef(serverDisplayState)
   const displayStateRequestIdRef = useRef(0)
+  const [saveConflict, setSaveConflict] = useState<ServerSaveConflict | null>(null)
+  const activeSaveConflict =
+    saveConflict?.worldId === serverDisplayState.selectedWorldId ? saveConflict : null
+  const [isOpeningServerFolder, setIsOpeningServerFolder] = useState(false)
+  const [isConfirmingDownload, setIsConfirmingDownload] = useState(false)
   const [runtimeErrorMessage, setRuntimeErrorMessage] = useState<string | null>(null)
   const [errorCopyStatus, setErrorCopyStatus] = useState<CopyStatus>('idle')
   const [addressCopyStatus, setAddressCopyStatus] = useState<CopyStatus>('idle')
@@ -308,6 +315,12 @@ function DashboardView({
         ? await window.chunkShare.serverRuntime.stop()
         : await window.chunkShare.serverRuntime.start()
 
+      if ('conflict' in nextRuntimeSnapshot) {
+        if (serverDisplayStateRef.current.selectedWorldId === nextRuntimeSnapshot.conflict.worldId) {
+          setSaveConflict(nextRuntimeSnapshot.conflict)
+        }
+        return
+      }
       applyRuntimeSnapshotToDisplayState(nextRuntimeSnapshot)
     } catch (error: unknown) {
       setRuntimeErrorMessage(getErrorMessage(error, 'Unable to toggle server.'))
@@ -332,10 +345,15 @@ function DashboardView({
     setIsServerDownloadRunning(true)
 
     try {
-      await window.chunkShare.serverSetup.downloadSharedServer({
+      const result = await window.chunkShare.serverSetup.downloadSharedServer({
         eulaAccepted: downloadEulaAccepted
       })
-
+      if ('conflict' in result) {
+        if (serverDisplayStateRef.current.selectedWorldId === result.conflict.worldId) {
+          setSaveConflict(result.conflict)
+        }
+        return
+      }
       await refreshDashboardAfterDownload()
       setDownloadEulaAccepted(false)
     } catch (error: unknown) {
@@ -355,12 +373,34 @@ function DashboardView({
     setRuntimeErrorMessage(null)
 
     try {
-      await window.chunkShare.serverRuntime.downloadSharedSave()
+      const result = await window.chunkShare.serverRuntime.downloadSharedSave()
+      if ('conflict' in result) {
+        if (serverDisplayStateRef.current.selectedWorldId === result.conflict.worldId) {
+          setSaveConflict(result.conflict)
+        }
+        return
+      }
       await refreshDashboardAfterDownload()
     } catch (error: unknown) {
       setRuntimeErrorMessage(getErrorMessage(error, 'Unable to download latest save.'))
     } finally {
       finishPendingAction(action)
+    }
+  }
+
+  async function confirmSharedSaveDownload(): Promise<void> {
+    if (!activeSaveConflict || !beginPendingAction('downloading-save')) return
+    setIsConfirmingDownload(true)
+    try {
+      await window.chunkShare.serverRuntime.confirmSaveDownload(activeSaveConflict.token)
+      setSaveConflict(null)
+      await refreshDashboardAfterDownload()
+    } catch (error) {
+      setSaveConflict(null)
+      setRuntimeErrorMessage(getErrorMessage(error, 'Unable to replace local server files.'))
+    } finally {
+      setIsConfirmingDownload(false)
+      finishPendingAction('downloading-save')
     }
   }
 
@@ -406,6 +446,19 @@ function DashboardView({
       setErrorCopyStatus('copied')
     } catch {
       setErrorCopyStatus('failed')
+    }
+  }
+
+  async function openServerFolder(): Promise<void> {
+    const worldId = serverDisplayStateRef.current.selectedWorldId
+    if (!worldId || isOpeningServerFolder) return
+    setIsOpeningServerFolder(true)
+    try {
+      await window.chunkShare.serverSetup.openFolder(worldId)
+    } catch (error) {
+      setRuntimeErrorMessage(getErrorMessage(error, 'Unable to open server folder.'))
+    } finally {
+      setIsOpeningServerFolder(false)
     }
   }
 
@@ -479,6 +532,8 @@ function DashboardView({
     isInitialSnapshotRefreshing ||
     isServerDownloadRunning ||
     pendingServerAction !== null ||
+    isConfirmingDownload ||
+    activeSaveConflict !== null ||
     primaryActionView.isDisabled ||
     (javaBlocksPrimaryAction && (!currentJavaStatus?.selectedRuntime || javaConfigIsDirty))
   const isDashboardLoading =
@@ -589,6 +644,16 @@ function DashboardView({
               tooltip: javaActionTooltip ?? primaryActionView.tooltip,
               onClick: handleHeaderServerAction
             }}
+            folderAction={{
+              disabled:
+                dashboardSnapshot.serverAvailability !== ServerAvailability.LocalReady ||
+                isOpeningServerFolder ||
+                pendingServerAction !== null ||
+                isConfirmingDownload ||
+                isServerActiveStatus(dashboardSnapshot.serverStatus) ||
+                dashboardSnapshot.serverStatus === 'updating',
+              onClick: openServerFolder
+            }}
             sharingAction={{
               disabled: driveSharingState === null,
               tooltip: sharingTooltip,
@@ -666,6 +731,19 @@ function DashboardView({
             </div>
           )}
         </main>
+
+        {activeSaveConflict && (
+          <ConfirmationDialog
+            title="Replace local mods and configuration?"
+            description={`Your local mods or configuration have changed. Downloading shared save ${activeSaveConflict.saveVersion} replaces the world, mods, and config folder. ChunkShare will back up the current files first. The server will stay stopped.`}
+            icon="folder_copy"
+            confirmIcon="download"
+            confirmLabel="Back up and download"
+            isLoading={isConfirmingDownload}
+            onCancel={() => setSaveConflict(null)}
+            onConfirm={confirmSharedSaveDownload}
+          />
+        )}
 
         {sharingDialogIsOpen && driveSharingState && (
           <DriveSharingDialog

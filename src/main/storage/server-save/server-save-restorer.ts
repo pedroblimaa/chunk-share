@@ -1,6 +1,7 @@
 import extractZip from 'extract-zip'
 import { mkdir, rm, stat } from 'fs/promises'
 import { basename, dirname, join } from 'path'
+import { restoreFabricServerSave, type FabricRestoreOptions } from './fabric-save-restorer'
 import type { ServerStorageSnapshot } from '../../../shared/domain'
 import { renameWithRetry } from '../core/support/file-system-utils'
 import { saveWorldLocalSaveVersion } from '../persistence/local-state-store'
@@ -9,7 +10,8 @@ import type { WorldOperationContext } from '../core/world-operation-context'
 
 export async function restoreLatestServerSave(
   operationContext: WorldOperationContext,
-  storageSnapshot: ServerStorageSnapshot
+  storageSnapshot: ServerStorageSnapshot,
+  options: FabricRestoreOptions = {}
 ): Promise<void> {
   const { latestSave, localState } = storageSnapshot
   const { storageAdapter, worldId, paths } = operationContext
@@ -21,6 +23,11 @@ export async function restoreLatestServerSave(
 
   if (localState.dirty) {
     throw new StorageError('Cannot update from cloud while the local server has unpublished changes.')
+  }
+
+  if (latestSave.serverType === 'fabric') {
+    await restoreFabricServerSave(operationContext, storageSnapshot, options)
+    return
   }
 
   const zipFilePath = getTempZipFilePath(serverFolder, latestSave.saveVersion)

@@ -1,6 +1,7 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'child_process'
 import { readFile } from 'fs/promises'
 import { join } from 'path'
+import { FabricSaveConflictError } from '../storage/server-save/fabric-save-conflict'
 import type { ServerStorageSnapshot } from '../../shared/domain'
 import { ServerSyncStatus, type ServerSyncSnapshot } from '../../shared/server-sync'
 import type {
@@ -263,6 +264,12 @@ class ServerRuntime {
 
       return getServerSyncSnapshot(operationContext)
     } catch (error) {
+      if (error instanceof FabricSaveConflictError) {
+        this.status = 'stopped'
+        this.errorMessage = null
+        this.emitRuntimeEvent()
+        throw error
+      }
       const message = getPreStartRestoreErrorMessage(error)
       this.finishWithError(message)
       throw new ServerRuntimeError(message)
@@ -310,6 +317,12 @@ class ServerRuntime {
 
       return this.getSnapshot()
     } catch (error) {
+      if (error instanceof FabricSaveConflictError) {
+        this.status = 'stopped'
+        this.errorMessage = null
+        this.emitRuntimeEvent()
+        throw error
+      }
       const message = getDownloadSharedSaveErrorMessage(error)
       this.status = 'stopped'
       this.errorMessage = message
