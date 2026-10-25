@@ -1,6 +1,10 @@
 import extractZip from 'extract-zip'
 import { mkdir, rm, stat } from 'fs/promises'
 import { basename, dirname, join } from 'path'
+import { localizeSharedServerProperties } from '../../server-setup/server-configuration'
+import { restoreFabricServerSave } from './fabric-save-restorer'
+import { VANILLA_SERVER_PROPERTIES_ENTRY } from './server-save-layout'
+import type { RestoreServerSaveOptions } from './server-save-restore.model'
 import type { ServerStorageSnapshot } from '../../../shared/domain'
 import { renameWithRetry } from '../core/support/file-system-utils'
 import { saveWorldLocalSaveVersion } from '../persistence/local-state-store'
@@ -9,7 +13,8 @@ import type { WorldOperationContext } from '../core/world-operation-context'
 
 export async function restoreLatestServerSave(
   operationContext: WorldOperationContext,
-  storageSnapshot: ServerStorageSnapshot
+  storageSnapshot: ServerStorageSnapshot,
+  options: RestoreServerSaveOptions = {}
 ): Promise<void> {
   const { latestSave, localState } = storageSnapshot
   const { storageAdapter, worldId, paths } = operationContext
@@ -23,21 +28,38 @@ export async function restoreLatestServerSave(
     throw new StorageError('Cannot update from cloud while the local server has unpublished changes.')
   }
 
+  if (latestSave.serverType === 'fabric') {
+    await restoreFabricServerSave(operationContext, storageSnapshot, options)
+    return
+  }
+
   const zipFilePath = getTempZipFilePath(serverFolder, latestSave.saveVersion)
   const tempExtractFolderPath = getTempExtractFolderPath(serverFolder, latestSave.saveVersion)
+  const pendingPropertiesFilePath = `${paths.serverPropertiesFile}.restore.tmp`
   let backupFolderPath: string | null = null
   let restoredWorldWasInstalled = false
 
   try {
     await cleanupTemporaryRestorePaths(zipFilePath, tempExtractFolderPath)
 
+    options.onProgress?.('downloading')
     await storageAdapter.downloadWorld(zipFilePath)
     await assertZipFileExists(zipFilePath)
+
+    options.onProgress?.('extracting')
     await mkdir(tempExtractFolderPath, { recursive: true })
     await extractZip(zipFilePath, { dir: tempExtractFolderPath })
     await assertWorldSaveExists(tempExtractFolderPath)
 
+    options.onProgress?.('replacing-files')
     await mkdir(serverFolder, { recursive: true })
+    const hasSharedProperties = await stageSharedServerProperties(
+      tempExtractFolderPath,
+      pendingPropertiesFilePath,
+      paths.serverPropertiesFile,
+      localState.serverConfig.port
+    )
+
     if (await folderExists(serverWorldFolder)) {
       backupFolderPath = await moveCurrentWorldToBackup(
         serverWorldFolder,
@@ -48,6 +70,11 @@ export async function restoreLatestServerSave(
 
     await renameWithRetry(tempExtractFolderPath, serverWorldFolder)
     restoredWorldWasInstalled = true
+
+    if (hasSharedProperties) {
+      await renameWithRetry(pendingPropertiesFilePath, paths.serverPropertiesFile)
+    }
+
     await saveWorldLocalSaveVersion(worldId, latestSave.saveVersion)
   } catch (error) {
     try {
@@ -61,7 +88,30 @@ export async function restoreLatestServerSave(
     throw error
   } finally {
     await cleanupTemporaryRestorePaths(zipFilePath, tempExtractFolderPath).catch(() => undefined)
+    await rm(pendingPropertiesFilePath, { force: true }).catch(() => undefined)
   }
+}
+
+async function stageSharedServerProperties(
+  extractedWorldFolderPath: string,
+  pendingPropertiesFilePath: string,
+  localPropertiesFilePath: string,
+  port: number
+): Promise<boolean> {
+  const sharedPropertiesFilePath = join(extractedWorldFolderPath, VANILLA_SERVER_PROPERTIES_ENTRY)
+  const hasSharedProperties = await localizeSharedServerProperties(
+    sharedPropertiesFilePath,
+    localPropertiesFilePath,
+    port
+  )
+
+  if (hasSharedProperties) {
+    await renameWithRetry(sharedPropertiesFilePath, pendingPropertiesFilePath)
+  }
+
+  await rm(dirname(sharedPropertiesFilePath), { recursive: true, force: true })
+
+  return hasSharedProperties
 }
 
 async function rollbackFailedRestore(

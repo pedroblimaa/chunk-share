@@ -125,15 +125,12 @@ function getPendingActionView(
     return null
   }
 
+  if (pendingAction === 'downloading-server') {
+    return getDownloadingActionView('Downloading server')
+  }
+
   if (pendingAction === 'downloading-save') {
-    return {
-      kind: 'none',
-      isDisabled: true,
-      label: 'Downloading save...',
-      icon: 'sync',
-      tone: 'sync',
-      ariaLabel: 'Downloading save'
-    }
+    return getDownloadingActionView('Downloading save')
   }
 
   const isAwaitingStartStatus =
@@ -154,6 +151,17 @@ function getPendingActionView(
     icon: 'sync',
     tone: 'default',
     ariaLabel: label
+  }
+}
+
+function getDownloadingActionView(description: string): DashboardPrimaryActionView {
+  return {
+    kind: 'none',
+    isDisabled: true,
+    label: `${description}...`,
+    icon: 'sync',
+    tone: 'sync',
+    ariaLabel: description
   }
 }
 

@@ -4,6 +4,8 @@ import Card from '../../../../components/shared/Card/Card'
 import InfoTooltip from '../../../../components/shared/InfoTooltip/InfoTooltip'
 import JavaRuntimeSelector from '../../../../components/shared/JavaRuntimeSelector/JavaRuntimeSelector'
 import { useJavaRuntimeStatus } from '../../../../hooks/useJavaRuntimeStatus'
+import { isSupportedServerType } from '../../../../../../shared/server-setup'
+import { useFabricVersions } from '../../useFabricVersions'
 import {
   DEFAULT_SETUP_FORM_STATE,
   type SetupFieldName,
@@ -42,6 +44,8 @@ function isFormValid(formState: SetupFormState): boolean {
 }
 
 function SetupForm({
+  serverType,
+  onServerTypeChange,
   disabled,
   onCancel,
   onRetryVersions,
@@ -56,6 +60,11 @@ function SetupForm({
   const [javaScanId, setJavaScanId] = useState(0)
   const selectedMinecraftVersion = formState.minecraftVersion || versions[0]?.id || ''
   const selectedVersion = versions.find((version) => version.id === selectedMinecraftVersion)
+  const fabricVersions = useFabricVersions(serverType === 'fabric' ? selectedMinecraftVersion : '')
+  const selectedLoader = fabricVersions.options?.loaders.includes(formState.loaderVersion)
+    ? formState.loaderVersion
+    : (fabricVersions.options?.loaders[0] ?? '')
+  const fabricIsReady = serverType === 'vanilla' || Boolean(selectedLoader && fabricVersions.options)
   const formIsDisabled = disabled || versionsLoading || Boolean(versionsErrorMessage)
   const { isLoading: javaStatusLoading, status: javaStatus } = useJavaRuntimeStatus(
     selectedVersion ? formState.javaConfig : null,
@@ -64,7 +73,20 @@ function SetupForm({
     javaScanId
   )
   const formIsValid =
-    isFormValid(formState) && Boolean(selectedVersion) && Boolean(javaStatus?.selectedRuntime)
+    isFormValid(formState) &&
+    fabricIsReady &&
+    Boolean(selectedVersion) &&
+    Boolean(javaStatus?.selectedRuntime)
+
+  function changeServerType(nextServerType: string): void {
+    if (!isSupportedServerType(nextServerType)) {
+      return
+    }
+
+    onServerTypeChange(nextServerType)
+    updateField('minecraftVersion', '')
+    updateField('loaderVersion', '')
+  }
 
   function updateField<FieldName extends SetupFieldName>(
     fieldName: FieldName,
@@ -110,6 +132,15 @@ function SetupForm({
     }
 
     onSubmit({
+      serverType,
+      ...(serverType === 'fabric' && fabricVersions.options
+        ? {
+            fabric: {
+              loaderVersion: selectedLoader,
+              installerVersion: fabricVersions.options.installerVersion
+            }
+          }
+        : {}),
       name: formState.name,
       minecraftVersion: selectedVersion.id,
       minecraftVersionMetadataUrl: selectedVersion.metadataUrl,
@@ -145,8 +176,14 @@ function SetupForm({
 
           <label className="setup-field">
             <span>Server Type</span>
-            <select className="chunk-field-control" value={formState.serverType} disabled>
-              <option>Vanilla</option>
+            <select
+              className="chunk-field-control"
+              value={serverType}
+              disabled={disabled}
+              onChange={(event) => changeServerType(event.target.value)}
+            >
+              <option value="vanilla">Vanilla</option>
+              <option value="fabric">Fabric</option>
             </select>
           </label>
 
@@ -181,7 +218,38 @@ function SetupForm({
               </div>
             )}
           </div>
+          {serverType === 'fabric' && (
+            <label className="setup-field">
+              <span className="setup-field-label">Fabric Loader</span>
+              <select
+                className="chunk-field-control"
+                value={selectedLoader}
+                disabled={formIsDisabled || fabricVersions.isLoading || !fabricVersions.options}
+                onChange={(event) => updateField('loaderVersion', event.target.value)}
+              >
+                {!fabricVersions.options && (
+                  <option value="">
+                    {fabricVersions.isLoading ? 'Loading loaders...' : 'Select a Minecraft version'}
+                  </option>
+                )}
+                {fabricVersions.options?.loaders.map((loader, index) => (
+                  <option key={loader} value={loader}>
+                    {loader}
+                    {index === 0 ? ' (recommended)' : ''}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
         </div>
+        {serverType === 'fabric' && fabricVersions.error && (
+          <div className="setup-version-error" role="alert">
+            <p>{fabricVersions.error}</p>
+            <Button variant="secondary" onClick={fabricVersions.retry}>
+              Retry
+            </Button>
+          </div>
+        )}
       </section>
 
       <section className="setup-form-section">

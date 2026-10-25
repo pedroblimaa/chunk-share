@@ -1,3 +1,4 @@
+import type { FabricRuntime } from './fabric'
 import type { ServerSyncSnapshot } from './server-sync'
 
 export type ServerStatus =
@@ -44,6 +45,7 @@ export interface ServerConnectionAddress {
 export interface ServerConfig {
   name: string
   serverType: ServerType
+  fabric?: FabricRuntime
   minecraftVersion: MinecraftVersion
   port: number
 }
@@ -68,6 +70,7 @@ export type LatestSave = {
   serverName?: string
   minecraftVersion: MinecraftVersion
   serverType: ServerType
+  fabric?: FabricRuntime
 } | null
 
 export type ServerLock =

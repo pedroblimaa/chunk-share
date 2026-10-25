@@ -7,6 +7,11 @@ import type {
 import type { ServerConfig } from '../shared/domain'
 import type { JavaRuntimeRequest, SaveJavaConfigRequest } from '../shared/java-runtime'
 import {
+  SERVER_SETUP_LIST_VERSIONS_CHANNEL,
+  SERVER_SETUP_FABRIC_VERSIONS_CHANNEL,
+  SERVER_SETUP_CREATE_CHANNEL,
+  SERVER_SETUP_OPEN_FOLDER_CHANNEL,
+  SERVER_SAVE_CONFIRM_DOWNLOAD_CHANNEL,
   AUTH_CANCEL_GOOGLE_SIGN_IN_CHANNEL,
   AUTH_GET_SESSION_CHANNEL,
   AUTH_SIGN_IN_WITH_GOOGLE_CHANNEL,
@@ -28,10 +33,8 @@ import {
   SERVER_RUNTIME_SNAPSHOT_CHANNEL,
   SERVER_RUNTIME_START_CHANNEL,
   SERVER_RUNTIME_STOP_CHANNEL,
-  SERVER_SETUP_LIST_VANILLA_VERSIONS_CHANNEL,
   SERVER_SETUP_DOWNLOAD_SHARED_SERVER_CHANNEL,
   SERVER_SETUP_PROGRESS_CHANNEL,
-  SERVER_SETUP_SETUP_VANILLA_SERVER_CHANNEL,
   STORAGE_CLEAR_GOOGLE_DRIVE_FOLDER_CHANNEL,
   STORAGE_CLOUD_SETTINGS_CHANNEL,
   STORAGE_DELETE_SERVER_CHANNEL,
@@ -49,9 +52,10 @@ import {
 import type { ServerRuntimeEvent } from '../shared/server-runtime'
 import type { StorageOperationSnapshot } from '../shared/storage-operation'
 import type {
+  SetupServerInput,
+  SupportedServerType,
   ServerSetupProgressEvent,
-  DownloadSharedServerInput,
-  SetupVanillaServerInput
+  DownloadSharedServerInput
 } from '../shared/server-setup'
 import { invokeIpc, subscribeToIpcEvent } from './typed-ipc'
 
@@ -79,6 +83,7 @@ const chunkShareApi = {
   },
   serverRuntime: {
     getSnapshot: () => invokeIpc(SERVER_RUNTIME_SNAPSHOT_CHANNEL),
+    confirmSaveDownload: (token: string) => invokeIpc(SERVER_SAVE_CONFIRM_DOWNLOAD_CHANNEL, token),
     downloadSharedSave: () => invokeIpc(SERVER_RUNTIME_DOWNLOAD_SHARED_SAVE_CHANNEL),
     start: () => invokeIpc(SERVER_RUNTIME_START_CHANNEL),
     stop: () => invokeIpc(SERVER_RUNTIME_STOP_CHANNEL),
@@ -113,11 +118,14 @@ const chunkShareApi = {
       invokeIpc(STORAGE_SAVE_SERVER_CONFIG_CHANNEL, serverConfig)
   },
   serverSetup: {
-    listVanillaVersions: () => invokeIpc(SERVER_SETUP_LIST_VANILLA_VERSIONS_CHANNEL),
+    listVersions: (serverType: SupportedServerType) =>
+      invokeIpc(SERVER_SETUP_LIST_VERSIONS_CHANNEL, serverType),
+    getFabricVersions: (minecraftVersion: string) =>
+      invokeIpc(SERVER_SETUP_FABRIC_VERSIONS_CHANNEL, minecraftVersion),
+    create: (input: SetupServerInput) => invokeIpc(SERVER_SETUP_CREATE_CHANNEL, input),
+    openFolder: (worldId: string) => invokeIpc(SERVER_SETUP_OPEN_FOLDER_CHANNEL, worldId),
     downloadSharedServer: (input: DownloadSharedServerInput) =>
       invokeIpc(SERVER_SETUP_DOWNLOAD_SHARED_SERVER_CHANNEL, input),
-    setupVanillaServer: (input: SetupVanillaServerInput) =>
-      invokeIpc(SERVER_SETUP_SETUP_VANILLA_SERVER_CHANNEL, input),
     onProgress: (listener: (event: ServerSetupProgressEvent) => void): (() => void) =>
       subscribeToIpcEvent(SERVER_SETUP_PROGRESS_CHANNEL, listener)
   }

@@ -18,6 +18,9 @@ const worldBackupsRootPath = join(DATA_ROOT, SERVER_BACKUPS_FOLDER_NAME)
 export interface WorldPaths {
   serverFolder: string
   serverWorldFolder: string
+  serverModsFolder: string
+  serverConfigFolder: string
+  fabricBaselineFile: string
   serverJarFile: string
   serverPropertiesFile: string
   serverEulaFile: string
@@ -36,14 +39,35 @@ export function getWorldPaths(worldId: WorldId): WorldPaths {
   const storageFolder = join(worldStorageRootPath, worldId)
 
   return {
-    serverFolder,
-    serverWorldFolder: join(serverFolder, 'world'),
-    serverJarFile: join(serverFolder, 'server.jar'),
-    serverPropertiesFile: join(serverFolder, 'server.properties'),
-    serverEulaFile: join(serverFolder, 'eula.txt'),
+    ...getServerFilePaths(serverFolder),
     storageFolder,
     storageControlFile: join(storageFolder, 'control.json'),
     storageWorldFile: join(storageFolder, 'world.zip'),
     backupsFolder: join(worldBackupsRootPath, worldId)
+  }
+}
+
+export function getServerFilePaths(
+  serverFolder: string
+): Pick<
+  WorldPaths,
+  | 'serverFolder'
+  | 'serverWorldFolder'
+  | 'serverJarFile'
+  | 'serverModsFolder'
+  | 'serverConfigFolder'
+  | 'fabricBaselineFile'
+  | 'serverPropertiesFile'
+  | 'serverEulaFile'
+> {
+  return {
+    serverFolder,
+    serverWorldFolder: join(serverFolder, 'world'),
+    serverModsFolder: join(serverFolder, 'mods'),
+    serverConfigFolder: join(serverFolder, 'config'),
+    fabricBaselineFile: join(serverFolder, '.fabric-baseline.json'),
+    serverJarFile: join(serverFolder, 'server.jar'),
+    serverPropertiesFile: join(serverFolder, 'server.properties'),
+    serverEulaFile: join(serverFolder, 'eula.txt')
   }
 }

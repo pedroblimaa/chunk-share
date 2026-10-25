@@ -57,6 +57,7 @@
 }
 
 .setup-field-label {
+  min-height: var(--size-control-compact);
   align-items: center;
   display: inline-flex;
   gap: 6px;

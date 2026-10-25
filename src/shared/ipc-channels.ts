@@ -1,3 +1,5 @@
+import type { FabricVersionOptions } from './fabric'
+import type { ServerActionResult } from './server-save'
 import type {
   CloudStorageProvider,
   CloudStorageProviderSwitchPreview,
@@ -15,10 +17,11 @@ import type {
 } from './drive-sharing.model'
 import type { ServerRuntimeEvent, ServerRuntimeSnapshot } from './server-runtime'
 import type {
+  SetupServerInput,
   DownloadSharedServerInput,
   ServerSetupProgressEvent,
-  SetupVanillaServerResult,
-  SetupVanillaServerInput,
+  SetupServerResult,
+  SupportedServerType,
   VanillaMinecraftVersion
 } from './server-setup'
 import type { StorageOperationSnapshot } from './storage-operation'
@@ -53,9 +56,12 @@ export const STORAGE_SAVE_SERVER_CONFIG_CHANNEL = 'storage:save-server-config'
 export const STORAGE_DELETE_SERVER_CHANNEL = 'storage:delete-server'
 export const STORAGE_RESET_SERVER_LOCK_CHANNEL = 'storage:reset-server-lock'
 
-export const SERVER_SETUP_LIST_VANILLA_VERSIONS_CHANNEL = 'serverSetup:list-vanilla-versions'
+export const SERVER_SETUP_LIST_VERSIONS_CHANNEL = 'serverSetup:list-versions'
+export const SERVER_SETUP_FABRIC_VERSIONS_CHANNEL = 'serverSetup:fabric-versions'
+export const SERVER_SETUP_CREATE_CHANNEL = 'serverSetup:create'
+export const SERVER_SETUP_OPEN_FOLDER_CHANNEL = 'serverSetup:open-folder'
+export const SERVER_SAVE_CONFIRM_DOWNLOAD_CHANNEL = 'serverSave:confirm-download'
 export const SERVER_SETUP_DOWNLOAD_SHARED_SERVER_CHANNEL = 'serverSetup:download-shared-server'
-export const SERVER_SETUP_SETUP_VANILLA_SERVER_CHANNEL = 'serverSetup:setup-vanilla-server'
 export const SERVER_SETUP_PROGRESS_CHANNEL = 'serverSetup:progress'
 export const SERVER_RUNTIME_DOWNLOAD_SHARED_SAVE_CHANNEL = 'serverRuntime:download-shared-save'
 export const SERVER_RUNTIME_SNAPSHOT_CHANNEL = 'serverRuntime:get-snapshot'
@@ -96,18 +102,21 @@ export interface IpcInvokeContract {
   [STORAGE_SAVE_SERVER_CONFIG_CHANNEL]: IpcOperation<[serverConfig: ServerConfig], ServerStorageSnapshot>
   [STORAGE_DELETE_SERVER_CHANNEL]: IpcOperation<[worldId: string], ServerStorageSnapshot>
   [STORAGE_RESET_SERVER_LOCK_CHANNEL]: IpcOperation<[], ServerStorageSnapshot>
-  [SERVER_SETUP_LIST_VANILLA_VERSIONS_CHANNEL]: IpcOperation<[], VanillaMinecraftVersion[]>
+  [SERVER_SETUP_LIST_VERSIONS_CHANNEL]: IpcOperation<
+    [serverType: SupportedServerType],
+    VanillaMinecraftVersion[]
+  >
+  [SERVER_SETUP_FABRIC_VERSIONS_CHANNEL]: IpcOperation<[minecraftVersion: string], FabricVersionOptions>
+  [SERVER_SETUP_CREATE_CHANNEL]: IpcOperation<[input: SetupServerInput], SetupServerResult>
+  [SERVER_SETUP_OPEN_FOLDER_CHANNEL]: IpcOperation<[worldId: string], void>
+  [SERVER_SAVE_CONFIRM_DOWNLOAD_CHANNEL]: IpcOperation<[token: string], void>
   [SERVER_SETUP_DOWNLOAD_SHARED_SERVER_CHANNEL]: IpcOperation<
     [input: DownloadSharedServerInput],
     ServerStorageSnapshot
   >
-  [SERVER_SETUP_SETUP_VANILLA_SERVER_CHANNEL]: IpcOperation<
-    [input: SetupVanillaServerInput],
-    SetupVanillaServerResult
-  >
-  [SERVER_RUNTIME_DOWNLOAD_SHARED_SAVE_CHANNEL]: IpcOperation<[], ServerRuntimeSnapshot>
+  [SERVER_RUNTIME_DOWNLOAD_SHARED_SAVE_CHANNEL]: IpcOperation<[], ServerActionResult<ServerRuntimeSnapshot>>
   [SERVER_RUNTIME_SNAPSHOT_CHANNEL]: IpcOperation<[], ServerRuntimeSnapshot>
-  [SERVER_RUNTIME_START_CHANNEL]: IpcOperation<[], ServerRuntimeSnapshot>
+  [SERVER_RUNTIME_START_CHANNEL]: IpcOperation<[], ServerActionResult<ServerRuntimeSnapshot>>
   [SERVER_RUNTIME_STOP_CHANNEL]: IpcOperation<[], ServerRuntimeSnapshot>
   [JAVA_RUNTIME_GET_STATUS_CHANNEL]: IpcOperation<[request: JavaRuntimeRequest], JavaRuntimeStatus>
   [JAVA_RUNTIME_GET_WORLD_STATUS_CHANNEL]: IpcOperation<

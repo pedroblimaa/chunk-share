@@ -2,6 +2,9 @@ import { createWriteStream } from 'fs'
 import { mkdir, rm, stat } from 'fs/promises'
 import { basename, dirname, join } from 'path'
 import { ZipArchive } from 'archiver'
+import { createFabricSavePackage } from './fabric-save-package'
+import { saveFabricBaseline } from './fabric-local-files'
+import { VANILLA_SERVER_PROPERTIES_ENTRY } from './server-save-layout'
 import type { LatestSave, LocalState, Player } from '../../../shared/domain'
 import type { WorldId } from '../../../shared/world'
 import type { StorageAdapter } from '../adapters/storage-adapter.model'
@@ -48,7 +51,13 @@ export async function publishServerSave(
   await assertWorldFolderExists(worldFolderPath)
 
   try {
-    await runPublishPhase('compressing', onProgress, () => zipFolder(worldFolderPath, zipFilePath))
+    const fabricFingerprint = await runPublishPhase('compressing', onProgress, async () => {
+      if (localState.serverConfig.serverType === 'fabric') {
+        return createFabricSavePackage(resolvedContext, localState.serverConfig, zipFilePath)
+      }
+      await zipVanillaSave(worldFolderPath, paths.serverPropertiesFile, zipFilePath)
+      return null
+    })
     const result = await publishWorldUpdate(
       storageAdapter,
       zipFilePath,
@@ -58,6 +67,7 @@ export async function publishServerSave(
       onProgress
     )
 
+    if (fabricFingerprint) await saveFabricBaseline(resolvedContext, fabricFingerprint)
     return result
   } finally {
     await rm(zipFilePath, { force: true })
@@ -78,6 +88,7 @@ async function publishWorldUpdate(
     uploadedBy: getUploadedBy(localState),
     serverName: localState.serverConfig.name,
     minecraftVersion: localState.serverConfig.minecraftVersion,
+    ...(localState.serverConfig.fabric ? { fabric: localState.serverConfig.fabric } : {}),
     serverType: localState.serverConfig.serverType
   }
   const replacement = await runPublishPhase('preparing-storage', onProgress, () =>
@@ -133,7 +144,11 @@ async function assertWorldFolderExists(worldFolderPath: string): Promise<void> {
   throw new StorageError(`Cannot publish save because the world folder is invalid.`)
 }
 
-async function zipFolder(sourceFolderPath: string, destinationFilePath: string): Promise<void> {
+async function zipVanillaSave(
+  worldFolderPath: string,
+  serverPropertiesFilePath: string,
+  destinationFilePath: string
+): Promise<void> {
   await mkdir(dirname(destinationFilePath), { recursive: true })
 
   const tempFilePath = `${destinationFilePath}.${process.pid}.tmp`
@@ -148,7 +163,8 @@ async function zipFolder(sourceFolderPath: string, destinationFilePath: string):
   })
 
   zipFile.pipe(outputStream)
-  zipFile.directory(sourceFolderPath, false)
+  zipFile.directory(worldFolderPath, false)
+  zipFile.file(serverPropertiesFilePath, { name: VANILLA_SERVER_PROPERTIES_ENTRY })
 
   try {
     await zipFile.finalize()

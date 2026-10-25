@@ -1,6 +1,7 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'child_process'
 import { readFile } from 'fs/promises'
 import { join } from 'path'
+import { FabricSaveConflictError } from '../storage/server-save/fabric-save-conflict'
 import type { ServerStorageSnapshot } from '../../shared/domain'
 import { ServerSyncStatus, type ServerSyncSnapshot } from '../../shared/server-sync'
 import type {
@@ -19,6 +20,10 @@ import {
   type PublishServerSaveProgress
 } from '../storage/server-save/server-save-publisher'
 import { restoreLatestServerSave } from '../storage/server-save/server-save-restorer'
+import type {
+  RestoreServerSavePhase,
+  RestoreServerSaveProgressListener
+} from '../storage/server-save/server-save-restore.model'
 import { runExclusiveStorageOperation } from '../storage/core/operations/operation-coordinator'
 import { ExclusiveStorageOperation } from '../../shared/storage-operation'
 import {
@@ -52,6 +57,13 @@ import {
 
 type ServerRuntimeListener = (event: ServerRuntimeEvent) => void
 type RuntimeLogTone = ServerRuntimeLogLine['tone']
+
+interface SharedSaveUpdate<T> {
+  startMessage?: string
+  successMessage: string
+  getErrorMessage: (error: unknown) => string
+  run: (onProgress: RestoreServerSaveProgressListener) => Promise<T>
+}
 
 const SERVER_STOP_TIMEOUT_MS = 15_000
 const JAVA_ARGS = ['-Xmx4G', '-Xms2G', '-jar', 'server.jar', 'nogui']
@@ -258,11 +270,19 @@ class ServerRuntime {
     this.addLogLine('ChunkShare', 'Updating local server from shared save before start.')
 
     try {
-      await restoreLatestServerSave(operationContext, storageSnapshot)
+      await restoreLatestServerSave(operationContext, storageSnapshot, {
+        onProgress: (phase) => this.logRestoreProgress(phase)
+      })
       this.addLogLine('ChunkShare', 'Local server updated from shared save.', 'success')
 
       return getServerSyncSnapshot(operationContext)
     } catch (error) {
+      if (error instanceof FabricSaveConflictError) {
+        this.status = 'stopped'
+        this.errorMessage = null
+        this.emitRuntimeEvent()
+        throw error
+      }
       const message = getPreStartRestoreErrorMessage(error)
       this.finishWithError(message)
       throw new ServerRuntimeError(message)
@@ -270,9 +290,7 @@ class ServerRuntime {
   }
 
   async downloadLatestSharedSave(): Promise<ServerRuntimeSnapshot> {
-    if (this.status === 'updating') {
-      throw new ServerRuntimeError('The shared save is already being updated.')
-    }
+    this.assertSharedSaveIsNotUpdating()
 
     if (this.status !== 'stopped') {
       throw new ServerRuntimeError('Stop the Minecraft server before downloading a shared save.')
@@ -287,31 +305,76 @@ class ServerRuntime {
 
   private async runLatestSharedSaveDownload(): Promise<ServerRuntimeSnapshot> {
     const operationContext = await getSelectedWorldOperationContext()
-    this.runtimeWorldId = operationContext.worldId
+
+    await this.runSharedSaveUpdate(operationContext.worldId, {
+      successMessage: 'Local server updated from the shared save.',
+      getErrorMessage: getDownloadSharedSaveErrorMessage,
+      run: async (onProgress) => {
+        const storageSnapshot = await getServerSyncSnapshot(operationContext)
+
+        if (storageSnapshot.localState.serverSetup.status !== 'ready') {
+          throw new ServerRuntimeError('Set up this shared server on this device before downloading it.')
+        }
+
+        if (storageSnapshot.serverSync.status !== ServerSyncStatus.UpdateAvailable) {
+          throw new ServerRuntimeError('No newer shared save is available to download.')
+        }
+
+        await restoreLatestServerSave(operationContext, storageSnapshot, { onProgress })
+      }
+    })
+
+    return this.getSnapshot()
+  }
+
+  trackSharedServerDownload<T>(
+    worldId: WorldOperationContext['worldId'],
+    download: (onProgress: RestoreServerSaveProgressListener) => Promise<T>
+  ): Promise<T> {
+    this.assertSharedSaveIsNotUpdating()
+
+    return this.runSharedSaveUpdate(worldId, {
+      startMessage: 'Downloading the shared server.',
+      successMessage: 'Shared server is ready to host.',
+      getErrorMessage,
+      run: download
+    })
+  }
+
+  private assertSharedSaveIsNotUpdating(): void {
+    if (this.status === 'updating') {
+      throw new ServerRuntimeError('The shared save is already being updated.')
+    }
+  }
+
+  private async runSharedSaveUpdate<T>(
+    worldId: WorldOperationContext['worldId'],
+    update: SharedSaveUpdate<T>
+  ): Promise<T> {
+    this.runtimeWorldId = worldId
     this.status = 'updating'
     this.errorMessage = null
     this.emitRuntimeEvent()
 
+    if (update.startMessage) {
+      this.addLogLine('ChunkShare', update.startMessage)
+    }
+
     try {
-      const storageSnapshot = await getServerSyncSnapshot(operationContext)
-
-      if (storageSnapshot.localState.serverSetup.status !== 'ready') {
-        throw new ServerRuntimeError('Set up this shared server on this device before downloading it.')
-      }
-
-      if (storageSnapshot.serverSync.status !== ServerSyncStatus.UpdateAvailable) {
-        throw new ServerRuntimeError('No newer shared save is available to download.')
-      }
-
-      this.addLogLine('ChunkShare', 'Downloading the latest shared save.')
-      await restoreLatestServerSave(operationContext, storageSnapshot)
+      const result = await update.run((phase) => this.logRestoreProgress(phase))
       this.status = 'stopped'
-      this.addLogLine('ChunkShare', 'Local server updated from the shared save.', 'success')
+      this.addLogLine('ChunkShare', update.successMessage, 'success')
 
-      return this.getSnapshot()
+      return result
     } catch (error) {
-      const message = getDownloadSharedSaveErrorMessage(error)
       this.status = 'stopped'
+
+      if (error instanceof FabricSaveConflictError) {
+        this.emitRuntimeEvent()
+        throw error
+      }
+
+      const message = update.getErrorMessage(error)
       this.errorMessage = message
       this.addLogLine('ChunkShare', message, 'error')
       throw new ServerRuntimeError(message)
@@ -734,6 +797,10 @@ class ServerRuntime {
     this.addLogLine('ChunkShare', `${getPublishPhaseLabel(progress.phase)}...`)
   }
 
+  private logRestoreProgress(phase: RestoreServerSavePhase): void {
+    this.addLogLine('ChunkShare', `${getRestorePhaseLabel(phase)}...`)
+  }
+
   private finishWithError(message: string): void {
     this.status = 'error'
     this.errorMessage = message
@@ -811,6 +878,13 @@ export function stopMinecraftServer(): Promise<ServerRuntimeSnapshot> {
 
 export function downloadLatestSharedSave(): Promise<ServerRuntimeSnapshot> {
   return serverRuntime.downloadLatestSharedSave()
+}
+
+export function trackSharedServerDownload<T>(
+  worldId: WorldOperationContext['worldId'],
+  download: (onProgress: RestoreServerSaveProgressListener) => Promise<T>
+): Promise<T> {
+  return serverRuntime.trackSharedServerDownload(worldId, download)
 }
 
 async function readMaxPlayers(serverFolderPath: string): Promise<number> {
@@ -892,6 +966,19 @@ function getPublishPhaseLabel(phase: PublishServerSaveProgress['phase']): string
       return 'Updating save metadata'
     case 'cleaning-up':
       return 'Finalizing the shared save'
+  }
+}
+
+function getRestorePhaseLabel(phase: RestoreServerSavePhase): string {
+  switch (phase) {
+    case 'installing-server':
+      return 'Installing the server runtime'
+    case 'downloading':
+      return 'Downloading the shared save'
+    case 'extracting':
+      return 'Verifying the shared save'
+    case 'replacing-files':
+      return 'Replacing local server files'
   }
 }
 

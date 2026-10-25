@@ -1,18 +1,19 @@
 import './ServerSetupView.css'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { ServerDisplayState } from '../../../../../shared/dashboard'
 import type { WorldId } from '../../../../../shared/world'
 import {
   ServerSetupProgressStep,
-  type SetupVanillaServerInput,
-  type VanillaMinecraftVersion
+  type SetupServerInput,
+  type SupportedServerType
 } from '../../../../../shared/server-setup'
 import AppSidebar from '../../../components/shared/AppSidebar/AppSidebar'
 import { getErrorMessage } from '../../../utils/error-message'
 import TopBar from '../../dashboard/components/TopBar/TopBar'
 import DeploymentProgress from '../components/DeploymentProgress/DeploymentProgress'
 import SetupForm from '../components/SetupForm/SetupForm'
+import { useServerVersions } from '../useServerVersions'
 import type { DeploymentStatus } from '../server-setup-model'
 import { getDeploymentSteps } from '../server-setup-progress'
 
@@ -42,56 +43,13 @@ function ServerSetupView({
   const [deploymentStatus, setDeploymentStatus] = useState<DeploymentStatus>('idle')
   const [activeStep, setActiveStep] = useState<ServerSetupProgressStep | null>(null)
   const [setupErrorMessage, setSetupErrorMessage] = useState<string | null>(null)
-  const [versions, setVersions] = useState<VanillaMinecraftVersion[]>([])
-  const [versionsLoading, setVersionsLoading] = useState(true)
-  const [versionsErrorMessage, setVersionsErrorMessage] = useState<string | null>(null)
+  const [serverType, setServerType] = useState<SupportedServerType>('vanilla')
+  const serverVersions = useServerVersions(serverType)
   const [completedWorldId, setCompletedWorldId] = useState<WorldId | null>(null)
   const progressSectionRef = useRef<HTMLDivElement | null>(null)
   const deploymentSteps = getDeploymentSteps(snapshot.activeProvider)
 
   const formIsLocked = deploymentStatus !== 'idle'
-
-  const loadVersions = useCallback(async (): Promise<void> => {
-    setVersionsLoading(true)
-    setVersionsErrorMessage(null)
-
-    try {
-      const vanillaVersions = await window.chunkShare.serverSetup.listVanillaVersions()
-      setVersions(vanillaVersions)
-    } catch (error: unknown) {
-      setVersionsErrorMessage(getErrorMessage(error, 'Unable to load Minecraft versions.'))
-    } finally {
-      setVersionsLoading(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    let isMounted = true
-
-    window.chunkShare.serverSetup
-      .listVanillaVersions()
-      .then((vanillaVersions) => {
-        if (isMounted) {
-          setVersions(vanillaVersions)
-        }
-      })
-      .catch((error: unknown) => {
-        if (!isMounted) {
-          return
-        }
-
-        setVersionsErrorMessage(getErrorMessage(error, 'Unable to load Minecraft versions.'))
-      })
-      .finally(() => {
-        if (isMounted) {
-          setVersionsLoading(false)
-        }
-      })
-
-    return () => {
-      isMounted = false
-    }
-  }, [])
 
   useEffect(() => {
     return window.chunkShare.serverSetup.onProgress((progressEvent) => {
@@ -115,14 +73,14 @@ function ServerSetupView({
     })
   }, [deploymentStatus])
 
-  async function setupServer(input: SetupVanillaServerInput): Promise<void> {
+  async function setupServer(input: SetupServerInput): Promise<void> {
     setDeploymentStatus('running')
     setActiveStep(ServerSetupProgressStep.CreatingFolder)
     setCompletedWorldId(null)
     setSetupErrorMessage(null)
 
     try {
-      const setupResult = await window.chunkShare.serverSetup.setupVanillaServer(input)
+      const setupResult = await window.chunkShare.serverSetup.create(input)
       const { localState, worldId } = setupResult
 
       if (localState.serverSetup.status === 'error') {
@@ -167,17 +125,19 @@ function ServerSetupView({
         <main className="dashboard-content setup-content">
           <header className="setup-header">
             <h2>Create New Server</h2>
-            <p>Configure a local Vanilla server for shared world handoff.</p>
+            <p>Set up a Vanilla or Fabric server to take turns hosting with friends.</p>
           </header>
 
           <SetupForm
             disabled={formIsLocked}
+            serverType={serverType}
+            onServerTypeChange={setServerType}
             onCancel={onCancel}
-            onRetryVersions={loadVersions}
+            onRetryVersions={serverVersions.retry}
             onSubmit={setupServer}
-            versions={versions}
-            versionsErrorMessage={versionsErrorMessage}
-            versionsLoading={versionsLoading}
+            versions={serverVersions.versions}
+            versionsErrorMessage={serverVersions.error}
+            versionsLoading={serverVersions.isLoading}
           />
 
           {deploymentStatus !== 'idle' && (

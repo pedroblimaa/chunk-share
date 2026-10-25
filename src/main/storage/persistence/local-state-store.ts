@@ -220,6 +220,20 @@ export async function saveWorldRestoredServerSetupResult(
   })
 }
 
+export function saveWorldRestoredSave(
+  worldId: WorldId,
+  serverConfig: ServerConfig,
+  localSaveVersion: number,
+  serverSetup?: ServerSetupState
+): Promise<LocalState> {
+  if (!isServerConfig(serverConfig)) throw new StorageError('Invalid restored server configuration.')
+  return saveWorldChanges(worldId, {
+    serverConfig,
+    localSaveVersion,
+    ...(serverSetup ? { serverSetup } : {})
+  })
+}
+
 export function saveWorldLocalSaveVersion(
   worldId: WorldId,
   localSaveVersion: number | null

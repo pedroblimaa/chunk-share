@@ -1,3 +1,4 @@
+import { isFabricRuntime } from '../../../../shared/fabric'
 import { ServerHostingStatus, ServerLockStatus } from '../../../../shared/domain'
 import {
   CloudStorageProvider,
@@ -194,6 +195,7 @@ export function isServerConfig(value: unknown): value is ServerConfig {
   return (
     isString(value.name) &&
     isServerType(value.serverType) &&
+    (value.serverType === 'fabric' ? isFabricRuntime(value.fabric) : value.fabric === undefined) &&
     isString(value.minecraftVersion) &&
     isPositiveInteger(value.port)
   )
@@ -223,7 +225,8 @@ export function isLatestSave(value: unknown): value is LatestSave {
     isPlayer(value.uploadedBy) &&
     isOptionalString(value.serverName) &&
     isString(value.minecraftVersion) &&
-    isServerType(value.serverType)
+    isServerType(value.serverType) &&
+    (value.serverType === 'fabric' ? isFabricRuntime(value.fabric) : value.fabric === undefined)
   )
 }
 

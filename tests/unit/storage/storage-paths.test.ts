@@ -10,6 +10,9 @@ describe('world storage paths', () => {
     expect(getWorldPaths(WORLD_ID)).toEqual({
       serverFolder: join(PROJECT_ROOT, '.servers', WORLD_ID),
       serverWorldFolder: join(PROJECT_ROOT, '.servers', WORLD_ID, 'world'),
+      serverModsFolder: join(PROJECT_ROOT, '.servers', WORLD_ID, 'mods'),
+      serverConfigFolder: join(PROJECT_ROOT, '.servers', WORLD_ID, 'config'),
+      fabricBaselineFile: join(PROJECT_ROOT, '.servers', WORLD_ID, '.fabric-baseline.json'),
       serverJarFile: join(PROJECT_ROOT, '.servers', WORLD_ID, 'server.jar'),
       serverPropertiesFile: join(PROJECT_ROOT, '.servers', WORLD_ID, 'server.properties'),
       serverEulaFile: join(PROJECT_ROOT, '.servers', WORLD_ID, 'eula.txt'),

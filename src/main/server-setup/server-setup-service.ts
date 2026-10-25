@@ -1,74 +1,75 @@
-import { createHash } from 'crypto'
-import { createWriteStream } from 'fs'
-import { mkdir, readFile, rename, stat, unlink, writeFile } from 'fs/promises'
-import { Readable } from 'stream'
-import { pipeline } from 'stream/promises'
-import type { ReadableStream as NodeReadableStream } from 'stream/web'
+import { unlink } from 'fs/promises'
 import { CloudStorageProvider } from '../../shared/cloud-storage.model'
 import type { LocalState, ServerConfig } from '../../shared/domain'
-import type { WorldId } from '../../shared/world'
-import { getServerRuntimeSnapshot } from '../server-runtime/server-runtime-service'
+import { isFabricRuntime } from '../../shared/fabric'
 import {
+  isSupportedServerType,
   ServerSetupProgressStep as Step,
   type DownloadSharedServerInput,
   type ServerSetupProgressEvent,
+  type SetupServerInput,
   type SetupVanillaServerInput
 } from '../../shared/server-setup'
-import {
-  readAppState,
-  saveWorldRestoredServerSetupResult,
-  saveWorldServerSetupResult,
-  saveWorldServerSetupState
-} from '../storage/persistence/local-state-store'
+import { getSharedServerName } from '../../shared/server-save'
+import { ExclusiveStorageOperation } from '../../shared/storage-operation'
+import type { WorldId } from '../../shared/world'
+import { validateJavaRuntime } from '../java-runtime/java-runtime-service'
+import { getServerRuntimeSnapshot, trackSharedServerDownload } from '../server-runtime/server-runtime-service'
 import { getServerSyncSnapshot } from '../server-sync/server-sync-service'
 import { runExclusiveStorageOperation } from '../storage/core/operations/operation-coordinator'
-import { ExclusiveStorageOperation } from '../../shared/storage-operation'
-import { backupServerFolder } from '../storage/server-save/server-folder-backup'
-import { restoreLatestServerSave } from '../storage/server-save/server-save-restorer'
 import {
   createNewWorldOperationContext,
   getOrCreateSelectedWorldOperationContext,
   getSelectedWorldOperationContext,
   type WorldOperationContext
 } from '../storage/core/world-operation-context'
+import {
+  readAppState,
+  readWorldLocalState,
+  saveWorldJavaConfig,
+  saveWorldRestoredServerSetupResult,
+  saveWorldServerSetupResult,
+  saveWorldServerSetupState
+} from '../storage/persistence/local-state-store'
+import { getFabricFilesFingerprint, saveFabricBaseline } from '../storage/server-save/fabric-local-files'
+import { backupServerFolder } from '../storage/server-save/server-folder-backup'
+import type { RestoreServerSaveProgressListener } from '../storage/server-save/server-save-restore.model'
+import { restoreLatestServerSave } from '../storage/server-save/server-save-restorer'
+import { writeAcceptedEula, writeServerProperties } from './server-configuration'
+import { installServerDistribution } from './server-distribution'
 import { ServerSetupError } from './server-setup-error'
-import { resolveVanillaServerDownload } from './vanilla-version-resolver'
-import { validateJavaRuntime } from '../java-runtime/java-runtime-service'
-import { saveWorldJavaConfig } from '../storage/persistence/local-state-store'
 
-const DEFAULT_LEVEL_NAME = 'world'
-const DEFAULT_MOTD = 'ChunkShare Minecraft Server'
 type ServerSetupProgressListener = (event: ServerSetupProgressEvent) => void
 
 export async function setupVanillaServer(
   input: SetupVanillaServerInput,
   onProgress?: ServerSetupProgressListener
 ): Promise<LocalState> {
-  const result = await runVanillaServerSetupOperation(
-    input,
+  const result = await runServerSetupOperation(
+    { ...input, serverType: 'vanilla' },
     onProgress,
     getOrCreateSelectedWorldOperationContext
   )
   return result.localState
 }
 
-export async function setupNewVanillaServer(
-  input: SetupVanillaServerInput,
-  onProgress?: ServerSetupProgressListener
-): Promise<NewVanillaServerSetupResult> {
-  return runVanillaServerSetupOperation(input, onProgress, createNewWorldOperationContext)
-}
-
-export interface NewVanillaServerSetupResult {
+export interface NewServerSetupResult {
   worldId: WorldId
   localState: LocalState
 }
 
-function runVanillaServerSetupOperation(
-  input: SetupVanillaServerInput,
+export function setupNewServer(
+  input: SetupServerInput,
+  onProgress?: ServerSetupProgressListener
+): Promise<NewServerSetupResult> {
+  return runServerSetupOperation(input, onProgress, createNewWorldOperationContext)
+}
+
+function runServerSetupOperation(
+  input: SetupServerInput,
   onProgress: ServerSetupProgressListener | undefined,
   getOperationContext: (worldName?: string) => Promise<WorldOperationContext>
-): Promise<NewVanillaServerSetupResult> {
+): Promise<NewServerSetupResult> {
   validateSetupInput(input)
 
   return runExclusiveStorageOperation(
@@ -84,16 +85,16 @@ function runVanillaServerSetupOperation(
         onProgress?.({ step: Step.SettingUpGoogleDrive })
       }
 
-      return runVanillaServerSetup(input, onProgress, getOperationContext)
+      return runServerSetup(input, onProgress, getOperationContext)
     }
   )
 }
 
-async function runVanillaServerSetup(
-  input: SetupVanillaServerInput,
+async function runServerSetup(
+  input: SetupServerInput,
   onProgress: ServerSetupProgressListener | undefined,
   getOperationContext: (worldName?: string) => Promise<WorldOperationContext>
-): Promise<NewVanillaServerSetupResult> {
+): Promise<NewServerSetupResult> {
   const operationContext = await getOperationContext(input.name)
 
   await saveWorldJavaConfig(operationContext.worldId, input.javaConfig)
@@ -101,7 +102,7 @@ async function runVanillaServerSetup(
   await markSetupDownloading(operationContext.worldId)
 
   try {
-    const serverConfig = await prepareVanillaServer(operationContext, input, onProgress)
+    const serverConfig = await prepareServer(operationContext, input, onProgress)
     const localState = await markSetupReady(operationContext.worldId, serverConfig)
     onProgress?.({ step: Step.Ready })
 
@@ -124,12 +125,19 @@ export async function downloadSharedServer(input: DownloadSharedServerInput): Pr
     new ServerSetupError('Cannot download a shared server while another storage operation is in progress.'),
     async () => {
       assertNoWorldIsRunning()
-      return runSharedServerDownload(await getSelectedWorldOperationContext())
+      const operationContext = await getSelectedWorldOperationContext()
+
+      return trackSharedServerDownload(operationContext.worldId, (onProgress) =>
+        installSharedServer(operationContext, onProgress)
+      )
     }
   )
 }
 
-async function runSharedServerDownload(operationContext: WorldOperationContext): Promise<LocalState> {
+async function installSharedServer(
+  operationContext: WorldOperationContext,
+  onProgress: RestoreServerSaveProgressListener
+): Promise<LocalState> {
   const storageSnapshot = await getServerSyncSnapshot(operationContext)
   const latestSave = storageSnapshot.latestSave
 
@@ -137,33 +145,40 @@ async function runSharedServerDownload(operationContext: WorldOperationContext):
     throw new ServerSetupError('The active storage provider does not contain a shared server save.')
   }
 
-  if (latestSave.serverType !== 'vanilla') {
-    throw new ServerSetupError('Only shared Vanilla servers can be downloaded in this version.')
+  if (!isSupportedServerType(latestSave.serverType)) {
+    throw new ServerSetupError('This server type is not supported.')
   }
 
   await validateJavaRuntime(operationContext.world.javaConfig, latestSave.minecraftVersion)
   await markSetupDownloading(operationContext.worldId)
 
   try {
-    const serverConfig: ServerConfig = {
-      name: latestSave.serverName ?? 'Shared Minecraft Server',
-      serverType: latestSave.serverType,
-      minecraftVersion: latestSave.minecraftVersion,
-      port: operationContext.world.serverConfig.port
-    }
-    const setupInput: SetupVanillaServerInput = {
-      ...serverConfig,
-      eulaAccepted: true,
-      javaConfig: operationContext.world.javaConfig
-    }
-
     await backupServerFolder(
       operationContext.paths.serverFolder,
       operationContext.paths.backupsFolder,
-      serverConfig.name
+      getSharedServerName(latestSave)
     )
-    await prepareVanillaServerRuntime(operationContext, setupInput)
-    await restoreLatestServerSave(operationContext, storageSnapshot)
+
+    if (latestSave.serverType === 'fabric') {
+      await restoreLatestServerSave(operationContext, storageSnapshot, { initializeServer: true, onProgress })
+      return readWorldLocalState(operationContext.worldId)
+    }
+
+    const serverConfig: ServerConfig = {
+      name: getSharedServerName(latestSave),
+      serverType: 'vanilla',
+      minecraftVersion: latestSave.minecraftVersion,
+      port: operationContext.world.serverConfig.port
+    }
+
+    onProgress('installing-server')
+    await prepareServerRuntime(operationContext, {
+      ...serverConfig,
+      serverType: 'vanilla',
+      eulaAccepted: true,
+      javaConfig: operationContext.world.javaConfig
+    })
+    await restoreLatestServerSave(operationContext, storageSnapshot, { onProgress })
 
     return saveWorldRestoredServerSetupResult(operationContext.worldId, serverConfig, {
       status: 'ready',
@@ -176,9 +191,9 @@ async function runSharedServerDownload(operationContext: WorldOperationContext):
   }
 }
 
-async function prepareVanillaServer(
+async function prepareServer(
   operationContext: WorldOperationContext,
-  input: SetupVanillaServerInput,
+  input: SetupServerInput,
   onProgress?: ServerSetupProgressListener
 ): Promise<ServerConfig> {
   const { storageAdapter, paths } = operationContext
@@ -186,47 +201,49 @@ async function prepareVanillaServer(
   await backupServerFolder(paths.serverFolder, paths.backupsFolder, input.name)
   await storageAdapter.resetServerState()
 
-  await prepareVanillaServerRuntime(operationContext, input, onProgress)
+  await prepareServerRuntime(operationContext, input, onProgress)
 
   return {
     name: input.name.trim(),
-    serverType: 'vanilla',
+    serverType: input.serverType,
+    ...(input.serverType === 'fabric' && input.fabric ? { fabric: input.fabric } : {}),
     minecraftVersion: input.minecraftVersion.trim(),
     port: input.port
   }
 }
 
-async function prepareVanillaServerRuntime(
+async function prepareServerRuntime(
   operationContext: WorldOperationContext,
-  input: SetupVanillaServerInput,
+  input: SetupServerInput,
   onProgress?: ServerSetupProgressListener
 ): Promise<void> {
   const { paths } = operationContext
-  const serverJarTempFilePath = getServerJarTempFilePath(paths.serverJarFile)
 
-  await mkdir(paths.serverFolder, { recursive: true })
+  await installServerDistribution(paths, input, {
+    ...(input.minecraftVersionMetadataUrl ? { metadataUrl: input.minecraftVersionMetadataUrl } : {}),
+    ...(onProgress ? { onProgress } : {})
+  })
 
-  onProgress?.({ step: Step.ResolvingVersion })
-  const serverDownload = await resolveVanillaServerDownload(
-    input.minecraftVersion,
-    input.minecraftVersionMetadataUrl
-  )
-
-  onProgress?.({ step: Step.DownloadingJar })
-  await downloadServerJar(serverDownload.serverJarUrl, serverJarTempFilePath)
-
-  onProgress?.({ step: Step.VerifyingJar })
-  await verifyServerJar(serverJarTempFilePath, serverDownload.size, serverDownload.sha1)
-  await rename(serverJarTempFilePath, paths.serverJarFile)
+  if (input.serverType === 'fabric') {
+    await saveFabricBaseline(operationContext, await getFabricFilesFingerprint(paths.serverFolder))
+  }
 
   onProgress?.({ step: Step.WritingProperties })
-  await writeServerProperties(paths.serverPropertiesFile, input)
+  await writeServerProperties(paths.serverPropertiesFile, input.port)
 
   onProgress?.({ step: Step.WritingEula })
   await writeAcceptedEula(paths.serverEulaFile)
 }
 
-function validateSetupInput(input: SetupVanillaServerInput): void {
+function validateSetupInput(input: SetupServerInput): void {
+  if (!isSupportedServerType(input.serverType)) {
+    throw new ServerSetupError('Unsupported server type.')
+  }
+
+  if (input.serverType === 'fabric' && !isFabricRuntime(input.fabric)) {
+    throw new ServerSetupError('Select a valid Fabric loader and installer.')
+  }
+
   if (!input.eulaAccepted) {
     throw new ServerSetupError('Minecraft EULA must be accepted before setup can continue.')
   }
@@ -259,73 +276,6 @@ function assertNoWorldIsRunning(): void {
   if (getServerRuntimeSnapshot().runningWorldId) {
     throw new ServerSetupError('Stop the running Minecraft server before changing server setup.')
   }
-}
-
-async function downloadServerJar(serverJarUrl: string, serverJarTempFilePath: string): Promise<void> {
-  let response: Response
-
-  try {
-    response = await fetch(serverJarUrl)
-  } catch (error) {
-    throw new ServerSetupError(`Unable to download Minecraft server jar: ${getErrorMessage(error)}`)
-  }
-
-  if (!response.ok) {
-    throw new ServerSetupError(`Unable to download Minecraft server jar. Received HTTP ${response.status}.`)
-  }
-
-  if (!response.body) {
-    throw new ServerSetupError('Minecraft server jar response did not include a body.')
-  }
-
-  await pipeline(
-    Readable.fromWeb(response.body as NodeReadableStream),
-    createWriteStream(serverJarTempFilePath)
-  )
-}
-
-async function verifyServerJar(
-  serverJarTempFilePath: string,
-  expectedSize: number,
-  expectedSha1: string
-): Promise<void> {
-  const fileStats = await stat(serverJarTempFilePath)
-
-  if (fileStats.size !== expectedSize) {
-    throw new ServerSetupError(
-      `Downloaded server jar has unexpected size. Expected ${expectedSize} bytes, received ${fileStats.size} bytes.`
-    )
-  }
-
-  const serverJar = await readFile(serverJarTempFilePath)
-  const actualSha1 = createHash('sha1').update(serverJar).digest('hex')
-
-  if (actualSha1 !== expectedSha1) {
-    throw new ServerSetupError('Downloaded server jar failed integrity verification.')
-  }
-}
-
-async function writeServerProperties(
-  serverPropertiesFilePath: string,
-  input: SetupVanillaServerInput
-): Promise<void> {
-  const properties = [
-    '# Generated by ChunkShare.',
-    `server-port=${input.port}`,
-    `level-name=${DEFAULT_LEVEL_NAME}`,
-    `motd=${DEFAULT_MOTD}`,
-    'online-mode=false',
-    'enable-command-block=false',
-    'spawn-protection=16'
-  ].join('\n')
-
-  await writeFile(serverPropertiesFilePath, `${properties}\n`, 'utf-8')
-}
-
-async function writeAcceptedEula(serverEulaFilePath: string): Promise<void> {
-  const eula = ['# Accepted through ChunkShare setup wizard.', 'eula=true'].join('\n')
-
-  await writeFile(serverEulaFilePath, `${eula}\n`, 'utf-8')
 }
 
 function markSetupDownloading(worldId: WorldId): Promise<LocalState> {
