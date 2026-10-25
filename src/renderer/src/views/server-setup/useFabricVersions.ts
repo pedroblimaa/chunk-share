@@ -16,27 +16,35 @@ export function useFabricVersions(minecraftVersion: string): {
 } {
   const [state, setState] = useState<FabricVersionsState | null>(null)
   const [attempt, setAttempt] = useState(0)
+
   useEffect(() => {
-    if (!minecraftVersion) return
-    let active = true
+    if (!minecraftVersion) {
+      return
+    }
+
+    let isActive = true
+
     window.chunkShare.serverSetup
       .getFabricVersions(minecraftVersion)
       .then((options) => {
-        if (active) setState({ minecraftVersion, options, error: null })
+        if (isActive) {
+          setState({ minecraftVersion, options, error: null })
+        }
       })
       .catch((error: unknown) => {
-        if (active)
-          setState({
-            minecraftVersion,
-            options: null,
-            error: getErrorMessage(error, 'Unable to load Fabric versions.')
-          })
+        if (isActive) {
+          const message = getErrorMessage(error, 'Unable to load Fabric versions.')
+          setState({ minecraftVersion, options: null, error: message })
+        }
       })
+
     return () => {
-      active = false
+      isActive = false
     }
   }, [minecraftVersion, attempt])
+
   const current = state?.minecraftVersion === minecraftVersion ? state : null
+
   return {
     options: current?.options ?? null,
     error: current?.error ?? null,

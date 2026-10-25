@@ -9,7 +9,7 @@ export type DashboardPrimaryActionKind =
 
 export type DashboardPrimaryActionTone = 'default' | 'sync'
 
-export type DashboardPendingServerAction = 'starting' | 'stopping' | 'downloading-save'
+export type DashboardPendingServerAction = 'starting' | 'stopping' | 'downloading-server' | 'downloading-save'
 
 export interface DashboardPrimaryActionView {
   kind: DashboardPrimaryActionKind

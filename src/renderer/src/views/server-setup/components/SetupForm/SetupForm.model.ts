@@ -1,9 +1,13 @@
-import type { SetupServerInput, VanillaMinecraftVersion } from '../../../../../../shared/server-setup'
+import type {
+  SetupServerInput,
+  SupportedServerType,
+  VanillaMinecraftVersion
+} from '../../../../../../shared/server-setup'
 import type { JavaConfig } from '../../../../../../shared/domain'
 
 export interface SetupFormProps {
-  serverType: 'vanilla' | 'fabric'
-  onServerTypeChange: (serverType: 'vanilla' | 'fabric') => void
+  serverType: SupportedServerType
+  onServerTypeChange: (serverType: SupportedServerType) => void
   disabled: boolean
   onCancel: () => void
   onRetryVersions: () => void

@@ -73,10 +73,11 @@ test('owner invites a friend who joins and downloads the shared world', async ()
 
     await friendApp.user.check(friendApp.page.getByLabel('I have read and accept the Minecraft EULA.'))
     await friendApp.user.click(friendApp.page.getByRole('button', { name: 'Download shared server' }))
-    await expect(friendApp.page.getByRole('status')).toContainText('Preparing server...')
-    await expect(friendApp.page.getByRole('button', { name: 'Download Server' })).toHaveAttribute(
-      'aria-busy',
-      'true'
+    await expect(
+      friendApp.page.getByRole('button', { name: 'Downloading server...', exact: true })
+    ).toHaveAttribute('aria-busy', 'true')
+    await expect(friendApp.page.getByLabel('Server console output')).toContainText(
+      'Downloading the shared save...'
     )
     await expect(friendApp.page.getByRole('button', { name: 'Start Server', exact: true })).toBeVisible()
 

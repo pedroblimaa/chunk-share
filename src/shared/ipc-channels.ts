@@ -21,8 +21,7 @@ import type {
   DownloadSharedServerInput,
   ServerSetupProgressEvent,
   SetupServerResult,
-  SetupVanillaServerResult,
-  SetupVanillaServerInput,
+  SupportedServerType,
   VanillaMinecraftVersion
 } from './server-setup'
 import type { StorageOperationSnapshot } from './storage-operation'
@@ -62,9 +61,7 @@ export const SERVER_SETUP_FABRIC_VERSIONS_CHANNEL = 'serverSetup:fabric-versions
 export const SERVER_SETUP_CREATE_CHANNEL = 'serverSetup:create'
 export const SERVER_SETUP_OPEN_FOLDER_CHANNEL = 'serverSetup:open-folder'
 export const SERVER_SAVE_CONFIRM_DOWNLOAD_CHANNEL = 'serverSave:confirm-download'
-export const SERVER_SETUP_LIST_VANILLA_VERSIONS_CHANNEL = 'serverSetup:list-vanilla-versions'
 export const SERVER_SETUP_DOWNLOAD_SHARED_SERVER_CHANNEL = 'serverSetup:download-shared-server'
-export const SERVER_SETUP_SETUP_VANILLA_SERVER_CHANNEL = 'serverSetup:setup-vanilla-server'
 export const SERVER_SETUP_PROGRESS_CHANNEL = 'serverSetup:progress'
 export const SERVER_RUNTIME_DOWNLOAD_SHARED_SAVE_CHANNEL = 'serverRuntime:download-shared-save'
 export const SERVER_RUNTIME_SNAPSHOT_CHANNEL = 'serverRuntime:get-snapshot'
@@ -106,21 +103,16 @@ export interface IpcInvokeContract {
   [STORAGE_DELETE_SERVER_CHANNEL]: IpcOperation<[worldId: string], ServerStorageSnapshot>
   [STORAGE_RESET_SERVER_LOCK_CHANNEL]: IpcOperation<[], ServerStorageSnapshot>
   [SERVER_SETUP_LIST_VERSIONS_CHANNEL]: IpcOperation<
-    [serverType: 'vanilla' | 'fabric'],
+    [serverType: SupportedServerType],
     VanillaMinecraftVersion[]
   >
   [SERVER_SETUP_FABRIC_VERSIONS_CHANNEL]: IpcOperation<[minecraftVersion: string], FabricVersionOptions>
   [SERVER_SETUP_CREATE_CHANNEL]: IpcOperation<[input: SetupServerInput], SetupServerResult>
   [SERVER_SETUP_OPEN_FOLDER_CHANNEL]: IpcOperation<[worldId: string], void>
   [SERVER_SAVE_CONFIRM_DOWNLOAD_CHANNEL]: IpcOperation<[token: string], void>
-  [SERVER_SETUP_LIST_VANILLA_VERSIONS_CHANNEL]: IpcOperation<[], VanillaMinecraftVersion[]>
   [SERVER_SETUP_DOWNLOAD_SHARED_SERVER_CHANNEL]: IpcOperation<
     [input: DownloadSharedServerInput],
-    ServerActionResult<ServerStorageSnapshot>
-  >
-  [SERVER_SETUP_SETUP_VANILLA_SERVER_CHANNEL]: IpcOperation<
-    [input: SetupVanillaServerInput],
-    SetupVanillaServerResult
+    ServerStorageSnapshot
   >
   [SERVER_RUNTIME_DOWNLOAD_SHARED_SAVE_CHANNEL]: IpcOperation<[], ServerActionResult<ServerRuntimeSnapshot>>
   [SERVER_RUNTIME_SNAPSHOT_CHANNEL]: IpcOperation<[], ServerRuntimeSnapshot>

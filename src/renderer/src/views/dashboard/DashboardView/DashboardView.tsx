@@ -92,7 +92,6 @@ function DashboardView({
   const [errorCopyStatus, setErrorCopyStatus] = useState<CopyStatus>('idle')
   const [addressCopyStatus, setAddressCopyStatus] = useState<CopyStatus>('idle')
   const [pendingServerAction, setPendingServerAction] = useState<DashboardPendingServerAction | null>(null)
-  const [isServerDownloadRunning, setIsServerDownloadRunning] = useState(false)
   const [connectionDetailsOpen, setConnectionDetailsOpen] = useState(false)
   const [downloadEulaAccepted, setDownloadEulaAccepted] = useState(false)
   const [isInitialSnapshotRefreshing, setIsInitialSnapshotRefreshing] = useState(true)
@@ -341,25 +340,25 @@ function DashboardView({
   }
 
   async function downloadServer(): Promise<void> {
+    const action = 'downloading-server'
+
+    if (!beginPendingAction(action)) {
+      return
+    }
+
     setRuntimeErrorMessage(null)
-    setIsServerDownloadRunning(true)
 
     try {
-      const result = await window.chunkShare.serverSetup.downloadSharedServer({
+      await window.chunkShare.serverSetup.downloadSharedServer({
         eulaAccepted: downloadEulaAccepted
       })
-      if ('conflict' in result) {
-        if (serverDisplayStateRef.current.selectedWorldId === result.conflict.worldId) {
-          setSaveConflict(result.conflict)
-        }
-        return
-      }
+
       await refreshDashboardAfterDownload()
       setDownloadEulaAccepted(false)
     } catch (error: unknown) {
       setRuntimeErrorMessage(getErrorMessage(error, 'Unable to download server.'))
     } finally {
-      setIsServerDownloadRunning(false)
+      finishPendingAction(action)
     }
   }
 
@@ -530,16 +529,13 @@ function DashboardView({
     (primaryActionView.kind === 'toggle-server' && dashboardSnapshot.serverStatus !== 'running')
   const primaryActionIsDisabled =
     isInitialSnapshotRefreshing ||
-    isServerDownloadRunning ||
     pendingServerAction !== null ||
     isConfirmingDownload ||
     activeSaveConflict !== null ||
     primaryActionView.isDisabled ||
     (javaBlocksPrimaryAction && (!currentJavaStatus?.selectedRuntime || javaConfigIsDirty))
   const isDashboardLoading =
-    isInitialSnapshotRefreshing ||
-    isServerDownloadRunning ||
-    (dashboardSnapshot.selectedWorldId !== null && !savedJavaStatusIsCurrent)
+    isInitialSnapshotRefreshing || (dashboardSnapshot.selectedWorldId !== null && !savedJavaStatusIsCurrent)
   const javaActionTooltip = javaBlocksPrimaryAction
     ? (currentJavaStatus?.errorMessage ??
       (isDraftJavaStatusLoading
@@ -638,7 +634,7 @@ function DashboardView({
             primaryAction={{
               disabled: primaryActionIsDisabled,
               icon: primaryActionView.icon,
-              isAnimating: pendingServerAction !== null || isServerDownloadRunning,
+              isAnimating: pendingServerAction !== null,
               label: primaryActionView.label,
               tone: primaryActionView.tone,
               tooltip: javaActionTooltip ?? primaryActionView.tooltip,

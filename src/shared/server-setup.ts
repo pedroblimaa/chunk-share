@@ -1,6 +1,10 @@
 import type { FabricRuntime } from './fabric'
-import type { JavaConfig, LocalState } from './domain'
+import type { JavaConfig, LocalState, ServerType } from './domain'
 import type { WorldId } from './world'
+
+export const SUPPORTED_SERVER_TYPES = ['vanilla', 'fabric'] as const satisfies readonly ServerType[]
+
+export type SupportedServerType = (typeof SUPPORTED_SERVER_TYPES)[number]
 
 export interface VanillaMinecraftVersion {
   id: string
@@ -17,7 +21,7 @@ export interface SetupVanillaServerInput {
 }
 
 export interface SetupServerInput extends SetupVanillaServerInput {
-  serverType: 'vanilla' | 'fabric'
+  serverType: SupportedServerType
   fabric?: FabricRuntime
 }
 
@@ -45,4 +49,6 @@ export interface ServerSetupProgressEvent {
   step: ServerSetupProgressStep
 }
 
-export type SetupVanillaServerResult = SetupServerResult
+export function isSupportedServerType(value: unknown): value is SupportedServerType {
+  return SUPPORTED_SERVER_TYPES.some((serverType) => serverType === value)
+}

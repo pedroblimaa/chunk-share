@@ -3,7 +3,11 @@ import './ServerSetupView.css'
 import { useEffect, useRef, useState } from 'react'
 import type { ServerDisplayState } from '../../../../../shared/dashboard'
 import type { WorldId } from '../../../../../shared/world'
-import { ServerSetupProgressStep, type SetupServerInput } from '../../../../../shared/server-setup'
+import {
+  ServerSetupProgressStep,
+  type SetupServerInput,
+  type SupportedServerType
+} from '../../../../../shared/server-setup'
 import AppSidebar from '../../../components/shared/AppSidebar/AppSidebar'
 import { getErrorMessage } from '../../../utils/error-message'
 import TopBar from '../../dashboard/components/TopBar/TopBar'
@@ -39,7 +43,7 @@ function ServerSetupView({
   const [deploymentStatus, setDeploymentStatus] = useState<DeploymentStatus>('idle')
   const [activeStep, setActiveStep] = useState<ServerSetupProgressStep | null>(null)
   const [setupErrorMessage, setSetupErrorMessage] = useState<string | null>(null)
-  const [serverType, setServerType] = useState<'vanilla' | 'fabric'>('vanilla')
+  const [serverType, setServerType] = useState<SupportedServerType>('vanilla')
   const serverVersions = useServerVersions(serverType)
   const [completedWorldId, setCompletedWorldId] = useState<WorldId | null>(null)
   const progressSectionRef = useRef<HTMLDivElement | null>(null)

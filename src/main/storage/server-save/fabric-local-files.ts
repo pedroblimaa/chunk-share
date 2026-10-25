@@ -16,7 +16,7 @@ export async function getFabricFilesFingerprint(serverFolder: string): Promise<s
 
 export function fingerprintFabricFiles(files: SaveFile[]): string {
   return fingerprintFiles(
-    files.filter((file) => MOD_FOLDERS.some((folder) => file.path.startsWith(`${folder}/`)))
+    files.filter(({ path }) => MOD_FOLDERS.some((folder) => path.startsWith(`${folder}/`)))
   )
 }
 
@@ -24,23 +24,38 @@ export function saveFabricBaseline(context: WorldContext, fingerprint: string): 
   return writeJsonFile(context.paths.fabricBaselineFile, { fingerprint }, isFabricBaseline)
 }
 
-export async function readFabricBaseline(path: string): Promise<string> {
-  const contents = await readFile(path, 'utf8').catch((error: unknown) => {
-    if (isMissingFile(error)) return null
-    throw error
-  })
-  if (!contents) return fingerprintFiles([])
-  const value: unknown = JSON.parse(contents)
-  if (!isFabricBaseline(value)) {
+export async function readFabricBaseline(baselineFile: string): Promise<string> {
+  const contents = await readBaselineFile(baselineFile)
+
+  if (contents === null) {
+    return fingerprintFiles([])
+  }
+
+  const baseline: unknown = JSON.parse(contents)
+
+  if (!isFabricBaseline(baseline)) {
     throw new StorageError('The local mod baseline is invalid. Restore it from a local server backup.')
   }
-  return value.fingerprint
+
+  return baseline.fingerprint
+}
+
+async function readBaselineFile(baselineFile: string): Promise<string | null> {
+  try {
+    return await readFile(baselineFile, 'utf8')
+  } catch (error) {
+    if (isMissingFile(error)) {
+      return null
+    }
+
+    throw error
+  }
 }
 
 function isFabricBaseline(value: unknown): value is FabricBaseline {
   return (
-    !!value &&
     typeof value === 'object' &&
+    value !== null &&
     'fingerprint' in value &&
     typeof value.fingerprint === 'string' &&
     /^[a-f0-9]{64}$/.test(value.fingerprint)

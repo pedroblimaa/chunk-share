@@ -33,10 +33,8 @@ import {
   SERVER_RUNTIME_SNAPSHOT_CHANNEL,
   SERVER_RUNTIME_START_CHANNEL,
   SERVER_RUNTIME_STOP_CHANNEL,
-  SERVER_SETUP_LIST_VANILLA_VERSIONS_CHANNEL,
   SERVER_SETUP_DOWNLOAD_SHARED_SERVER_CHANNEL,
   SERVER_SETUP_PROGRESS_CHANNEL,
-  SERVER_SETUP_SETUP_VANILLA_SERVER_CHANNEL,
   STORAGE_CLEAR_GOOGLE_DRIVE_FOLDER_CHANNEL,
   STORAGE_CLOUD_SETTINGS_CHANNEL,
   STORAGE_DELETE_SERVER_CHANNEL,
@@ -55,9 +53,9 @@ import type { ServerRuntimeEvent } from '../shared/server-runtime'
 import type { StorageOperationSnapshot } from '../shared/storage-operation'
 import type {
   SetupServerInput,
+  SupportedServerType,
   ServerSetupProgressEvent,
-  DownloadSharedServerInput,
-  SetupVanillaServerInput
+  DownloadSharedServerInput
 } from '../shared/server-setup'
 import { invokeIpc, subscribeToIpcEvent } from './typed-ipc'
 
@@ -120,17 +118,14 @@ const chunkShareApi = {
       invokeIpc(STORAGE_SAVE_SERVER_CONFIG_CHANNEL, serverConfig)
   },
   serverSetup: {
-    listVersions: (serverType: 'vanilla' | 'fabric') =>
+    listVersions: (serverType: SupportedServerType) =>
       invokeIpc(SERVER_SETUP_LIST_VERSIONS_CHANNEL, serverType),
     getFabricVersions: (minecraftVersion: string) =>
       invokeIpc(SERVER_SETUP_FABRIC_VERSIONS_CHANNEL, minecraftVersion),
     create: (input: SetupServerInput) => invokeIpc(SERVER_SETUP_CREATE_CHANNEL, input),
     openFolder: (worldId: string) => invokeIpc(SERVER_SETUP_OPEN_FOLDER_CHANNEL, worldId),
-    listVanillaVersions: () => invokeIpc(SERVER_SETUP_LIST_VANILLA_VERSIONS_CHANNEL),
     downloadSharedServer: (input: DownloadSharedServerInput) =>
       invokeIpc(SERVER_SETUP_DOWNLOAD_SHARED_SERVER_CHANNEL, input),
-    setupVanillaServer: (input: SetupVanillaServerInput) =>
-      invokeIpc(SERVER_SETUP_SETUP_VANILLA_SERVER_CHANNEL, input),
     onProgress: (listener: (event: ServerSetupProgressEvent) => void): (() => void) =>
       subscribeToIpcEvent(SERVER_SETUP_PROGRESS_CHANNEL, listener)
   }

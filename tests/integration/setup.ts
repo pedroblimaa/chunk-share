@@ -2,6 +2,10 @@ import { setupServer } from 'msw/node'
 import { afterAll, beforeAll, beforeEach } from 'vitest'
 import { createGoogleDriveMockHandlers } from './support/google-drive/google-drive-mock-handlers'
 import { googleDriveTestEnvironment } from '../support/google-drive/google-drive-test-environment'
+import {
+  createFabricMetaMockHandlers,
+  resetFabricLauncherDownloadCount
+} from './support/minecraft/fabric-meta-mock-handlers'
 import { createMinecraftDownloadMockHandlers } from './support/minecraft/minecraft-download-mock-handlers'
 import {
   cleanIntegrationTestStorage,
@@ -10,7 +14,8 @@ import {
 
 const integrationMockServer = setupServer(
   ...createGoogleDriveMockHandlers(),
-  ...createMinecraftDownloadMockHandlers()
+  ...createMinecraftDownloadMockHandlers(),
+  ...createFabricMetaMockHandlers()
 )
 
 configureIntegrationTestStorage()
@@ -23,6 +28,7 @@ beforeAll(() => {
 
 beforeEach(async () => {
   integrationMockServer.resetHandlers()
+  resetFabricLauncherDownloadCount()
   googleDriveTestEnvironment.reset()
   await cleanIntegrationTestStorage()
 })

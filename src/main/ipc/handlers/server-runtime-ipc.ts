@@ -1,4 +1,3 @@
-import { withSaveConflict } from '../server-save-conflict'
 import { BrowserWindow } from 'electron'
 import { confirmSaveDownload } from '../../storage/server-save/confirm-save-download'
 import type { ServerRuntimeEvent } from '../../../shared/server-runtime'
@@ -17,11 +16,15 @@ import {
   stopMinecraftServer,
   subscribeToServerRuntime
 } from '../../server-runtime/server-runtime-service'
+import { withSaveConflict } from '../server-save-conflict'
 import { handleIpc, sendIpcEvent } from '../typed-ipc'
 
 export function registerServerRuntimeIpcHandlers(): void {
-  handleIpc(SERVER_SAVE_CONFIRM_DOWNLOAD_CHANNEL, (_, token) => {
-    if (typeof token !== 'string') throw new Error('Invalid download confirmation.')
+  handleIpc(SERVER_SAVE_CONFIRM_DOWNLOAD_CHANNEL, (_, token: unknown) => {
+    if (typeof token !== 'string') {
+      throw new Error('Invalid download confirmation.')
+    }
+
     return confirmSaveDownload(token)
   })
   handleIpc(SERVER_RUNTIME_SNAPSHOT_CHANNEL, () => getServerRuntimeSnapshot())

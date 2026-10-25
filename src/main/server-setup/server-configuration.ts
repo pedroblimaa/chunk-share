@@ -1,4 +1,4 @@
-import { writeFile } from 'fs/promises'
+import { readFile, writeFile } from 'fs/promises'
 
 const DEFAULT_LEVEL_NAME = 'world'
 const DEFAULT_MOTD = 'ChunkShare Minecraft Server'
@@ -21,4 +21,76 @@ export async function writeAcceptedEula(serverEulaFilePath: string): Promise<voi
   const eula = ['# Accepted through ChunkShare setup wizard.', 'eula=true'].join('\n')
 
   await writeFile(serverEulaFilePath, `${eula}\n`, 'utf-8')
+}
+
+export async function localizeSharedServerProperties(
+  sharedPropertiesFilePath: string,
+  localPropertiesFilePath: string,
+  port: number
+): Promise<boolean> {
+  const sharedProperties = await readOptionalFile(sharedPropertiesFilePath)
+
+  if (sharedProperties === null) {
+    return false
+  }
+
+  const localProperties = (await readOptionalFile(localPropertiesFilePath)) ?? ''
+  const localizedProperties = setProperties(sharedProperties, {
+    'server-ip': readProperty(localProperties, 'server-ip') ?? '',
+    'server-port': String(port),
+    'level-name': DEFAULT_LEVEL_NAME
+  })
+
+  await writeFile(sharedPropertiesFilePath, localizedProperties, 'utf-8')
+
+  return true
+}
+
+function setProperties(properties: string, values: Record<string, string>): string {
+  const pendingValues = new Map(Object.entries(values))
+  const lines = properties
+    .trimEnd()
+    .split(/\r?\n/)
+    .map((line) => {
+      const key = getPropertyKey(line)
+      const value = key === null ? undefined : pendingValues.get(key)
+
+      if (key === null || value === undefined) {
+        return line
+      }
+
+      pendingValues.delete(key)
+      return `${key}=${value}`
+    })
+  const missingLines = [...pendingValues].map(([key, value]) => `${key}=${value}`)
+
+  return `${[...lines, ...missingLines].join('\n')}\n`
+}
+
+function readProperty(properties: string, key: string): string | null {
+  const line = properties.split(/\r?\n/).find((propertyLine) => getPropertyKey(propertyLine) === key)
+
+  return line === undefined ? null : line.slice(line.indexOf('=') + 1)
+}
+
+function getPropertyKey(line: string): string | null {
+  const separatorIndex = line.indexOf('=')
+
+  if (line.trimStart().startsWith('#') || separatorIndex === -1) {
+    return null
+  }
+
+  return line.slice(0, separatorIndex).trim()
+}
+
+async function readOptionalFile(filePath: string): Promise<string | null> {
+  try {
+    return await readFile(filePath, 'utf-8')
+  } catch (error) {
+    if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
+      return null
+    }
+
+    throw error
+  }
 }

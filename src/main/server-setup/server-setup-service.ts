@@ -1,40 +1,43 @@
-import { writeServerProperties, writeAcceptedEula } from './server-configuration'
 import { unlink } from 'fs/promises'
-import { isFabricRuntime } from '../../shared/fabric'
-import { installServerDistribution } from './server-distribution'
-import { getFabricFilesFingerprint, saveFabricBaseline } from '../storage/server-save/fabric-local-files'
 import { CloudStorageProvider } from '../../shared/cloud-storage.model'
 import type { LocalState, ServerConfig } from '../../shared/domain'
-import type { WorldId } from '../../shared/world'
-import { getServerRuntimeSnapshot } from '../server-runtime/server-runtime-service'
+import { isFabricRuntime } from '../../shared/fabric'
 import {
+  isSupportedServerType,
   ServerSetupProgressStep as Step,
   type DownloadSharedServerInput,
   type ServerSetupProgressEvent,
   type SetupServerInput,
   type SetupVanillaServerInput
 } from '../../shared/server-setup'
-import {
-  readAppState,
-  readWorldLocalState,
-  saveWorldRestoredServerSetupResult,
-  saveWorldServerSetupResult,
-  saveWorldServerSetupState
-} from '../storage/persistence/local-state-store'
+import { getSharedServerName } from '../../shared/server-save'
+import { ExclusiveStorageOperation } from '../../shared/storage-operation'
+import type { WorldId } from '../../shared/world'
+import { validateJavaRuntime } from '../java-runtime/java-runtime-service'
+import { getServerRuntimeSnapshot, trackSharedServerDownload } from '../server-runtime/server-runtime-service'
 import { getServerSyncSnapshot } from '../server-sync/server-sync-service'
 import { runExclusiveStorageOperation } from '../storage/core/operations/operation-coordinator'
-import { ExclusiveStorageOperation } from '../../shared/storage-operation'
-import { backupServerFolder } from '../storage/server-save/server-folder-backup'
-import { restoreLatestServerSave } from '../storage/server-save/server-save-restorer'
 import {
   createNewWorldOperationContext,
   getOrCreateSelectedWorldOperationContext,
   getSelectedWorldOperationContext,
   type WorldOperationContext
 } from '../storage/core/world-operation-context'
+import {
+  readAppState,
+  readWorldLocalState,
+  saveWorldJavaConfig,
+  saveWorldRestoredServerSetupResult,
+  saveWorldServerSetupResult,
+  saveWorldServerSetupState
+} from '../storage/persistence/local-state-store'
+import { getFabricFilesFingerprint, saveFabricBaseline } from '../storage/server-save/fabric-local-files'
+import { backupServerFolder } from '../storage/server-save/server-folder-backup'
+import type { RestoreServerSaveProgressListener } from '../storage/server-save/server-save-restore.model'
+import { restoreLatestServerSave } from '../storage/server-save/server-save-restorer'
+import { writeAcceptedEula, writeServerProperties } from './server-configuration'
+import { installServerDistribution } from './server-distribution'
 import { ServerSetupError } from './server-setup-error'
-import { validateJavaRuntime } from '../java-runtime/java-runtime-service'
-import { saveWorldJavaConfig } from '../storage/persistence/local-state-store'
 
 type ServerSetupProgressListener = (event: ServerSetupProgressEvent) => void
 
@@ -48,13 +51,6 @@ export async function setupVanillaServer(
     getOrCreateSelectedWorldOperationContext
   )
   return result.localState
-}
-
-export async function setupNewVanillaServer(
-  input: SetupVanillaServerInput,
-  onProgress?: ServerSetupProgressListener
-): Promise<NewServerSetupResult> {
-  return setupNewServer({ ...input, serverType: 'vanilla' }, onProgress)
 }
 
 export interface NewServerSetupResult {
@@ -129,12 +125,19 @@ export async function downloadSharedServer(input: DownloadSharedServerInput): Pr
     new ServerSetupError('Cannot download a shared server while another storage operation is in progress.'),
     async () => {
       assertNoWorldIsRunning()
-      return runSharedServerDownload(await getSelectedWorldOperationContext())
+      const operationContext = await getSelectedWorldOperationContext()
+
+      return trackSharedServerDownload(operationContext.worldId, (onProgress) =>
+        installSharedServer(operationContext, onProgress)
+      )
     }
   )
 }
 
-async function runSharedServerDownload(operationContext: WorldOperationContext): Promise<LocalState> {
+async function installSharedServer(
+  operationContext: WorldOperationContext,
+  onProgress: RestoreServerSaveProgressListener
+): Promise<LocalState> {
   const storageSnapshot = await getServerSyncSnapshot(operationContext)
   const latestSave = storageSnapshot.latestSave
 
@@ -142,41 +145,40 @@ async function runSharedServerDownload(operationContext: WorldOperationContext):
     throw new ServerSetupError('The active storage provider does not contain a shared server save.')
   }
 
-  if (latestSave.serverType !== 'vanilla' && latestSave.serverType !== 'fabric') {
+  if (!isSupportedServerType(latestSave.serverType)) {
     throw new ServerSetupError('This server type is not supported.')
   }
 
   await validateJavaRuntime(operationContext.world.javaConfig, latestSave.minecraftVersion)
-  if (latestSave.serverType === 'fabric') {
-    await restoreLatestServerSave(operationContext, storageSnapshot, {
-      initializeServer: storageSnapshot.localState.serverSetup.status !== 'ready'
-    })
-    return readWorldLocalState(operationContext.worldId)
-  }
   await markSetupDownloading(operationContext.worldId)
 
   try {
-    const serverConfig: ServerConfig = {
-      name: latestSave.serverName ?? 'Shared Minecraft Server',
-      serverType: latestSave.serverType,
-      ...(latestSave.fabric ? { fabric: latestSave.fabric } : {}),
-      minecraftVersion: latestSave.minecraftVersion,
-      port: operationContext.world.serverConfig.port
-    }
-    const setupInput: SetupServerInput = {
-      ...serverConfig,
-      serverType: latestSave.serverType,
-      eulaAccepted: true,
-      javaConfig: operationContext.world.javaConfig
-    }
-
     await backupServerFolder(
       operationContext.paths.serverFolder,
       operationContext.paths.backupsFolder,
-      serverConfig.name
+      getSharedServerName(latestSave)
     )
-    await prepareServerRuntime(operationContext, setupInput)
-    await restoreLatestServerSave(operationContext, storageSnapshot)
+
+    if (latestSave.serverType === 'fabric') {
+      await restoreLatestServerSave(operationContext, storageSnapshot, { initializeServer: true, onProgress })
+      return readWorldLocalState(operationContext.worldId)
+    }
+
+    const serverConfig: ServerConfig = {
+      name: getSharedServerName(latestSave),
+      serverType: 'vanilla',
+      minecraftVersion: latestSave.minecraftVersion,
+      port: operationContext.world.serverConfig.port
+    }
+
+    onProgress('installing-server')
+    await prepareServerRuntime(operationContext, {
+      ...serverConfig,
+      serverType: 'vanilla',
+      eulaAccepted: true,
+      javaConfig: operationContext.world.javaConfig
+    })
+    await restoreLatestServerSave(operationContext, storageSnapshot, { onProgress })
 
     return saveWorldRestoredServerSetupResult(operationContext.worldId, serverConfig, {
       status: 'ready',
@@ -216,10 +218,12 @@ async function prepareServerRuntime(
   onProgress?: ServerSetupProgressListener
 ): Promise<void> {
   const { paths } = operationContext
+
   await installServerDistribution(paths, input, {
     ...(input.minecraftVersionMetadataUrl ? { metadataUrl: input.minecraftVersionMetadataUrl } : {}),
     ...(onProgress ? { onProgress } : {})
   })
+
   if (input.serverType === 'fabric') {
     await saveFabricBaseline(operationContext, await getFabricFilesFingerprint(paths.serverFolder))
   }
@@ -232,12 +236,14 @@ async function prepareServerRuntime(
 }
 
 function validateSetupInput(input: SetupServerInput): void {
-  if (input.serverType !== 'vanilla' && input.serverType !== 'fabric') {
+  if (!isSupportedServerType(input.serverType)) {
     throw new ServerSetupError('Unsupported server type.')
   }
+
   if (input.serverType === 'fabric' && !isFabricRuntime(input.fabric)) {
     throw new ServerSetupError('Select a valid Fabric loader and installer.')
   }
+
   if (!input.eulaAccepted) {
     throw new ServerSetupError('Minecraft EULA must be accepted before setup can continue.')
   }

@@ -4,6 +4,7 @@ import Card from '../../../../components/shared/Card/Card'
 import InfoTooltip from '../../../../components/shared/InfoTooltip/InfoTooltip'
 import JavaRuntimeSelector from '../../../../components/shared/JavaRuntimeSelector/JavaRuntimeSelector'
 import { useJavaRuntimeStatus } from '../../../../hooks/useJavaRuntimeStatus'
+import { isSupportedServerType } from '../../../../../../shared/server-setup'
 import { useFabricVersions } from '../../useFabricVersions'
 import {
   DEFAULT_SETUP_FORM_STATE,
@@ -76,6 +77,16 @@ function SetupForm({
     fabricIsReady &&
     Boolean(selectedVersion) &&
     Boolean(javaStatus?.selectedRuntime)
+
+  function changeServerType(nextServerType: string): void {
+    if (!isSupportedServerType(nextServerType)) {
+      return
+    }
+
+    onServerTypeChange(nextServerType)
+    updateField('minecraftVersion', '')
+    updateField('loaderVersion', '')
+  }
 
   function updateField<FieldName extends SetupFieldName>(
     fieldName: FieldName,
@@ -169,11 +180,7 @@ function SetupForm({
               className="chunk-field-control"
               value={serverType}
               disabled={disabled}
-              onChange={(event) => {
-                onServerTypeChange(event.target.value === 'fabric' ? 'fabric' : 'vanilla')
-                updateField('minecraftVersion', '')
-                updateField('loaderVersion', '')
-              }}
+              onChange={(event) => changeServerType(event.target.value)}
             >
               <option value="vanilla">Vanilla</option>
               <option value="fabric">Fabric</option>

@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react'
-import type { VanillaMinecraftVersion } from '../../../../shared/server-setup'
+import type { SupportedServerType, VanillaMinecraftVersion } from '../../../../shared/server-setup'
 import { getErrorMessage } from '../../utils/error-message'
 
 interface ServerVersionsState {
-  serverType: 'vanilla' | 'fabric'
+  serverType: SupportedServerType
   versions: VanillaMinecraftVersion[]
   error: string | null
 }
 
-export function useServerVersions(serverType: 'vanilla' | 'fabric'): {
+export function useServerVersions(serverType: SupportedServerType): {
   versions: VanillaMinecraftVersion[]
   error: string | null
   isLoading: boolean
@@ -16,26 +16,31 @@ export function useServerVersions(serverType: 'vanilla' | 'fabric'): {
 } {
   const [state, setState] = useState<ServerVersionsState | null>(null)
   const [attempt, setAttempt] = useState(0)
+
   useEffect(() => {
-    let active = true
+    let isActive = true
+
     window.chunkShare.serverSetup
       .listVersions(serverType)
       .then((versions) => {
-        if (active) setState({ serverType, versions, error: null })
+        if (isActive) {
+          setState({ serverType, versions, error: null })
+        }
       })
       .catch((error: unknown) => {
-        if (active)
-          setState({
-            serverType,
-            versions: [],
-            error: getErrorMessage(error, 'Unable to load Minecraft versions.')
-          })
+        if (isActive) {
+          const message = getErrorMessage(error, 'Unable to load Minecraft versions.')
+          setState({ serverType, versions: [], error: message })
+        }
       })
+
     return () => {
-      active = false
+      isActive = false
     }
   }, [serverType, attempt])
+
   const current = state?.serverType === serverType ? state : null
+
   return {
     versions: current?.versions ?? [],
     error: current?.error ?? null,
