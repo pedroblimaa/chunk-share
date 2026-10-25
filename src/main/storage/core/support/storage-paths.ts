@@ -8,6 +8,7 @@ const LOCAL_STORAGE_FOLDER_NAME = '.storage'
 const SERVERS_FOLDER_NAME = '.servers'
 const SERVER_BACKUPS_FOLDER_NAME = '.backups'
 const LOCAL_STATE_FILE_NAME = 'localState.json'
+const MINECRAFT_VERSION_PATTERN = /^[\w.-]+$/
 
 const localStorageFolderPath = join(DATA_ROOT, LOCAL_STORAGE_FOLDER_NAME)
 export const localStateFilePath = join(DATA_ROOT, LOCAL_STATE_FILE_NAME)
@@ -45,6 +46,14 @@ export function getWorldPaths(worldId: WorldId): WorldPaths {
     storageWorldFile: join(storageFolder, 'world.zip'),
     backupsFolder: join(worldBackupsRootPath, worldId)
   }
+}
+
+export function getFabricGameJarFile(serverFolder: string, minecraftVersion: string): string {
+  if (!MINECRAFT_VERSION_PATTERN.test(minecraftVersion)) {
+    throw new StorageError('Invalid Minecraft version.')
+  }
+
+  return join(serverFolder, '.fabric', 'server', `${minecraftVersion}-server.jar`)
 }
 
 export function getServerFilePaths(

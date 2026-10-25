@@ -3,10 +3,13 @@ import { join } from 'path'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   downloadLatestSharedSave,
-  getServerRuntimeSnapshot
+  getServerRuntimeSnapshot,
+  startMinecraftServer,
+  stopMinecraftServer
 } from '../../../src/main/server-runtime/server-runtime-service'
 import { getFabricVersionOptions } from '../../../src/main/server-setup/fabric-version-resolver'
 import { downloadSharedServer, setupNewServer } from '../../../src/main/server-setup/server-setup-service'
+import { getFabricGameJarFile } from '../../../src/main/storage/core/support/storage-paths'
 import { getSelectedWorldContext, type WorldContext } from '../../../src/main/storage/core/world-context'
 import {
   readLocalState,
@@ -28,7 +31,11 @@ import {
   TEST_MINECRAFT_METADATA_URL,
   TEST_MINECRAFT_VERSION
 } from '../support/minecraft/minecraft-download-mock-handlers'
-import { resetMinecraftProcessMock } from '../support/minecraft/minecraft-process-mock'
+import {
+  getMinecraftProcessMock,
+  getMinecraftSpawnInvocation,
+  resetMinecraftProcessMock
+} from '../support/minecraft/minecraft-process-mock'
 
 const PUBLISHED_LEVEL_DATA = 'published level'
 
@@ -63,6 +70,22 @@ describe('Fabric worlds', () => {
     await expect(stat(paths.serverModsFolder)).resolves.toMatchObject({})
     await expect(stat(paths.serverConfigFolder)).resolves.toMatchObject({})
     await expect(readFile(paths.fabricBaselineFile, 'utf8')).resolves.toContain('fingerprint')
+  })
+
+  it('downloads the Minecraft server jar before launching the Fabric launcher', async () => {
+    const { paths } = await publishFabricWorldWithMods()
+
+    await startMinecraftServer()
+
+    await expect(
+      stat(getFabricGameJarFile(paths.serverFolder, TEST_MINECRAFT_VERSION))
+    ).resolves.toMatchObject({ size: expect.any(Number) })
+    expect(getMinecraftSpawnInvocation().options.cwd).toBe(paths.serverFolder)
+    expect(getServerRuntimeSnapshot().logs.map(({ message }) => message)).toContain(
+      `Downloading the Minecraft ${TEST_MINECRAFT_VERSION} server for Fabric...`
+    )
+
+    await stopRunningServer()
   })
 
   it('restores the shared save without asking when local mods are unchanged', async () => {
@@ -144,6 +167,13 @@ describe('Fabric worlds', () => {
     )
   })
 })
+
+async function stopRunningServer(): Promise<void> {
+  getMinecraftProcessMock().emitReady()
+  await vi.waitFor(() => expect(getServerRuntimeSnapshot().status).toBe('running'))
+  await stopMinecraftServer()
+  await vi.waitFor(() => expect(getServerRuntimeSnapshot().status).toBe('stopped'))
+}
 
 async function setupFabricWorld(): ReturnType<typeof setupNewServer> {
   await savePlayer(GOOGLE_TEST_ACCOUNTS.owner.session.player)

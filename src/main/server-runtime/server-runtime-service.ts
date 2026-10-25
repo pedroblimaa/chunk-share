@@ -48,6 +48,7 @@ import { parseMinecraftOutput, type MinecraftOutputEvent } from './support/minec
 import { getConnectionAddresses } from './support/network-addresses'
 import { ServerRuntimeError } from './support/runtime-error'
 import { validateJavaRuntime } from '../java-runtime/java-runtime-service'
+import { ensureFabricGameJar } from '../server-setup/server-distribution'
 import {
   assertEulaAccepted,
   assertFileExists,
@@ -203,6 +204,16 @@ class ServerRuntime {
       storageSnapshot = await this.publishLocalNewerSaveBeforeStart(operationContext, sessionId)
       serverSync = storageSnapshot.serverSync
       this.assertServerSyncAllowsStart(serverSync)
+    }
+
+    if (localState.serverConfig.serverType === 'fabric') {
+      const { minecraftVersion } = localState.serverConfig
+
+      await this.runStartPreparation(() =>
+        ensureFabricGameJar(serverFolderPath, minecraftVersion, () =>
+          this.addLogLine('ChunkShare', `Downloading the Minecraft ${minecraftVersion} server for Fabric...`)
+        )
+      )
     }
 
     this.addLogLine(
