@@ -1,8 +1,9 @@
-import { mkdir, rename, rm, writeFile } from 'fs/promises'
+import { mkdir, rename, rm, stat, writeFile } from 'fs/promises'
+import { dirname } from 'path'
 import type { ServerConfig } from '../../shared/domain'
 import { isFabricRuntime } from '../../shared/fabric'
 import { ServerSetupProgressStep as Step } from '../../shared/server-setup'
-import type { WorldPaths } from '../storage/core/support/storage-paths'
+import { getFabricGameJarFile, type WorldPaths } from '../storage/core/support/storage-paths'
 import { getFabricLauncherUrl, validateFabricSelection } from './fabric-version-resolver'
 import { ServerSetupError } from './server-setup-error'
 import { installVanillaRuntime, type DistributionInstallOptions } from './vanilla-server-installer'
@@ -59,6 +60,24 @@ export async function installFabricRuntime(
   }
 }
 
+export async function ensureFabricGameJar(
+  serverFolder: string,
+  minecraftVersion: string,
+  onDownloadStart?: () => void
+): Promise<void> {
+  const gameJarFile = getFabricGameJarFile(serverFolder, minecraftVersion)
+
+  if (await isFile(gameJarFile)) {
+    return
+  }
+
+  onDownloadStart?.()
+  await installVanillaRuntime(
+    { serverFolder: dirname(gameJarFile), serverJarFile: gameJarFile },
+    minecraftVersion
+  )
+}
+
 async function downloadFabricLauncher(launcherUrl: string): Promise<Buffer> {
   const response = await fetch(launcherUrl)
 
@@ -73,4 +92,16 @@ async function downloadFabricLauncher(launcherUrl: string): Promise<Buffer> {
   }
 
   return launcher
+}
+
+async function isFile(path: string): Promise<boolean> {
+  try {
+    return (await stat(path)).isFile()
+  } catch (error) {
+    if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
+      return false
+    }
+
+    throw error
+  }
 }
